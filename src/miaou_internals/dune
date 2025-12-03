@@ -1,0 +1,9 @@
+(include_subdirs no)
+
+(library
+ (name miaou_internals)
+ (public_name miaou.internals)
+ (modules modal_renderer modal_snapshot modal_utils key_handler_stack)
+ (libraries miaou.widgets.layout miaou.widgets.display))
+
+;; Key handler stack module added for hierarchical key exclusivity

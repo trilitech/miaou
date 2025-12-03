@@ -1,0 +1,5 @@
+(library
+ (name miaou_widgets_navigation)
+ (public_name miaou.widgets.navigation)
+ (modules link_widget)
+ (libraries miaou.widgets.display miaou.helpers miaou.interfaces lambda-term))

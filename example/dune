@@ -1,0 +1,18 @@
+(library
+ (name miaou_example)
+ (modules
+  mock_system
+  mock_service_lifecycle
+  mock_logger
+  mock_net
+  mock_palette)
+ (libraries miaou))
+
+(include_subdirs no)
+
+(executable
+ (name demo)
+ (public_name miaou.demo)
+ (package miaou)
+ (modules demo)
+ (libraries miaou miaou_example))

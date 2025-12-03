@@ -1,0 +1,12 @@
+/_build/
+/_opam/
+/.opam-switch/
+/.merlin
+*.install
+*.opam.locked
+*.coverage
+*.log
+*.tmp
+*.swp
+node_modules/
+.DS_Store

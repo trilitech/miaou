@@ -1,0 +1,6 @@
+(include_subdirs no)
+
+(library
+ (name miaou_interfaces)
+ (public_name miaou.interfaces)
+ (modules (:standard)))

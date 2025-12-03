@@ -1,0 +1,7 @@
+(include_subdirs no)
+
+(library
+ (name lib_miaou_internal)
+ (public_name miaou.lib_miaou_internal)
+ (modules flash_bus headless_driver)
+ (libraries miaou.core miaou.internals lambda-term unix))

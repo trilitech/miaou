@@ -1,0 +1,42 @@
+(test
+ (name test_vsection)
+ (modules test_vsection)
+ (libraries alcotest lambda-term miaou.widgets.layout))
+
+(test
+ (name test_modal_overlay)
+ (modules test_modal_overlay)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_modal_wrap)
+ (modules test_modal_wrap)
+ (libraries alcotest miaou.widgets.display miaou.internals))
+
+(test
+ (name test_widgets)
+ (modules test_widgets)
+ (libraries
+  alcotest
+  miaou.interfaces
+  miaou.widgets.layout
+  miaou.widgets.display))
+
+(test
+ (name textbox_widget_test)
+ (modules textbox_widget_test)
+ (libraries miaou.widgets.input))
+
+(test
+ (name test_pager_streaming)
+ (modules test_pager_streaming)
+ (libraries miaou.widgets.display))
+
+(test
+ (name test_adaptive_layout)
+ (modules test_adaptive_layout)
+ (libraries
+  alcotest
+  miaou.core
+  miaou.widgets.layout
+  miaou.lib_miaou_internal))

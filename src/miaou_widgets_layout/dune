@@ -1,0 +1,12 @@
+(library
+ (name miaou_widgets_layout)
+ (public_name miaou.widgets.layout)
+ (modules
+  pane
+  pane_layout
+  vsection
+  list_nav
+  progress_widget
+  spinner_widget
+  file_browser_widget)
+ (libraries miaou.widgets.display miaou.widgets.input miaou.helpers miaou.interfaces lambda-term))

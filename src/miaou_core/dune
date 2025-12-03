@@ -1,0 +1,35 @@
+(include_subdirs no)
+
+(library
+ (name miaou_core)
+ (public_name miaou.core)
+ (modules
+  keys
+  logger_alias
+  logger
+  system
+  service_lifecycle
+  modal_manager
+  quit_flag
+  registry
+  lambda_term_driver
+  tui_driver
+  tui_logger
+  tui_page
+  workflow
+  help_hint
+  capability
+  lib_tui
+  narrow_modal)
+ (libraries
+  lambda-term
+  miaou_internals
+  yojson
+  str
+  lwt
+  lwt.unix
+  miaou.widgets.input
+  miaou.widgets.layout
+  miaou.widgets.display
+  miaou.helpers
+  miaou.interfaces))

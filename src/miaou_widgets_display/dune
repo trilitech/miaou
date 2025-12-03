@@ -1,0 +1,11 @@
+(library
+ (name miaou_widgets_display)
+ (public_name miaou.widgets.display)
+ (modules
+  pager_widget
+  table_widget
+  tree_widget
+  description_list
+  widgets
+  palette)
+ (libraries yojson str miaou.helpers miaou.interfaces))
