@@ -8,9 +8,13 @@
 [@@@coverage off]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
-open Tui_page
-module Capture = Tui_capture
+open Miaou_core.Tui_page
+module Capture = Miaou_core.Tui_capture
 module Khs = Miaou_internals.Key_handler_stack
+module Modal_manager = Miaou_core.Modal_manager
+module Narrow_modal = Miaou_core.Narrow_modal
+module Quit_flag = Miaou_core.Quit_flag
+module Help_hint = Miaou_core.Help_hint
 
 (* Persistent session flags *)
 let narrow_warned = ref false

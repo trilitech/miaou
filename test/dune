@@ -45,3 +45,97 @@
  (name test_capture)
  (modules test_capture)
  (libraries alcotest miaou.core miaou.lib_miaou_internal))
+
+(test
+ (name test_modal_utils)
+ (modules test_modal_utils)
+ (libraries alcotest miaou.internals miaou.widgets.display))
+
+(test
+ (name test_layout_utils)
+ (modules test_layout_utils)
+ (libraries alcotest miaou.widgets.layout miaou.helpers))
+
+(test
+ (name test_flash_headless)
+ (modules test_flash_headless)
+ (libraries alcotest miaou.lib_miaou_internal miaou.widgets.display miaou.widgets.layout))
+
+(test
+ (name test_palette)
+ (modules test_palette)
+ (libraries alcotest miaou.interfaces miaou.widgets.display))
+
+(test
+ (name test_modal_manager)
+ (modules test_modal_manager)
+ (libraries alcotest miaou.core))
+
+(test
+ (name test_modal_renderer)
+ (modules test_modal_renderer)
+ (libraries alcotest miaou.internals))
+
+(test
+ (name test_drivers_smoke)
+ (modules test_drivers_smoke)
+ (libraries
+  alcotest
+  miaou.core
+  miaou.driver.term
+  miaou.driver.sdl))
+
+(test
+ (name test_core_utils)
+ (modules test_core_utils)
+ (libraries alcotest miaou.core miaou.internals))
+
+(test
+ (name test_pager_extra)
+ (modules test_pager_extra)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_file_browser)
+ (modules test_file_browser)
+ (libraries alcotest miaou.widgets.layout miaou.interfaces miaou.widgets.input))
+
+(test
+ (name test_integration_tui)
+ (modules test_integration_tui)
+ (libraries
+  alcotest
+  miaou.core
+  miaou.widgets.display
+  miaou.widgets.layout
+  miaou.lib_miaou_internal))
+
+(test
+ (name test_widgets_helpers)
+ (modules test_widgets_helpers)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_textbox_more)
+ (modules test_textbox_more)
+ (libraries alcotest miaou.widgets.input))
+
+(test
+ (name test_headless_more)
+ (modules test_headless_more)
+ (libraries alcotest miaou.lib_miaou_internal))
+
+(test
+ (name test_file_browser_extra)
+ (modules test_file_browser_extra)
+ (libraries alcotest miaou.widgets.layout miaou.widgets.input miaou.interfaces))
+
+(test
+ (name test_table_sdl)
+ (modules test_table_sdl)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_headless_run)
+ (modules test_headless_run)
+ (libraries alcotest miaou.lib_miaou_internal))

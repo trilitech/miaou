@@ -1,4 +1,5 @@
 [@@@warning "-32-34-37-69"]
+[@@@coverage off]
 
 open Tui_page
 

@@ -4,4 +4,5 @@
  (name lib_miaou_internal)
  (public_name miaou.lib_miaou_internal)
  (modules flash_bus headless_driver)
+ (instrumentation (backend bisect_ppx))
  (libraries miaou.core miaou.internals lambda-term unix))

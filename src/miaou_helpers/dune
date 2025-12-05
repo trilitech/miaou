@@ -2,4 +2,5 @@
  (name miaou_helpers)
  (public_name miaou.helpers)
  (modules helpers)
+ (instrumentation (backend bisect_ppx))
  (libraries))

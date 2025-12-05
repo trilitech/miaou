@@ -10,4 +10,5 @@
  radio_button_widget
  button_widget
  switch_widget)
+ (instrumentation (backend bisect_ppx))
  (libraries miaou.widgets.display miaou.helpers miaou.interfaces lambda-term))

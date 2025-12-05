@@ -11,6 +11,7 @@
  spinner_widget
  spinner_widget_sdl
  file_browser_widget)
+ (instrumentation (backend bisect_ppx))
  (libraries
   miaou.widgets.display
   miaou.widgets.input

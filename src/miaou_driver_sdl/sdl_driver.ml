@@ -6,13 +6,13 @@
 (*****************************************************************************)
 
 [@@@warning "-32-34-37-69"]
-[@@@coverage off]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
-module Capture = Tui_capture
+module Capture = Miaou_core.Tui_capture
 module Modal_renderer = Miaou_internals.Modal_renderer
-module Modal_manager = Modal_manager
-open Tui_page
+module Modal_manager = Miaou_core.Modal_manager
+module Registry = Miaou_core.Registry
+open Miaou_core.Tui_page
 
 module Ttf = Tsdl_ttf.Ttf
 module Sdl = Tsdl.Sdl

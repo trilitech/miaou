@@ -13,3 +13,5 @@ node_modules/
 # Capture artifacts
 /miaou_capture_keystrokes_*.jsonl
 /miaou_capture_frames_*.jsonl
+bisect*.out
+_coverage/

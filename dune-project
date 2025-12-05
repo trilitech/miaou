@@ -1,4 +1,4 @@
-(lang dune 3.12)
+(lang dune 3.15)
 (name miaou)
 (version 0.1.0)
 (generate_opam_files true)
@@ -19,9 +19,10 @@
   tsdl
   tsdl-ttf
   rresult
-  uri
-  yojson
-  (alcotest :with-test)))
+ uri
+ yojson
+ (alcotest :with-test)
+ (bisect_ppx :with-test)))
 
 (package
  (name miaou-core)

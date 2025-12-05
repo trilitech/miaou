@@ -1,0 +1,20 @@
+(library
+ (name miaou_runner_common)
+ (public_name miaou.runner.common)
+ (modules tui_driver_common html_driver)
+ (instrumentation (backend bisect_ppx))
+ (libraries miaou.core miaou.interfaces miaou.widgets.display))
+
+(library
+ (name miaou_runner_tui)
+ (public_name miaou.runner.tui)
+ (modules runner_tui)
+ (instrumentation (backend bisect_ppx))
+ (libraries miaou_runner_common miaou.driver.term))
+
+(library
+ (name miaou_runner_native)
+ (public_name miaou.runner.native)
+ (modules runner_native)
+ (instrumentation (backend bisect_ppx))
+ (libraries miaou_runner_common miaou.driver.term miaou.driver.sdl))

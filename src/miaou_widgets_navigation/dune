@@ -2,4 +2,5 @@
  (name miaou_widgets_navigation)
  (public_name miaou.widgets.navigation)
  (modules link_widget)
+ (instrumentation (backend bisect_ppx))
  (libraries miaou.widgets.display miaou.helpers miaou.interfaces lambda-term))

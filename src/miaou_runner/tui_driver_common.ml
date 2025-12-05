@@ -1,20 +1,22 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(*****************************************************************************
+ *                                                                           *
+ * SPDX-License-Identifier: MIT                                              *
+ * Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *
+ *                                                                           *
+ *****************************************************************************)
 
 [@@@warning "-32-34-37-69"]
-[@@@coverage off]
 
-open Tui_page
+open Miaou_core.Tui_page
 module Widgets = Miaou_widgets_display.Widgets
-
-type t = private T
+module Registry = Miaou_core.Registry
 
 (* Local alias for outcome to ensure compilation when mli changes are applied *)
 type outcome = [`Quit | `SwitchTo of string]
+
+type backend = {available: bool; run: (module PAGE_SIG) -> outcome}
+
+type t = private T
 
 let size () = (Obj.magic 0 : t)
 
@@ -35,35 +37,33 @@ let current_page : (module PAGE_SIG) option ref = ref None
 let set_page (page_module : (module PAGE_SIG)) =
   current_page := Some page_module
 
-let backend_choice () =
+let backend_choice ~sdl_available =
   match Sys.getenv_opt "MIAOU_DRIVER" with
   | Some v -> (
       match String.lowercase_ascii (String.trim v) with
-      | "sdl" when Sdl_enabled.enabled && Sdl_driver.available -> `Sdl
+      | "sdl" when sdl_available -> `Sdl
       | "html" when Html_driver.available -> `Html
       | _ -> `Lambda_term)
-  | None -> `Lambda_term
+  | None -> if sdl_available then `Sdl else `Lambda_term
 
-let run (initial_page : (module PAGE_SIG)) : outcome =
+let run ~term_backend ~sdl_backend (initial_page : (module PAGE_SIG)) : outcome =
   Widgets.set_backend `Terminal ;
-  (* Delegate to the requested backend driver. We keep a tail‑recursive loop to
-     follow `SwitchTo` signals until a final `Quit`. *)
   let rec loop (page : (module PAGE_SIG)) : outcome =
     let outcome =
-      match backend_choice () with
+      match backend_choice ~sdl_available:sdl_backend.available with
       | `Sdl ->
           Widgets.set_backend `Sdl ;
-          Sdl_driver.run page
+          sdl_backend.run page
       | `Html ->
           Widgets.set_backend `Terminal ;
           Html_driver.run page
       | `Lambda_term ->
           Widgets.set_backend `Terminal ;
-          Lambda_term_driver.run page
+          term_backend.run page
     in
     match outcome with
     | `Quit -> `Quit
-    | `SwitchTo "__BACK__" -> `Quit (* demo/back semantics: exit demo *)
+    | `SwitchTo "__BACK__" -> `Quit
     | `SwitchTo next -> (
         match Registry.find next with
         | Some p -> loop p

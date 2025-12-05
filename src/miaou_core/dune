@@ -25,6 +25,7 @@
  capability
  lib_tui
  narrow_modal)
+(instrumentation (backend bisect_ppx))
 (libraries
  miaou_internals
  yojson

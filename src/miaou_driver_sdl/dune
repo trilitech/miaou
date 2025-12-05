@@ -1,0 +1,15 @@
+(library
+ (name miaou_driver_sdl)
+ (public_name miaou.driver.sdl)
+ (modules sdl_enabled sdl_driver)
+ (instrumentation (backend bisect_ppx))
+ (libraries
+  miaou.core
+  miaou.helpers
+  miaou.interfaces
+  miaou.internals
+  miaou.widgets.display
+  miaou.widgets.input
+  miaou.widgets.layout
+  tsdl
+  tsdl-ttf))

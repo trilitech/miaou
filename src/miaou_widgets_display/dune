@@ -10,4 +10,5 @@
  widgets
  palette
  palette_sdl)
+ (instrumentation (backend bisect_ppx))
  (libraries yojson str miaou.helpers miaou.interfaces))

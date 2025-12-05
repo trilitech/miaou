@@ -8,7 +8,7 @@ license: "MIT"
 homepage: "https://gitlab.com/mbourgoin/miaou"
 bug-reports: "https://gitlab.com/mbourgoin/miaou/-/issues"
 depends: [
-  "dune" {>= "3.12"}
+  "dune" {>= "3.15"}
   "cohttp"
   "cohttp-lwt-unix"
   "lambda-term"
@@ -19,6 +19,7 @@ depends: [
   "uri"
   "yojson"
   "alcotest" {with-test}
+  "bisect_ppx" {with-test}
   "odoc" {with-doc}
 ]
 build: [

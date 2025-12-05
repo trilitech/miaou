@@ -6,6 +6,7 @@
  (name miaou)
  (public_name miaou)
  (modules miaou net cohttp_net)
+ (instrumentation (backend bisect_ppx))
  (libraries
   cohttp
   cohttp-lwt-unix

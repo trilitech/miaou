@@ -1,0 +1,14 @@
+(library
+ (name miaou_driver_term)
+ (public_name miaou.driver.term)
+ (modules lambda_term_driver)
+ (instrumentation (backend bisect_ppx))
+ (libraries
+  miaou.core
+  miaou.helpers
+  miaou.interfaces
+  miaou.internals
+  miaou.widgets.display
+  miaou.widgets.input
+  miaou.widgets.layout
+  lambda-term))
