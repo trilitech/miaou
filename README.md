@@ -31,7 +31,7 @@ Features at a glance
 Backends
 --------
 
-MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later. An experimental SDL2 backend (Tsdl + Tsdl_ttf) lives in the `miaou-driver-sdl` package; use the `miaou-runner-native` executable or set `MIAOU_DRIVER=sdl` when that driver is present. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if detection fails.
+MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later. An experimental SDL2 backend (Tsdl + Tsdl_ttf) lives in the `miaou-driver-sdl` package; run the SDL demo with `dune exec -- miaou.demo-sdl` or use the native runner (`miaou-runner-native` prefers SDL, falls back to TUI). Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if detection fails.
 
 Quick start — build & depend
 ----------------------------
@@ -118,14 +118,17 @@ opam install --deps-only -y .
 Minimal usage example
 ---------------------
 
-This repository ships an `example/` directory with mocked capabilities plus a driver bridge demonstrating the public API. Build it with dune and run `dune exec miaou.demo` to see the widgets in action. For your own app, create a tiny program that registers a `Tui_page` and invoke the driver — see the library modules under `miaou_core` for the public API.
+This repository ships an `example/` directory with mocked capabilities plus a driver bridge demonstrating the public API. Build it with dune and run `dune exec -- miaou.demo` (TUI-only) or `dune exec -- miaou.demo-sdl` (SDL with terminal fallback) to see the widgets in action. For your own app, create a tiny program that registers a `Tui_page` and invoke the driver — see the library modules under `miaou_core` for the public API.
 
 Examples
 --------
 
 ```sh
-dune exec miaou.demo           # launches the capability-mocked demo
-dune exec -- miaou.demo --help # show CLI options if you add any
+dune exec -- miaou.demo             # TUI-only demo (lambda-term)
+dune exec -- miaou.demo-sdl         # SDL demo with terminal fallback
+dune exec -- miaou-runner-tui       # generic runner forcing TUI
+dune exec -- miaou-runner-native    # generic runner preferring SDL
+dune exec -- miaou.demo --help      # show CLI options if you add any
 ```
 
 The demo registers mock System/Logger/Service_lifecycle implementations so you can inspect how capabilities are wired before integrating Miaou into your own driver.
