@@ -876,6 +876,7 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let update s _ = s
 
   let view s ~focus:_ ~size =
+    let module W = Miaou_widgets_display.Widgets in
     let cols = max 50 size.LTerm_geom.cols in
     let card =
       Card.create
@@ -900,16 +901,18 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     String.concat "\n\n"
       ["Card & Sidebar demo (Esc returns)"; card; sidebar; W.dim hint]
 
-  let go_home = {next_page = Some launcher_page_name}
+  let go_home sidebar_open =
+    {next_page = Some launcher_page_name; sidebar_open}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_home
-    | Some (Miaou.Core.Keys.Char "Tab") ->
+      -> go_home s.sidebar_open
+    | Some Miaou.Core.Keys.Tab
+    | Some (Miaou.Core.Keys.Char "Tab")
+    | Some (Miaou.Core.Keys.Char "NextPage") ->
         {s with sidebar_open = not s.sidebar_open}
-    | _ -> {next_page = None}
+    | _ -> {s with next_page = None}
 
   let move s _ = s
 
@@ -929,7 +932,7 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let keymap (_ : state) = []
 
-  let back _ = go_home
+  let back s = go_home s.sidebar_open
 
   let has_modal _ = false
 end
