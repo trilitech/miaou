@@ -57,6 +57,11 @@
  (libraries alcotest miaou.widgets.layout miaou.helpers))
 
 (test
+ (name test_layout_widgets_new)
+ (modules test_layout_widgets_new)
+ (libraries alcotest miaou.widgets.layout))
+
+(test
  (name test_flash_headless)
  (modules test_flash_headless)
  (libraries alcotest miaou.lib_miaou_internal miaou.widgets.display miaou.widgets.layout))

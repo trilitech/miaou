@@ -10,7 +10,9 @@
  progress_widget_sdl
  spinner_widget
  spinner_widget_sdl
- file_browser_widget)
+ file_browser_widget
+ card_widget
+ sidebar_widget)
  (instrumentation (backend bisect_ppx))
  (libraries
   miaou.widgets.display
