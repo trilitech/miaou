@@ -5,6 +5,7 @@
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
+
 [@@@coverage off]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
@@ -1011,7 +1012,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                prevents page shortcuts (e.g. 'd' for delete) from triggering while
                typing in modal inputs. *)
             Modal_manager.has_active ()
-          then
+          then (
             if is_narrow_modal_active () then (
               Modal_manager.close_top `Cancel ;
               clear_and_render st key_stack ;
@@ -1023,7 +1024,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               | Some page -> `SwitchTo page
               | None ->
                   clear_and_render st' key_stack ;
-                  loop st' key_stack
+                  loop st' key_stack)
           else (
             if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
             (* Stack dispatch first. *)
