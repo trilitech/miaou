@@ -14,10 +14,9 @@ Source prompts (octez_setup/prompts/wip_plan):
 - [x] Feedback widgets (M5_02)
   - `Toast_widget` implemented with position/severity/auto-dismiss queue (`src/miaou_widgets_layout/toast_widget.{ml,mli}`) + tests (`test/test_feedback_widgets.ml`) and demo entry "Toast Notifications".
   - [ ] Integrate with flash bus (`Tui_flash_messages` or new bus); expand headless tests and wire bus into demo once ready.
-- [ ] Navigation widgets (M5_03)
-  - [x] Implement `Tabs_widget` (tab list, Left/Right/Home/End navigation, selection callback) with docs/tests/demo (`src/miaou_widgets_navigation/tabs_widget.{ml,mli}`, `test/test_navigation_widgets.ml`, demo "Tabs Navigation" in `example/demo_lib.ml`).
-  - [ ] Implement `Breadcrumbs_widget` (hierarchical path rendering, optional enter handler per crumb).
-  - Add `.mli` docs, headless/tests, and gallery demos.
+- [x] Navigation widgets (M5_03)
+  - `Tabs_widget` (tab list, Left/Right/Home/End navigation) with docs/tests/demo (`src/miaou_widgets_navigation/tabs_widget.{ml,mli}`, `test/test_navigation_widgets.ml`, demo "Tabs Navigation" in `example/demo_lib.ml`).
+  - `Breadcrumbs_widget` (hierarchical path rendering + Enter callbacks) with docs/tests/demo (`src/miaou_widgets_navigation/breadcrumbs_widget.{ml,mli}`, `test/test_navigation_widgets.ml`, demo "Breadcrumbs" in `example/demo_lib.ml`).
 - [ ] Gardening (M5_90)
   - Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
   - Deduplicate widget APIs (buttons/renderers), ensure `.mli` coverage, consistent naming/palette hooks.

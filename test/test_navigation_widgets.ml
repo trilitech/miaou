@@ -1,5 +1,6 @@
 open Alcotest
 module Tabs = Miaou_widgets_navigation.Tabs_widget
+module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
 
 let sample_tabs =
   [
@@ -45,6 +46,21 @@ let test_render_marks_selection () =
   check bool "selected label present" true (String.contains rendered 'H') ;
   check bool "separator present" true (String.contains rendered '|')
 
+let test_breadcrumbs_move_and_enter () =
+  let fired = ref [] in
+  let mk id label =
+    Breadcrumbs.crumb ~id ~label ~on_enter:(fun () -> fired := id :: !fired) ()
+  in
+  let crumbs = [mk "root" "Root"; mk "services" "Services"; mk "node" "Node"] in
+  let b = Breadcrumbs.make crumbs in
+  let b = Breadcrumbs.move b `Last in
+  let _b, handled = Breadcrumbs.handle_key b ~key:"Enter" in
+  check bool "handled enter" true (handled = `Handled) ;
+  check (list string) "callback fired" ["node"] !fired ;
+  let rendered = Breadcrumbs.render b ~focus:true in
+  check bool "renders separator" true (String.contains rendered '>') ;
+  check bool "highlights selection" true (String.contains rendered '\027')
+
 let () =
   run
     "navigation_widgets"
@@ -58,4 +74,6 @@ let () =
             `Quick
             test_render_marks_selection;
         ] );
+      ( "breadcrumbs",
+        [test_case "move and enter" `Quick test_breadcrumbs_move_and_enter] );
     ]

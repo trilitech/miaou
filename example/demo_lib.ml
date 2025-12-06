@@ -735,6 +735,86 @@ module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
+module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
+
+  type state = {trail : Breadcrumbs.t; info : string; next_page : string option}
+
+  type msg = unit
+
+  let init () =
+    let trail =
+      Breadcrumbs.make
+        [
+          Breadcrumbs.crumb ~id:"root" ~label:"Root" ();
+          Breadcrumbs.crumb ~id:"cluster" ~label:"Cluster" ();
+          Breadcrumbs.crumb
+            ~id:"node"
+            ~label:"Node-01"
+            ~on_enter:(fun () -> ())
+            ();
+        ]
+    in
+    {
+      trail;
+      info = "Use ←/→/Home/End to move, Enter to activate, Esc to return";
+      next_page = None;
+    }
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "Breadcrumbs" in
+    let trail = Breadcrumbs.render s.trail ~focus:true in
+    String.concat "\n\n" [header; trail; W.dim s.info]
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home s
+    | _ ->
+        let trail, handled = Breadcrumbs.handle_key s.trail ~key:key_str in
+        let info =
+          match handled with
+          | `Handled ->
+              let current =
+                Breadcrumbs.current trail |> Option.map Breadcrumbs.id
+                |> Option.value ~default:"(none)"
+              in
+              "Selected " ^ current
+          | `Ignored -> s.info
+        in
+        {s with trail; info}
+
+  let move s delta =
+    let dir = if delta < 0 then `Left else `Right in
+    {s with trail = Breadcrumbs.move s.trail dir}
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  (* legacy key_bindings removed *)
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
 module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Tabs = Miaou_widgets_navigation.Tabs_widget
 
@@ -1121,6 +1201,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
       {title = "Pager Widget"};
       {title = "Tree Viewer"};
       {title = "Layout Helpers"};
+      {title = "Breadcrumbs"};
       {title = "Tabs Navigation"};
       {title = "Toast Notifications"};
       {title = "Card & Sidebar"};
@@ -1247,20 +1328,25 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           s
     | 12 ->
         goto
+          "demo_breadcrumbs"
+          (module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 13 ->
+        goto
           "demo_tabs"
           (module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 13 ->
+    | 14 ->
         goto
           "demo_toast"
           (module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 14 ->
+    | 15 ->
         goto
           "demo_card_sidebar"
           (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 15 ->
+    | 16 ->
         goto
           "demo_spinner"
           (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG)

@@ -1,7 +1,7 @@
 (library
  (name miaou_widgets_navigation)
  (public_name miaou.widgets.navigation)
- (modules link_widget tabs_widget)
+ (modules link_widget tabs_widget breadcrumbs_widget)
  (instrumentation
   (backend bisect_ppx))
  (libraries
