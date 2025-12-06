@@ -11,9 +11,9 @@ Source prompts (octez_setup/prompts/wip_plan):
 - [x] Layout widgets (M5_01)
   - `Card_widget` lives in `src/miaou_widgets_layout/card_widget.{ml,mli}` with tests (`test/test_layout_widgets_new.ml`) and demo launcher entry ("Card & Sidebar" in `example/demo_lib.ml`).
   - `Sidebar_widget` implemented in `src/miaou_widgets_layout/sidebar_widget.{ml,mli}` with toggle logic (Tab in demo), tests, and gallery entry.
-- [ ] Feedback widgets (M5_02)
-  - Implement `Toast_widget` with position (`Top_right`, `Bottom_right`, etc.), severity (info/success/warn/error), auto-dismiss queue (**in progress**: see `src/miaou_widgets_layout/toast_widget.{ml,mli}`, tests in `test/test_feedback_widgets.ml`, demo entry "Toast Notifications").
-  - Integrate with existing flash bus (`Tui_flash_messages` or new bus); expand headless tests and wire into demo once bus is ready.
+- [x] Feedback widgets (M5_02)
+  - `Toast_widget` implemented with position/severity/auto-dismiss queue (`src/miaou_widgets_layout/toast_widget.{ml,mli}`) + tests (`test/test_feedback_widgets.ml`) and demo entry "Toast Notifications".
+  - [ ] Integrate with flash bus (`Tui_flash_messages` or new bus); expand headless tests and wire bus into demo once ready.
 - [ ] Navigation widgets (M5_03)
   - Implement `Tabs_widget` (tab list, Left/Right/Home/End navigation, selection callback).
   - Implement `Breadcrumbs_widget` (hierarchical path rendering, optional enter handler per crumb).
