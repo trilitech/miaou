@@ -23,6 +23,5 @@ Source prompts (octez_setup/prompts/wip_plan):
   - Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
   - Deduplicate widget APIs (buttons/renderers), ensure `.mli` coverage, consistent naming/palette hooks.
   - Record follow-ups for redesigns if needed.
-- [ ] Demo coverage for widgets (audit + new)
-  - Audit all existing widgets (layout/feedback/navigation/etc.) and add missing demos to the gallery in `example/demo_lib.ml` (launcher page shown via `dune exec -- miaou.demo` or `miaou.demo-sdl`). Each widget should have a labeled entry with minimal interaction to verify behavior.
-  - For any new widget (toast, tabs, breadcrumbs, …), add a demo entry as part of the implementation.
+- [ ] Demo coverage planning
+  - Create a sub-checklist of missing demo entries per widget (existing + upcoming) and add them to this TODO. Scope: demo gallery in `example/demo_lib.ml` (launcher via `dune exec -- miaou.demo` or `miaou.demo-sdl`), each with a labeled entry and minimal interaction.
