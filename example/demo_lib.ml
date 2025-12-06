@@ -867,15 +867,15 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Card = Miaou_widgets_layout.Card_widget
   module Sidebar = Miaou_widgets_layout.Sidebar_widget
 
-  type state = {next_page : string option}
+  type state = {next_page : string option; sidebar_open : bool}
 
   type msg = unit
 
-  let init () = {next_page = None}
+  let init () = {next_page = None; sidebar_open = true}
 
   let update s _ = s
 
-  let view _ ~focus:_ ~size =
+  let view s ~focus:_ ~size =
     let cols = max 50 size.LTerm_geom.cols in
     let card =
       Card.create
@@ -890,19 +890,25 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
       Sidebar.create
         ~sidebar:"Navigation\n- Item 1\n- Item 2"
         ~main:"Main content\nThis is the main panel."
-        ~sidebar_open:true
+        ~sidebar_open:s.sidebar_open
         ()
-      |> fun s -> Sidebar.render s ~cols
+      |> fun layout -> Sidebar.render layout ~cols
     in
-    String.concat "\n\n" ["Card & Sidebar demo (Esc returns)"; card; sidebar]
+    let hint =
+      if s.sidebar_open then "Tab: collapse sidebar" else "Tab: expand sidebar"
+    in
+    String.concat "\n\n"
+      ["Card & Sidebar demo (Esc returns)"; card; sidebar; W.dim hint]
 
   let go_home = {next_page = Some launcher_page_name}
 
-  let handle_key _ key_str ~size:_ =
+  let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
       ->
         go_home
+    | Some (Miaou.Core.Keys.Char "Tab") ->
+        {s with sidebar_open = not s.sidebar_open}
     | _ -> {next_page = None}
 
   let move s _ = s
