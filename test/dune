@@ -162,3 +162,8 @@
  (name test_driver_modal_navigation)
  (modules test_driver_modal_navigation)
  (libraries alcotest miaou.core miaou.driver.term))
+
+(test
+ (name test_navigation_widgets)
+ (modules test_navigation_widgets)
+ (libraries alcotest miaou.widgets.navigation miaou.widgets.display))
