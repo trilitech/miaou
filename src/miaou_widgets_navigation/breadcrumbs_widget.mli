@@ -31,3 +31,18 @@ val select : t -> id:string -> t
 val handle_key : t -> key:string -> t * [`Handled | `Ignored]
 
 val render : t -> focus:bool -> string
+
+(** Usage:
+    {[
+      let crumbs =
+        Breadcrumbs_widget.
+          [
+            crumb ~id:"root" ~label:"Root" ();
+            crumb ~id:"child" ~label:"Child" ();
+          ]
+        |> Breadcrumbs_widget.make
+      in
+      let crumbs, _ = Breadcrumbs_widget.handle_key crumbs ~key:"Right" in
+      Breadcrumbs_widget.render crumbs ~focus:true
+    ]}
+    Keys: Left/Right/Home/End move selection; Enter triggers [on_enter] if set. *)

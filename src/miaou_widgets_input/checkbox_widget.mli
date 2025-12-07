@@ -29,3 +29,11 @@ val set_checked : t -> bool -> t
 val is_cancelled : t -> bool
 
 val reset_cancelled : t -> t
+
+(** Usage:
+    {[
+      let c = create ~label:"Enable" () in
+      let c = handle_key c ~key:"Space" in
+      render c ~focus:true
+    ]}
+    Keys: Enter/Space toggles; Esc sets [cancelled]. *)

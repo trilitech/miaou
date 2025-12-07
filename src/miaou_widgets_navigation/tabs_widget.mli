@@ -26,3 +26,13 @@ val select : t -> id:string -> t
 val handle_key : t -> key:string -> t
 
 val render : t -> focus:bool -> string
+
+(** Usage:
+    {[
+      let tabs =
+        Tabs_widget.(make [tab ~id:"one" ~label:"One"; tab ~id:"two" ~label:"Two"])
+      in
+      let tabs = Tabs_widget.handle_key tabs ~key:"Right" in
+      Tabs_widget.render tabs ~focus:true
+    ]}
+    Keys: Left/Right/Home/End move selection; callers act on [current]. *)

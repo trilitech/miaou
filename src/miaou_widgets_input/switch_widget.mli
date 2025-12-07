@@ -22,3 +22,11 @@ val set_on : t -> bool -> t
 val is_cancelled : t -> bool
 
 val reset_cancelled : t -> t
+
+(** Usage:
+    {[
+      let s = create ~label:"Auto-update" () in
+      let s = handle_key s ~key:"Enter" in
+      render s ~focus:true
+    ]}
+    Keys: Enter/Space toggles; Esc sets [cancelled]. *)
