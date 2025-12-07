@@ -20,6 +20,9 @@ let ensure_system_capability () =
 
 let launcher_page_name = "miaou.demo.launcher"
 
+let show_tutorial_modal ~title ~markdown =
+  Tutorial_modal.show ~title ~markdown ()
+
 module type SELECT_MODAL_SIG = sig
   include Miaou.Core.Tui_page.PAGE_SIG
 
@@ -811,6 +814,26 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Checkbox = Miaou_widgets_input.Checkbox_widget
   module Focus_chain = Miaou_internals.Focus_chain
 
+  let tutorial_markdown =
+    {|
+# Checkbox widget quick tour
+
+## Keyboard + focus flow
+- Terminal, SDL, and headless drivers normalize `"Enter"`/`"Space"`, so the page only forwards those canonical strings to each checkbox.
+- `Tab`/`BackTab` are delegated to [`Focus_chain`](../src/miaou_internals/focus_chain.ml), which keeps wrap-around behavior consistent with the other input demos.
+- Small demo sets can expose number shortcuts (1/2/3 here) to make toggling instant without moving focus.
+
+## Rendering patterns
+- Prefix each checkbox with a dimmed label (e.g., `"1) "`) to hint at shortcuts while keeping widths stable.
+- Compose checkboxes with `Flex_layout` when you need multi-column grids—the widget renders a short ANSI snippet so alignment is predictable.
+- Highlight the focused entry by dimming the unfocused ones rather than inserting extra glyphs; this keeps reflow minimal when resizing.
+
+## State management & testing
+- Keep your model as `Checkbox.t list` plus the focus chain; updates are just `List.mapi` passes that call `Checkbox.handle_key`.
+- Lifted state can be serialized for configuration panes, and snapshot tests of `Checkbox.render ~focus:true` are cheap regressions for styling changes.
+- Add headless tests that simulate `"Enter"`/`" "` events and Tab rotation so driver tweaks cannot silently break the interaction contract.
+|}
+
   type state = {
     boxes : Checkbox.t list;
     focus : Focus_chain.t;
@@ -842,7 +865,8 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
         s.boxes
     in
     let hint =
-      W.dim "Tab rotates focus • 1/2/3 toggle • Space/Enter toggles focused • Esc returns"
+      W.dim
+        "Tab rotates focus • 1/2/3 toggle • Space/Enter toggles focused • t opens tutorial • Esc returns"
     in
     String.concat "\n" (W.titleize "Checkboxes" :: items @ [hint])
 
@@ -855,6 +879,18 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     in
     {s with boxes}
 
+  let toggle_focused key s =
+    match Focus_chain.current s.focus with
+    | Some idx ->
+        let boxes =
+          List.mapi
+            (fun i cb ->
+              if i = idx then Checkbox.handle_key cb ~key else cb)
+            s.boxes
+        in
+        {s with boxes}
+    | None -> s
+
   let go_home s = {s with next_page = Some launcher_page_name}
 
   let handle_key s key_str ~size:_ =
@@ -865,21 +901,21 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some Miaou.Core.Keys.Tab | Some (Miaou.Core.Keys.Char "Tab") ->
         let focus, _ = Focus_chain.handle_key s.focus ~key:"Tab" in
         {s with focus}
+    | Some (Miaou.Core.Keys.Char k)
+      when String.lowercase_ascii k = "t" ->
+        show_tutorial_modal ~title:"Checkbox tutorial" ~markdown:tutorial_markdown ;
+        s
     | Some (Miaou.Core.Keys.Char n) -> (
         match int_of_string_opt n with
         | Some d when d >= 1 && d <= List.length s.boxes -> toggle (d - 1) s
-        | _ -> s)
-    | _ -> (
-        match Focus_chain.current s.focus with
-        | Some idx ->
-            {s with boxes = List.mapi (fun i cb -> if i = idx then Checkbox.handle_key cb ~key:key_str else cb) s.boxes}
-        | None -> s)
+        | _ -> toggle_focused key_str s)
+    | _ -> toggle_focused key_str s
 
   let move s _ = s
 
   let refresh s = s
 
-  let enter s = s
+  let enter s = toggle_focused "Enter" s
 
   let service_select s _ = s
 
@@ -993,6 +1029,24 @@ end
 module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Switch = Miaou_widgets_input.Switch_widget
 
+  let tutorial_markdown =
+    {|
+# Switch widget
+
+This switch shares the same input contract as checkbox/radio: it reacts to `"Enter"` and `"Space"` (driver-normalized).
+
+```ocaml
+let handle_key s key_str ~size:_ =
+  match Miaou.Core.Keys.of_string key_str with
+  | Some (Miaou.Core.Keys.Char " ") | Some Miaou.Core.Keys.Enter ->
+      {s with switch = Switch.handle_key s.switch ~key:"Enter"}
+  | _ -> s
+```
+
+- `Switch.render` already embeds focus styling, so demos simply pass `~focus:true`.
+- When wiring your own pages, keep the key parsing in the page and call `Switch.handle_key` with canonical `"Enter"`/`"Space"` strings.
+|}
+
   type state = {switch : Switch.t; next_page : string option}
 
   type msg = unit
@@ -1007,7 +1061,7 @@ module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let module W = Miaou_widgets_display.Widgets in
     let header = W.titleize "Switch" in
     let body = Switch.render s.switch ~focus:true in
-    let hint = W.dim "Space/Enter toggles, Esc returns" in
+    let hint = W.dim "Space/Enter toggles • t opens tutorial • Esc returns" in
     String.concat "\n\n" [header; body; hint]
 
   let go_home s = {s with next_page = Some launcher_page_name}
@@ -1017,6 +1071,10 @@ module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
       ->
         go_home s
+    | Some (Miaou.Core.Keys.Char k)
+      when String.lowercase_ascii k = "t" ->
+        show_tutorial_modal ~title:"Switch tutorial" ~markdown:tutorial_markdown ;
+        s
     | Some (Miaou.Core.Keys.Char " ") | Some Miaou.Core.Keys.Enter ->
         {s with switch = Switch.handle_key s.switch ~key:"Enter"}
     | _ -> s
@@ -1702,6 +1760,27 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Card = Miaou_widgets_layout.Card_widget
   module Sidebar = Miaou_widgets_layout.Sidebar_widget
 
+  let tutorial_markdown =
+    {|
+# Card + Sidebar layout
+
+Use ↑/↓ to scroll this tutorial if needed.
+
+- `Card_widget.render` wraps content with title/footer/accent styling.
+- `Sidebar_widget.render` arranges a navigation column + main panel; we flip `~sidebar_open` on Tab.
+
+```ocaml
+let view s ~focus:_ ~size =
+  let cols = max 50 size.LTerm_geom.cols in
+  let card = Card.create ~title:"Card title" ~footer:"Footer" () |> Card.render ~cols in
+  let sidebar =
+    Sidebar.create ~sidebar:"Navigation…" ~main:"Main content…" ~sidebar_open:s.sidebar_open ()
+    |> Sidebar.render ~cols
+  in
+  String.concat "\n\n" ["Card & Sidebar demo"; card; sidebar]
+```
+|}
+
   type state = {next_page : string option; sidebar_open : bool}
 
   type msg = unit
@@ -1733,9 +1812,12 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let hint =
       if s.sidebar_open then "Tab: collapse sidebar" else "Tab: expand sidebar"
     in
+    let hint =
+      W.dim (Printf.sprintf "%s • t opens tutorial" hint)
+    in
     String.concat
       "\n\n"
-      ["Card & Sidebar demo (Esc returns)"; card; sidebar; W.dim hint]
+      ["Card & Sidebar demo (Esc returns)"; card; sidebar; hint]
 
   let go_home sidebar_open = {next_page = Some launcher_page_name; sidebar_open}
 
@@ -1744,6 +1826,12 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
       ->
         go_home s.sidebar_open
+    | Some (Miaou.Core.Keys.Char k)
+      when String.lowercase_ascii k = "t" ->
+        show_tutorial_modal
+          ~title:"Card & Sidebar tutorial"
+          ~markdown:tutorial_markdown ;
+        s
     | Some Miaou.Core.Keys.Tab
     | Some (Miaou.Core.Keys.Char "Tab")
     | Some (Miaou.Core.Keys.Char "NextPage") ->
