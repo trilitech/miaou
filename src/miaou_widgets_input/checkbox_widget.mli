@@ -9,11 +9,13 @@ type t
 (** Create a checkbox widget state.
     @param label Optional label to render to the right of the box
     @param checked_ Initial boolean state (default false)
+    @param disabled Ignore key handling when true (default false)
 *)
-val create : ?label:string -> ?checked_:bool -> unit -> t
+val create : ?label:string -> ?checked_:bool -> ?disabled:bool -> unit -> t
 
 (** Alias for create; kept for API symmetry with other widgets. *)
-val open_centered : ?label:string -> ?checked_:bool -> unit -> t
+val open_centered :
+  ?label:string -> ?checked_:bool -> ?disabled:bool -> unit -> t
 
 (** Render the checkbox to a string suitable for terminal output. *)
 val render : t -> focus:bool -> string

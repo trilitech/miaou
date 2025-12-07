@@ -6,11 +6,18 @@
 (*****************************************************************************)
 open Miaou_widgets_display.Widgets
 
-type t = {label : string option; selected : bool; cancelled : bool}
+type t = {
+  label : string option;
+  selected : bool;
+  cancelled : bool;
+  disabled : bool;
+}
 
-let create ?label ?(selected = false) () = {label; selected; cancelled = false}
+let create ?label ?(selected = false) ?(disabled = false) () =
+  {label; selected; cancelled = false; disabled}
 
-let open_centered ?label ?(selected = false) () = create ?label ~selected ()
+let open_centered ?label ?(selected = false) ?disabled () =
+  create ?label ~selected ?disabled ()
 
 let render (t : t) ~focus =
   let box = if t.selected then "(X)" else "( )" in
@@ -21,10 +28,12 @@ let render (t : t) ~focus =
       box ^ " " ^ lbl
 
 let handle_key (t : t) ~key =
-  match key with
-  | " " | "Space" | "Enter" -> {t with selected = true}
-  | "Esc" | "Escape" -> {t with cancelled = true}
-  | _ -> t
+  if t.disabled then t
+  else
+    match key with
+    | " " | "Space" | "Enter" -> {t with selected = true}
+    | "Esc" | "Escape" -> {t with cancelled = true}
+    | _ -> t
 
 let is_selected t = t.selected
 

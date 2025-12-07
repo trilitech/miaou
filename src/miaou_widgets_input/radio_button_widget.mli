@@ -6,9 +6,10 @@
 (*****************************************************************************)
 type t
 
-val create : ?label:string -> ?selected:bool -> unit -> t
+val create : ?label:string -> ?selected:bool -> ?disabled:bool -> unit -> t
 
-val open_centered : ?label:string -> ?selected:bool -> unit -> t
+val open_centered :
+  ?label:string -> ?selected:bool -> ?disabled:bool -> unit -> t
 
 val render : t -> focus:bool -> string
 

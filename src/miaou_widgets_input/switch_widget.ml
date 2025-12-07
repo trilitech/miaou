@@ -6,11 +6,13 @@
 (*****************************************************************************)
 open Miaou_widgets_display.Widgets
 
-type t = {label : string option; on : bool; cancelled : bool}
+type t = {label : string option; on : bool; cancelled : bool; disabled : bool}
 
-let create ?label ?(on = false) () = {label; on; cancelled = false}
+let create ?label ?(on = false) ?(disabled = false) () =
+  {label; on; cancelled = false; disabled}
 
-let open_centered ?label ?(on = false) () = create ?label ~on ()
+let open_centered ?label ?(on = false) ?disabled () =
+  create ?label ~on ?disabled ()
 
 let render (t : t) ~focus =
   let core = if t.on then "[ ON ]" else "[ OFF ]" in
@@ -22,10 +24,12 @@ let render (t : t) ~focus =
       lbl ^ ": " ^ sw
 
 let handle_key (t : t) ~key =
-  match key with
-  | " " | "Space" | "Enter" -> {t with on = not t.on}
-  | "Esc" | "Escape" -> {t with cancelled = true}
-  | _ -> t
+  if t.disabled then t
+  else
+    match key with
+    | " " | "Space" | "Enter" -> {t with on = not t.on}
+    | "Esc" | "Escape" -> {t with cancelled = true}
+    | _ -> t
 
 let is_on t = t.on
 

@@ -4,18 +4,21 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-type t = {label : string; on_click : unit -> unit}
+type t = {label : string; on_click : unit -> unit; disabled : bool}
 
-let create ~label ~on_click = {label; on_click}
+let create ~label ~on_click = {label; on_click; disabled = false}
 
 let render t ~focus =
   let open Miaou_widgets_display.Widgets in
   let base = "[ " ^ t.label ^ " ]" in
-  if focus then bg 24 (fg 15 (bold base)) else base
+  let decorated = if focus then bg 24 (fg 15 (bold base)) else base in
+  if t.disabled then dim decorated else decorated
 
 let handle_key t ~key =
-  match key with
-  | "Enter" | " " ->
-      t.on_click () ;
-      (t, true)
-  | _ -> (t, false)
+  if t.disabled then (t, false)
+  else
+    match key with
+    | "Enter" | " " ->
+        t.on_click () ;
+        (t, true)
+    | _ -> (t, false)
