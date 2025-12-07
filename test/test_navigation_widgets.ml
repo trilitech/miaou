@@ -1,6 +1,8 @@
 open Alcotest
 module Tabs = Miaou_widgets_navigation.Tabs_widget
 module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
+module Link = Miaou_widgets_navigation.Link_widget
+module W = Miaou_widgets_display.Widgets
 
 let sample_tabs =
   [
@@ -46,6 +48,20 @@ let test_render_marks_selection () =
   check bool "selected label present" true (String.contains rendered 'H') ;
   check bool "separator present" true (String.contains rendered '|')
 
+let test_tabs_snapshot () =
+  let t = Tabs.make sample_tabs in
+  let rendered = Tabs.render t ~focus:true in
+  let expected =
+    let pad s = " " ^ s ^ " " in
+    String.concat (W.dim "|")
+      [
+        W.bold (pad "Home");
+        W.dim (pad "Logs");
+        W.dim (pad "Settings");
+      ]
+  in
+  check string "tabs render with bold+dim separators" expected rendered
+
 let test_breadcrumbs_move_and_enter () =
   let fired = ref [] in
   let mk id label =
@@ -61,6 +77,36 @@ let test_breadcrumbs_move_and_enter () =
   check bool "renders separator" true (String.contains rendered '>') ;
   check bool "highlights selection" true (String.contains rendered '\027')
 
+let test_breadcrumbs_snapshot () =
+  let mk id label = Breadcrumbs.crumb ~id ~label () in
+  let crumbs = [mk "root" "Root"; mk "services" "Services"; mk "node" "Node"] in
+  let b = Breadcrumbs.move (Breadcrumbs.make crumbs) `Right in
+  let rendered = Breadcrumbs.render b ~focus:true in
+  let expected =
+    let sep = W.dim " > " in
+    String.concat sep
+      [
+        W.dim "Root";
+        W.title_highlight (W.bold "Services");
+        W.dim "Node";
+      ]
+  in
+  check string "breadcrumbs highlight focused crumb" expected rendered
+
+let test_link_render_and_key () =
+  let target = Link.Internal "home" in
+  let fired = ref [] in
+  let l =
+    Link.create ~label:"Go" ~target ~on_navigate:(fun t -> fired := t :: !fired)
+  in
+  let focused = Link.render l ~focus:true in
+  let unfocused = Link.render l ~focus:false in
+  check bool "focused bold" true (String.contains focused '1') ;
+  check bool "unfocused not bold" false (String.contains unfocused '1') ;
+  let _, handled = Link.handle_key l ~key:"Enter" in
+  check bool "enter handled" true handled ;
+  check int "callback fired" 1 (List.length !fired)
+
 let () =
   run
     "navigation_widgets"
@@ -73,7 +119,12 @@ let () =
             "render highlights selection"
             `Quick
             test_render_marks_selection;
+          test_case "render snapshot" `Quick test_tabs_snapshot;
         ] );
       ( "breadcrumbs",
-        [test_case "move and enter" `Quick test_breadcrumbs_move_and_enter] );
+        [
+          test_case "move and enter" `Quick test_breadcrumbs_move_and_enter;
+          test_case "render snapshot" `Quick test_breadcrumbs_snapshot;
+        ] );
+      ("link", [test_case "render + key" `Quick test_link_render_and_key]);
     ]

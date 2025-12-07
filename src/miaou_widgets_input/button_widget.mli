@@ -20,7 +20,7 @@ val handle_key : t -> key:string -> t * bool
 
 (** Usage:
     {[
-      let b = Button_widget.create ~label:"Run" ~on_click:(fun () -> ()) in
+      let b = Button_widget.create ~label:"Run" ~on_click:(fun () -> ()) () in
       let b, fired = Button_widget.handle_key b ~key:"Enter" in
       ignore fired ;
       Button_widget.render b ~focus:true
