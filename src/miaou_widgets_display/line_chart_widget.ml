@@ -1,0 +1,226 @@
+module W = Widgets
+
+type point = {x : float; y : float; color : string option}
+
+type series = {label : string; points : point list; color : string option}
+
+type threshold = {value : float; color : string}
+
+type axis_config = {
+  show_labels : bool;
+  x_label : string;
+  y_label : string;
+  x_ticks : int;
+  y_ticks : int;
+}
+
+let default_axis_config =
+  {show_labels = false; x_label = ""; y_label = ""; x_ticks = 5; y_ticks = 5}
+
+type t = {
+  width : int;
+  height : int;
+  series : series list;
+  title : string option;
+  axis_config : axis_config;
+}
+
+let create ~width ~height ~series ?title ?(axis_config = default_axis_config) ()
+    =
+  {width; height; series; title; axis_config}
+
+let update_series t ~label ~points =
+  let series =
+    List.map
+      (fun s -> if s.label = label then {s with points} else s)
+      t.series
+  in
+  {t with series}
+
+let add_point t ~label ~point =
+  let series =
+    List.map
+      (fun s ->
+        if s.label = label then {s with points = s.points @ [point]} else s)
+      t.series
+  in
+  {t with series}
+
+let set_axis_config t axis_config = {t with axis_config}
+
+(* Grid canvas: mutable character grid *)
+type cell = {mutable char : string; mutable style : string option}
+
+let make_grid width height =
+  Array.init height (fun _ ->
+      Array.init width (fun _ -> {char = " "; style = None}))
+
+let set_cell grid x y char =
+  if y >= 0 && y < Array.length grid && x >= 0 && x < Array.length grid.(0)
+  then grid.(y).(x).char <- char
+
+let set_cell_styled grid x y char style =
+  if y >= 0 && y < Array.length grid && x >= 0 && x < Array.length grid.(0)
+  then (
+    grid.(y).(x).char <- char ;
+    grid.(y).(x).style <- Some style)
+
+(* Coordinate mapping *)
+let map_x x x_min x_max width =
+  let range = x_max -. x_min in
+  if range = 0. then width / 2
+  else int_of_float ((x -. x_min) /. range *. float_of_int (width - 1))
+
+let map_y y y_min y_max height =
+  let range = y_max -. y_min in
+  if range = 0. then height / 2
+  else
+    (* Invert Y because terminal coordinates go top-down *)
+    height - 1 - int_of_float ((y -. y_min) /. range *. float_of_int (height - 1))
+
+(* Simplified line drawing *)
+let draw_line grid x1 y1 x2 y2 char style =
+  let dx = abs (x2 - x1) in
+  let dy = abs (y2 - y1) in
+  let sx = if x1 < x2 then 1 else -1 in
+  let sy = if y1 < y2 then 1 else -1 in
+  let rec loop x y err =
+    (match style with
+    | Some s -> set_cell_styled grid x y char s
+    | None -> set_cell grid x y char) ;
+    if x = x2 && y = y2 then ()
+    else
+      let e2 = 2 * err in
+      let x', err' = if e2 > -dy then (x + sx, err - dy) else (x, err) in
+      let y', err'' = if e2 < dx then (y + sy, err' + dx) else (y, err') in
+      loop x' y' err''
+  in
+  loop x1 y1 (dx - dy)
+
+(* Render axes *)
+let render_axes grid _t _x_min _x_max _y_min _y_max =
+  let width = Array.length grid.(0) in
+  let height = Array.length grid in
+
+  (* Y-axis (left edge) *)
+  for y = 0 to height - 1 do
+    set_cell grid 0 y (if W.prefer_ascii () then "|" else "│")
+  done ;
+  set_cell grid 0 (height - 1) (if W.prefer_ascii () then "+" else "└") ;
+
+  (* X-axis (bottom edge) *)
+  for x = 0 to width - 1 do
+    set_cell grid x (height - 1) (if W.prefer_ascii () then "-" else "─")
+  done ;
+  set_cell grid 0 (height - 1) (if W.prefer_ascii () then "+" else "└")
+
+(* Render grid lines *)
+let render_grid_lines grid t =
+  let width = Array.length grid.(0) in
+  let height = Array.length grid in
+  let x_step = max 1 (width / (t.axis_config.x_ticks + 1)) in
+  let y_step = max 1 (height / (t.axis_config.y_ticks + 1)) in
+
+  (* Vertical grid lines *)
+  for i = 1 to t.axis_config.x_ticks do
+    let x = min (width - 1) (i * x_step) in
+    for y = 0 to height - 2 do
+      if grid.(y).(x).char = " " then
+        set_cell grid x y (if W.prefer_ascii () then ":" else "┊")
+    done
+  done ;
+
+  (* Horizontal grid lines *)
+  for i = 1 to t.axis_config.y_ticks do
+    let y = min (height - 2) (i * y_step) in
+    for x = 1 to width - 1 do
+      if grid.(y).(x).char = " " then
+        set_cell grid x y (if W.prefer_ascii () then "." else "┈")
+    done
+  done
+
+let get_color ~thresholds ~series_color (point : point) : string option =
+  let a = List.sort (fun a b -> Float.compare b.value a.value) thresholds in
+  match point.color with
+  | Some _ -> point.color
+  | None ->
+    (match List.find_opt (fun t -> point.y > t.value) a with
+    | Some t -> Some t.color
+    | None -> series_color)
+
+(* Plot a single series *)
+let plot_series grid (series : series) x_min x_max y_min y_max width height symbol
+    ~thresholds =
+  List.iteri
+    (fun idx (point : point) ->
+      let x = map_x point.x x_min x_max width in
+      let y = map_y point.y y_min y_max height in
+      let color = get_color ~thresholds ~series_color:series.color point in
+      (match color with
+      | Some c -> set_cell_styled grid x y symbol c
+      | None -> set_cell grid x y symbol) ;
+      (* Draw line to next point *)
+      match List.nth_opt series.points (idx + 1) with
+      | Some next_point ->
+          let next_x = map_x next_point.x x_min x_max width in
+          let next_y = map_y next_point.y y_min y_max height in
+          let line_char = if W.prefer_ascii () then "-" else "●" in
+          draw_line grid x y next_x next_y line_char color
+      | None -> ())
+    series.points
+
+(* Calculate data bounds *)
+let calculate_bounds series_list =
+  let all_points = List.concat_map (fun s -> s.points) series_list in
+  if all_points = [] then (0., 0., 0., 0.)
+  else
+    let xs = List.map (fun p -> p.x) all_points in
+    let ys = List.map (fun p -> p.y) all_points in
+    let x_min, x_max = Chart_utils.bounds xs in
+    let y_min, y_max = Chart_utils.bounds ys in
+    (x_min, x_max, y_min, y_max)
+
+let render t ~show_axes ~show_grid ?(thresholds = []) () =
+  let grid = make_grid t.width t.height in
+  let x_min, x_max, y_min, y_max = calculate_bounds t.series in
+
+  (* Render grid lines first (background) *)
+  (if show_grid then render_grid_lines grid t) ;
+
+  (* Render axes *)
+  (if show_axes then render_axes grid t x_min x_max y_min y_max) ;
+
+  (* Plot symbols for different series *)
+  let symbols = [|"●"; "■"; "▲"; "◆"; "★"|] in
+
+  (* Plot each series *)
+  List.iteri
+    (fun idx series ->
+      let symbol = symbols.(idx mod Array.length symbols) in
+      plot_series grid series x_min x_max y_min y_max t.width t.height symbol
+        ~thresholds)
+    t.series ;
+
+  (* Convert grid to string *)
+  let lines =
+    Array.to_list grid
+    |> List.map (fun row ->
+           Array.to_list row
+           |> List.map (fun cell ->
+                  match cell.style with
+                  | Some style -> W.ansi style cell.char
+                  | None -> cell.char)
+           |> String.concat "")
+  in
+
+  (* Add title if present *)
+  match t.title with
+  | Some title -> W.bold title ^ "\n" ^ String.concat "\n" lines
+  | None -> String.concat "\n" lines
+
+(* Accessor functions for SDL rendering *)
+let get_series t = t.series
+
+let get_title t = t.title
+
+let get_dimensions t = (t.width, t.height)
