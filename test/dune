@@ -172,3 +172,8 @@
  (name test_navigation_widgets)
  (modules test_navigation_widgets)
  (libraries alcotest miaou.widgets.navigation miaou.widgets.display))
+
+(test
+ (name test_flex_layout)
+ (modules test_flex_layout)
+ (libraries alcotest miaou.widgets.layout miaou.widgets.display))

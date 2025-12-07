@@ -13,6 +13,7 @@
   file_browser_widget
   card_widget
   sidebar_widget
+  flex_layout
   toast_widget)
  (instrumentation
   (backend bisect_ppx))
