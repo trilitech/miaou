@@ -177,3 +177,8 @@
  (name test_flex_layout)
  (modules test_flex_layout)
  (libraries alcotest miaou.widgets.layout miaou.widgets.display))
+
+(test
+ (name test_input_widgets)
+ (modules test_input_widgets)
+ (libraries alcotest miaou.widgets.input miaou.widgets.display))

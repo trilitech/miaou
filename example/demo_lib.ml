@@ -1018,6 +1018,7 @@ module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let button =
       Button.create ~label:"Deploy" ~on_click:(fun () ->
           Logs.info (fun m -> m "Clicked"))
+        ()
     in
     {button; clicks; next_page = None}
 

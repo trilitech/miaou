@@ -7,8 +7,10 @@
 (** Abstract type for a button widget. *)
 type t
 
-(** Create a button. *)
-val create : label:string -> on_click:(unit -> unit) -> t
+(** Create a button.
+    @param disabled When true, the button is rendered dimmed and ignores key handling. *)
+val create :
+  ?disabled:bool -> label:string -> on_click:(unit -> unit) -> unit -> t
 
 (** Render the button as a string, style depends on focus. *)
 val render : t -> focus:bool -> string

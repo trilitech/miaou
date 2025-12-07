@@ -11,8 +11,8 @@ Target: tighten APIs/UX consistency for the widgets added in M5 (layout/feedback
 - Docstring/examples:
   - Add short usage snippets/key hints to `.mli` for tabs, breadcrumbs, toast, link, and input widgets.
 - Tests to tighten:
-  - Disabled-state tests for checkbox/radio/switch/button (handle_key is no-op when disabled).
-  - Snapshot-like checks for tabs/breadcrumbs separators/highlight; link key handling.
+  - [x] Disabled-state tests for checkbox/radio/switch/button (handle_key is no-op when disabled).
+  - [ ] Snapshot-like checks for tabs/breadcrumbs separators/highlight; link key handling.
 - Demo consistency:
   - Ensure demo list labels/hints match widget names and show key hints (e.g., “1/2/3 to toggle”).
   - Add a minimal “API panel” string per demo with key bindings.

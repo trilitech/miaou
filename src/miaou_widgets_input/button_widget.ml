@@ -6,7 +6,8 @@
 (*****************************************************************************)
 type t = {label : string; on_click : unit -> unit; disabled : bool}
 
-let create ~label ~on_click = {label; on_click; disabled = false}
+let create ?(disabled = false) ~label ~on_click () =
+  {label; on_click; disabled}
 
 let render t ~focus =
   let open Miaou_widgets_display.Widgets in
