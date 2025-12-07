@@ -5,14 +5,15 @@
   mock_service_lifecycle
   mock_logger
   mock_net
-  mock_palette)
- (libraries miaou))
+  mock_palette
+  system_metrics)
+ (libraries miaou unix))
 
 (library
  (name miaou_demo_lib)
- (modules demo_lib)
+ (modules demo_lib tutorial_modal system_monitor_sdl)
  (wrapped false)
- (libraries miaou miaou_example miaou.lib_miaou_internal))
+ (libraries miaou miaou_example miaou.lib_miaou_internal tsdl tsdl-ttf))
 
 (include_subdirs no)
 
