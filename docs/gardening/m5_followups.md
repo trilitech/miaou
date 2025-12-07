@@ -30,7 +30,7 @@ Target: tighten APIs/UX consistency for the widgets added in M5 (layout/feedback
   - [x] Retrofits: migrate a handful of demos/pages to the flex API to validate ergonomics. (New “Flex Layout” gallery entry in `example/demo_lib.ml`.)
   - [x] Tests: add layout correctness/property tests for flex sizing/alignment; snapshot migrated demos. (`test/test_flex_layout.ml`.)
 - Text and input fidelity:
-  - [ ] Add text wrapping and selection support in display helpers (pager/table/description lists). Start with pager/table wrapping options + unit tests.
+  - [x] Add text wrapping support in display helpers (pager/table/description lists). Pager/table/description list now wrap to available width; tests in `test_pager_extra.ml`, `test_table_wrap.ml`, `test_description_list.ml`.
   - [ ] Add focus management and optional event bubbling so mouse/keyboard events can propagate through composites.
 - Terminal protocol and input support:
   - [ ] Mouse event plumbing: add mouse parsing/forwarding in term/SDL drivers; expose a common `pointer_event` type to widgets (start with click/scroll).

@@ -73,7 +73,8 @@ type render_opts = {
 
 let default_opts = {selection_mode = Row; highlight_header = false; sort = None}
 
-let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
+let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts
+    =
   (* More UI-like SDL style: solid rows and badges. Kept as a separate entrypoint
      from the terminal renderer to avoid imposing styling on all tables. *)
   let open Widgets in
@@ -164,8 +165,8 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
 
 (* Generic table renderer that handles column width calculation, padding,
    borders, and selection highlighting. *)
-let render_table_generic_with_opts ?backend ~cols ~header_list ~rows_list
-    ~cursor ~sel_col:_ ~opts ?(col_opts = []) () =
+let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
+    ~rows_list ~cursor ~sel_col:_ ~opts ?(col_opts = []) () =
   let glyphs = glyphs_for_backend ?backend () in
   let total_w =
     match cols with Some c -> max 20 (min c 240) | None -> col_widths_total
@@ -265,40 +266,101 @@ let render_table_generic_with_opts ?backend ~cols ~header_list ~rows_list
          col_widths
       |> String.concat "")
   in
-  let row_to_line i cols_cells =
-    let cells =
-      List.mapi
-        (fun col_idx cell ->
-          let w = List.nth col_widths col_idx in
-          let copts = List.nth col_opts col_idx in
-          let base = pad cell (w - copts.pad_left - copts.pad_right) in
-          String.make copts.pad_left ' '
-          ^ base
-          ^ String.make copts.pad_right ' ')
-        cols_cells
-    in
-    let line_core =
-      glyphs.vline ^ (cells |> String.concat glyphs.vline) ^ glyphs.vline
-    in
-    let line =
-      match opts.selection_mode with
-      | Row when i = cursor ->
-          Palette.selection_bg (Palette.selection_fg line_core)
-      | _ -> line_core
-    in
-    line ^ "\027[0m"
+  let blank_for_col =
+    List.mapi (fun idx w -> (idx, String.make w ' ')) col_widths
   in
-  let body = List.mapi row_to_line rows_sorted in
+  let row_to_lines i cols_cells =
+    if not wrap then (
+      let cells =
+        List.mapi
+          (fun col_idx cell ->
+            let w = List.nth col_widths col_idx in
+            let copts = List.nth col_opts col_idx in
+            let base = pad cell (w - copts.pad_left - copts.pad_right) in
+            String.make copts.pad_left ' '
+            ^ base
+            ^ String.make copts.pad_right ' ')
+          cols_cells
+      in
+      let line_core =
+        glyphs.vline ^ (cells |> String.concat glyphs.vline) ^ glyphs.vline
+      in
+      let line =
+        match opts.selection_mode with
+        | Row when i = cursor ->
+            Palette.selection_bg (Palette.selection_fg line_core)
+        | _ -> line_core
+      in
+      [line ^ "\027[0m"])
+    else
+      let cell_lines =
+        List.mapi
+          (fun col_idx cell ->
+            let w = List.nth col_widths col_idx in
+            let copts = List.nth col_opts col_idx in
+            let inner = max 0 (w - copts.pad_left - copts.pad_right) in
+            Widgets.wrap_text ~width:inner cell
+            |> List.map (fun l ->
+                   let base = Widgets.pad_visible l inner in
+                   String.make copts.pad_left ' '
+                   ^ base
+                   ^ String.make copts.pad_right ' '))
+          cols_cells
+      in
+      let height =
+        List.fold_left (fun acc ls -> max acc (List.length ls)) 1 cell_lines
+      in
+      let padded_lines =
+        List.mapi
+          (fun col_idx lines ->
+            let fallback =
+              match List.assoc_opt col_idx blank_for_col with
+              | Some s -> s
+              | None -> String.make (List.nth col_widths col_idx) ' '
+            in
+            let rec fill lst =
+              if List.length lst >= height then lst else fill (lst @ [fallback])
+            in
+            fill lines)
+          cell_lines
+      in
+      let assemble_line idx =
+        let cols_for_idx =
+          List.mapi
+            (fun col_idx lines ->
+              match List.nth_opt lines idx with
+              | Some l -> l
+              | None ->
+                  (match List.assoc_opt col_idx blank_for_col with
+                  | Some b -> b
+                  | None -> ""))
+            padded_lines
+        in
+        let line_core =
+          glyphs.vline ^ (cols_for_idx |> String.concat glyphs.vline) ^ glyphs.vline
+        in
+        let line =
+          match opts.selection_mode with
+          | Row when i = cursor ->
+              Palette.selection_bg (Palette.selection_fg line_core)
+          | _ -> line_core
+        in
+        line ^ "\027[0m"
+      in
+      List.init height assemble_line
+  in
+  let body = List.concat (List.mapi row_to_lines rows_sorted) in
   String.concat
     "\n"
     ((top_border :: header_line :: mid_border :: body) @ [bottom_border])
 
-let render_table_80_with_opts ?backend ~cols ~header:(h1, h2, h3) ~rows ~cursor
-    ~sel_col ~opts () =
+let render_table_80_with_opts ?backend ?wrap ~cols ~header:(h1, h2, h3) ~rows
+    ~cursor ~sel_col ~opts () =
   let header_list = [h1; h2; h3] in
   let rows_list = List.map (fun (a, b, c) -> [a; b; c]) rows in
   render_table_generic_with_opts
     ?backend
+    ?wrap
     ~cols
     ~header_list
     ~rows_list

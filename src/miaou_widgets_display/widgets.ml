@@ -125,6 +125,45 @@ let hr ~width ?(char = '-') () =
   let ch = String.make 1 char in
   String.concat "" (List.init width (fun _ -> ch))
 
+let pad_visible s width =
+  let len = visible_chars_count s in
+  if len >= width then
+    let idx = visible_byte_index_of_pos s (max 0 (width - 1)) in
+    String.sub s 0 idx ^ "…"
+  else s ^ String.make (width - len) ' '
+
+let wrap_text ~width s =
+  let width = max 1 width in
+  let chunk word =
+    let rec aux acc w =
+      if visible_chars_count w <= width then List.rev (w :: acc)
+      else
+        let idx = visible_byte_index_of_pos w width in
+        let pre = String.sub w 0 idx in
+        let rest = String.sub w idx (String.length w - idx) in
+        aux (pre :: acc) (String.trim rest)
+    in
+    aux [] word
+  in
+  let words = String.split_on_char ' ' s |> List.filter (fun w -> w <> "") in
+  let rec loop line acc = function
+    | [] -> if line = "" then List.rev acc else List.rev (line :: acc)
+    | w :: ws ->
+        let wl = visible_chars_count w in
+        if line = "" then
+          if wl <= width then loop w acc ws
+          else
+            let parts = chunk w in
+            let acc = List.rev_append parts acc in
+            loop "" acc ws
+        else
+          let ll = visible_chars_count line in
+          if ll + 1 + wl <= width then
+            loop (line ^ " " ^ w) acc ws
+          else loop "" (line :: acc) (w :: ws)
+  in
+  loop "" [] words
+
 let json_pretty (raw : string) : string =
   try Yojson.Safe.prettify raw with _ -> raw
 

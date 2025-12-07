@@ -182,3 +182,13 @@
  (name test_input_widgets)
  (modules test_input_widgets)
  (libraries alcotest miaou.widgets.input miaou.widgets.display))
+
+(test
+ (name test_description_list)
+ (modules test_description_list)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_table_wrap)
+ (modules test_table_wrap)
+ (libraries alcotest miaou.widgets.display))

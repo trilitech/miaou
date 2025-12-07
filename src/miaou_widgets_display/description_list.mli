@@ -5,20 +5,15 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-(* SDL-specific table render helpers, kept separate for backend tweaks. *)
+type t
 
-let render_table_80_with_opts ?wrap ~cols ~header ~rows ~cursor ~sel_col ~opts
-    () =
-  Table_widget.render_table_80_with_opts
-    ~backend:`Sdl
-    ?wrap
-    ~cols
-    ~header
-    ~rows
-    ~cursor
-    ~sel_col
-    ~opts
-    ()
+val create :
+  ?title:string -> ?key_width:int -> ?items:(string * string) list -> unit -> t
 
-let render_table_80 ~cols ~header ~rows ~cursor ~sel_col =
-  Table_widget.render_table_80 ~cols ~header ~rows ~cursor ~sel_col
+val set_items : t -> (string * string) list -> t
+
+val render : ?cols:int -> ?wrap:bool -> t -> focus:bool -> string
+(** Render a description list.
+    - [cols] total width budget (default 80) used to wrap values.
+    - [wrap] when true (default), values wrap to the available width and
+      subsequent lines are indented under the key. *)

@@ -412,7 +412,7 @@ let visible_slice ~win t =
     let stop = min total (start + win) in
     (start, stop)
 
-let render ?cols ~win (t : t) ~focus : string =
+let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
   (* flush buffered lines opportunistically on render *)
   flush_pending_if_needed t ;
   let start, stop = visible_slice ~win t in
@@ -460,6 +460,14 @@ let render ?cols ~win (t : t) ~focus : string =
   in
   let body = String.concat "\n" body_lines in
   let cols = match cols with Some c -> c | None -> 80 in
+  let body =
+    if not wrap then body
+    else
+      let width = max 10 (cols - 2) in
+      body_lines
+      |> List.concat_map (Widgets.wrap_text ~width)
+      |> String.concat "\n"
+  in
   Widgets.render_frame ~title ~header:[status] ~body ~footer ~cols ()
 
 (* Kept for compatibility; callers that can compute terminal cols should prefer

@@ -38,11 +38,18 @@ let test_handle_keys () =
   check bool "escape consumed" false consumed ;
   check bool "search applied" true (String.contains rendered 'f')
 
+let test_wrap () =
+  let p = Pager.open_lines ~title:"wrap" ["0123456789 abcdefghij"] in
+  let rendered = Pager.render ~cols:12 ~win:4 ~wrap:true p ~focus:false in
+  check bool "first chunk present" true (String.contains rendered '0');
+  check bool "wrapped chunk present" true (String.contains rendered 'a')
+
 let suite =
   [
     test_case "json streamer feed" `Quick test_json_streamer;
     test_case "pending flush renders" `Quick test_pending_flush;
     test_case "handle keys" `Quick test_handle_keys;
+    test_case "wrap pager" `Quick test_wrap;
   ]
 
 let () = run "pager_extra" [("pager_extra", suite)]

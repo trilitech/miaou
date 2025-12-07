@@ -112,6 +112,14 @@ let test_misc_helpers () =
   in
   check bool "highlight regex" true (String.length hl >= 3)
 
+let test_wrap_and_pad () =
+  let wrapped = W.wrap_text ~width:5 "abc defgh ijk" in
+  check (list string) "wrap splits" ["abc"; "defgh"; "ijk"] wrapped ;
+  let padded = W.pad_visible "hi" 4 in
+  check string "pad adds spaces" "hi  " padded ;
+  let truncated = W.pad_visible "123456" 4 in
+  check string "truncate with ellipsis" "123…" truncated
+
 let () =
   run
     "widgets_helpers"
@@ -124,5 +132,6 @@ let () =
           test_case "palette sdl" `Quick test_palette_sdl;
           test_case "palette adapter" `Quick test_palette_adapter;
           test_case "misc helpers" `Quick test_misc_helpers;
+          test_case "wrap+pad helpers" `Quick test_wrap_and_pad;
         ] );
     ]

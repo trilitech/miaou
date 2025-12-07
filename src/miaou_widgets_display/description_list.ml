@@ -33,13 +33,30 @@ let pad s w =
   if visible_chars_count s >= w then trunc_visible w s
   else s ^ String.make (w - visible_chars_count s) ' '
 
-let render t ~focus:_ =
+let render ?cols ?(wrap = true) t ~focus:_ =
   let key_w =
     match t.key_width with
     | Some w -> w
     | None -> compute_key_width ~max_width:30 t.items
   in
-  let lines = List.map (fun (k, v) -> pad k key_w ^ "  " ^ v) t.items in
+  let cols = match cols with Some c -> c | None -> 80 in
+  let val_width = max 1 (cols - key_w - 2) in
+  let render_item (k, v) =
+    let key = pad k key_w in
+    if not wrap then [key ^ "  " ^ trunc_visible val_width v]
+    else
+      let wrapped = wrap_text ~width:val_width v in
+      match wrapped with
+      | [] -> [key ^ "  "]
+      | first :: rest ->
+          let first_line = key ^ "  " ^ pad first val_width in
+          let indent = String.make (key_w + 2) ' ' in
+          let tails =
+            List.map (fun l -> indent ^ pad l val_width) rest
+          in
+          first_line :: tails
+  in
+  let lines = List.concat_map render_item t.items in
   match t.title with
   | Some title -> titleize title ^ "\n" ^ String.concat "\n" lines
   | None -> String.concat "\n" lines
