@@ -1784,17 +1784,31 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           s
     | _ -> s
 
-  let view s ~focus:_ ~size:_ =
+  let view s ~focus:_ ~size =
     let module W = Miaou_widgets_display.Widgets in
     let header = W.titleize "MIAOU demo launcher" in
     let instructions =
       W.dim "Use ↑/↓ (or j/k) to move, Enter to launch a demo, q or Esc to exit"
     in
+    let max_lines =
+      (* leave room for header + instructions + blank line *)
+      max 5 (min (size.LTerm_geom.rows - 3) 12)
+    in
+    let start =
+      let half = max_lines / 2 in
+      let lo = max 0 (s.cursor - half) in
+      let hi = List.length demos - max_lines in
+      if lo > hi then max 0 hi else lo
+    in
+    let slice =
+      List.filteri (fun i _ -> i >= start && i < start + max_lines) demos
+    in
     let items =
       List.mapi
-        (fun i d ->
+        (fun idx d ->
+          let i = start + idx in
           if i = s.cursor then W.green ("❯ " ^ d.title) else "  " ^ d.title)
-        demos
+        slice
     in
     String.concat "\n" (header :: instructions :: "" :: items)
 
