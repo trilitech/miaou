@@ -25,12 +25,12 @@ Target: tighten APIs/UX consistency for the widgets added in M5 (layout/feedback
 
 ## Closing major gaps (prioritized)
 - Layout engine first:
-  - [ ] Flex API design: define minimal flex row/col API (percentages/ratios, gap, padding, borders) and document expected usage.
-  - [ ] Core implementation: build row/col primitives and padding/border helpers; expose via layout utils.
-  - [ ] Retrofits: migrate a handful of demos/pages to the flex API to validate ergonomics.
-  - [ ] Tests: add layout correctness/property tests for flex sizing/alignment; snapshot migrated demos.
+  - [x] Flex API design: define minimal flex row/col API (percentages/ratios, gap, padding, borders) and document expected usage. (See `src/miaou_widgets_layout/flex_layout.mli`.)
+  - [x] Core implementation: build row/col primitives and padding/border helpers; expose via layout utils. (Implemented in `src/miaou_widgets_layout/flex_layout.ml`.)
+  - [x] Retrofits: migrate a handful of demos/pages to the flex API to validate ergonomics. (New “Flex Layout” gallery entry in `example/demo_lib.ml`.)
+  - [x] Tests: add layout correctness/property tests for flex sizing/alignment; snapshot migrated demos. (`test/test_flex_layout.ml`.)
 - Text and input fidelity:
-  - [ ] Add text wrapping and selection support in display helpers (pager/table/description lists).
+  - [ ] Add text wrapping and selection support in display helpers (pager/table/description lists). Start with pager/table wrapping options + unit tests.
   - [ ] Add focus management and optional event bubbling so mouse/keyboard events can propagate through composites.
 - Terminal protocol and input support:
   - [ ] Mouse event plumbing: add mouse parsing/forwarding in term/SDL drivers; expose a common `pointer_event` type to widgets (start with click/scroll).
