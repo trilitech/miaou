@@ -53,13 +53,17 @@ let select t ~id =
   let idx = clamp (find 0 t.tabs) len in
   {t with selected = idx}
 
-let handle_key t ~key =
+let handle_event ?(bubble_unhandled = false) t ~key =
   match Miaou_core.Keys.of_string key with
-  | Some Miaou_core.Keys.Left -> move t `Left
-  | Some Miaou_core.Keys.Right -> move t `Right
-  | Some (Miaou_core.Keys.Char "Home") -> move t `First
-  | Some (Miaou_core.Keys.Char "End") -> move t `Last
-  | _ -> t
+  | Some Miaou_core.Keys.Left -> (move t `Left, `Handled)
+  | Some Miaou_core.Keys.Right -> (move t `Right, `Handled)
+  | Some (Miaou_core.Keys.Char "Home") -> (move t `First, `Handled)
+  | Some (Miaou_core.Keys.Char "End") -> (move t `Last, `Handled)
+  | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
+
+let handle_key t ~key =
+  let t, _ = handle_event t ~key in
+  t
 
 let render t ~focus =
   let pad s = if String.length s = 0 then s else Printf.sprintf " %s " s in

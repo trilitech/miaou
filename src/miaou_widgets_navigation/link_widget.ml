@@ -12,13 +12,16 @@ let create ~label ~target ~on_navigate = {label; target; on_navigate}
 
 let render t ~focus =
   let open Miaou_widgets_display.Widgets in
-  let base = t.label in
-  let base = blue base in
-  if focus then Miaou_widgets_display.Widgets.bold base else base
+  let base = t.label |> blue in
+  if focus then bold base else base
 
-let handle_key t ~key =
+let handle_event ?(bubble_unhandled = false) t ~key =
   match key with
   | "Enter" | " " ->
       t.on_navigate t.target ;
-      (t, true)
-  | _ -> (t, false)
+      (t, `Handled)
+  | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
+
+let handle_key t ~key =
+  let t, status = handle_event t ~key in
+  (t, status = `Handled)

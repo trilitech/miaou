@@ -103,9 +103,11 @@ let test_link_render_and_key () =
   let unfocused = Link.render l ~focus:false in
   check bool "focused bold" true (String.contains focused '1') ;
   check bool "unfocused not bold" false (String.contains unfocused '1') ;
-  let _, handled = Link.handle_key l ~key:"Enter" in
-  check bool "enter handled" true handled ;
-  check int "callback fired" 1 (List.length !fired)
+  let _, handled = Link.handle_event ~bubble_unhandled:true l ~key:"Enter" in
+  check bool "enter handled" true (handled = `Handled) ;
+  check int "callback fired" 1 (List.length !fired) ;
+  let _, bubble = Link.handle_event ~bubble_unhandled:true l ~key:"?" in
+  check bool "bubbles unhandled" true (bubble = `Bubble)
 
 let () =
   run

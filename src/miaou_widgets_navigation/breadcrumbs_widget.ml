@@ -52,7 +52,7 @@ let select t ~id =
   let idx = clamp (find 0 t.crumbs) len in
   {t with selected = idx}
 
-let handle_key t ~key =
+let handle_event ?(bubble_unhandled = false) t ~key =
   match Miaou_core.Keys.of_string key with
   | Some Miaou_core.Keys.Left -> (move t `Left, `Handled)
   | Some Miaou_core.Keys.Right -> (move t `Right, `Handled)
@@ -63,8 +63,12 @@ let handle_key t ~key =
       | Some {on_enter = Some f; _} ->
           f () ;
           (t, `Handled)
-      | _ -> (t, `Handled))
-  | _ -> (t, `Ignored)
+      | _ -> (t, if bubble_unhandled then `Bubble else `Handled))
+  | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
+
+let handle_key t ~key =
+  let t, status = handle_event t ~key in
+  (t, match status with `Handled -> `Handled | `Bubble -> `Ignored)
 
 let render t ~focus =
   let parts =

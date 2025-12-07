@@ -1134,7 +1134,12 @@ end
 module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
 
-  type state = {trail : Breadcrumbs.t; info : string; next_page : string option}
+  type state = {
+    trail : Breadcrumbs.t;
+    info : string;
+    bubbled : int;
+    next_page : string option;
+  }
 
   type msg = unit
 
@@ -1154,6 +1159,7 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     {
       trail;
       info = "Use ←/→/Home/End to move, Enter to activate, Esc to return";
+      bubbled = 0;
       next_page = None;
     }
 
@@ -1163,7 +1169,10 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let module W = Miaou_widgets_display.Widgets in
     let header = W.titleize "Breadcrumbs" in
     let trail = Breadcrumbs.render s.trail ~focus:true in
-    String.concat "\n\n" [header; trail; W.dim s.info]
+    let bubble_info =
+      W.dim (Printf.sprintf "Bubbled keys handled by page: %d" s.bubbled)
+    in
+    String.concat "\n\n" [header; trail; W.dim s.info; bubble_info]
 
   let go_home s = {s with next_page = Some launcher_page_name}
 
@@ -1173,7 +1182,9 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
       ->
         go_home s
     | _ ->
-        let trail, handled = Breadcrumbs.handle_key s.trail ~key:key_str in
+        let trail, handled =
+          Breadcrumbs.handle_event ~bubble_unhandled:true s.trail ~key:key_str
+        in
         let info =
           match handled with
           | `Handled ->
@@ -1182,9 +1193,14 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
                 |> Option.value ~default:"(none)"
               in
               "Selected " ^ current
-          | `Ignored -> s.info
+          | `Bubble when String.equal key_str "x" ->
+              Printf.sprintf "Page handled bubbled key: %s" key_str
+          | `Bubble -> s.info
         in
-        {s with trail; info}
+        let bubbled =
+          match handled with `Bubble when String.equal key_str "x" -> s.bubbled + 1 | _ -> s.bubbled
+        in
+        {s with trail; info; bubbled}
 
   let move s delta =
     let dir = if delta < 0 then `Left else `Right in

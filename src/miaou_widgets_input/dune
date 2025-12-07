@@ -2,14 +2,15 @@
  (name miaou_widgets_input)
  (public_name miaou.widgets.input)
  (modules
-  textbox_widget
-  validated_textbox_widget
-  select_widget
-  select_widget_sdl
-  checkbox_widget
-  radio_button_widget
-  button_widget
-  switch_widget)
+ textbox_widget
+ validated_textbox_widget
+ select_widget
+ select_widget_sdl
+ checkbox_widget
+ radio_button_widget
+ button_widget
+ switch_widget
+ event_result)
  (instrumentation
   (backend bisect_ppx))
  (libraries miaou.widgets.display miaou.helpers miaou.interfaces lambda-term))
