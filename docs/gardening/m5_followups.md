@@ -25,7 +25,10 @@ Target: tighten APIs/UX consistency for the widgets added in M5 (layout/feedback
 
 ## Closing major gaps (prioritized)
 - Layout engine first:
-  - [ ] Flexbox-like layout: integrate a minimal flex row/col API (percentages/ratios, gap, padding, borders); demo existing pages with it; tests for layout correctness.
+  - [ ] Flex API design: define minimal flex row/col API (percentages/ratios, gap, padding, borders) and document expected usage.
+  - [ ] Core implementation: build row/col primitives and padding/border helpers; expose via layout utils.
+  - [ ] Retrofits: migrate a handful of demos/pages to the flex API to validate ergonomics.
+  - [ ] Tests: add layout correctness/property tests for flex sizing/alignment; snapshot migrated demos.
 - Text and input fidelity:
   - [ ] Add text wrapping and selection support in display helpers (pager/table/description lists).
   - [ ] Add focus management and optional event bubbling so mouse/keyboard events can propagate through composites.
