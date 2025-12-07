@@ -1594,7 +1594,12 @@ module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let init () =
     let items =
-      [("Name", "Alice"); ("Role", "Developer"); ("Location", "Remote")]
+      [
+        ("Name", "Alice in Wonderland");
+        ("Role", "Developer");
+        ( "Location",
+          "Remote · Available for emergencies across multiple timezones" );
+      ]
     in
     let widget =
       Miaou_widgets_display.Description_list.create ~title:"Profile" ~items ()
