@@ -24,14 +24,23 @@ MIAOU started as an experiment in “cat-herded” development: code is authored
 Features at a glance
 --------------------
 - MVU-inspired page lifecycle with modal support and capability injection
-- Ready-to-use widgets: tables, file browsers, pagers, modal forms, panes, text boxes, palette helpers, etc.
-- Lambda-Term driver plus a headless driver for tests/CI
-- Example demo wiring mocked capabilities so you can explore everything quickly
+- Ready-to-use widgets: tables, file browsers, pagers, modal forms, panes, text boxes, palette helpers, charts (sparkline, line, bar), image viewer, QR code generator, etc.
+- Lambda-Term driver plus an experimental SDL2 driver with enhanced graphics rendering
+- Headless driver for tests/CI
+- Example demo with system monitoring, chart visualization, and image display capabilities
 
 Backends
 --------
 
-MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later. An experimental SDL2 backend (Tsdl + Tsdl_ttf) lives in the `miaou-driver-sdl` package; run the SDL demo with `dune exec -- miaou.demo-sdl` or use the native runner (`miaou-runner-native` prefers SDL, falls back to TUI). Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if detection fails.
+MIAOU supports two rendering backends:
+
+1. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Excellent compatibility across terminals.
+
+2. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, smooth curves, pixel-perfect rendering, and full RGB color support. Provides superior visual quality for charts, sparklines, images, and QR codes.
+
+The SDL2 backend (`miaou-driver-sdl` package) requires Tsdl + Tsdl_ttf + Tsdl_image. Run with `MIAOU_DRIVER=sdl dune exec -- miaou.demo-sdl`. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if auto-detection fails.
+
+**SDL-Enhanced Widgets**: Chart widgets (sparkline, line chart), image viewer, and QR code widgets automatically use native SDL rendering when the SDL backend is active, providing smooth anti-aliased graphics instead of text approximation. See [`src/miaou_widgets_display/SDL_CHARTS_README.md`](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details.
 
 Quick start — build & depend
 ----------------------------
@@ -107,7 +116,14 @@ The core runtime dependencies used by MIAOU (also declared in `miaou.opam`):
 - str
 - uri
 - yojson
+- camlimages (for image loading and QR code generation)
+- qrc (for QR code generation)
 - alcotest (test dependency)
+
+Additional dependencies for SDL2 backend (`miaou-driver-sdl`):
+- tsdl (SDL2 bindings)
+- tsdl_ttf (TrueType font rendering)
+- tsdl_image (image loading for SDL)
 
 Install via opam (example):
 
@@ -125,11 +141,30 @@ Examples
 
 ```sh
 dune exec -- miaou.demo             # TUI-only demo (lambda-term)
-dune exec -- miaou.demo-sdl         # SDL demo with terminal fallback
+dune exec -- miaou.demo-sdl         # SDL demo with enhanced graphics
 dune exec -- miaou-runner-tui       # generic runner forcing TUI
 dune exec -- miaou-runner-native    # generic runner preferring SDL
-dune exec -- miaou.demo --help      # show CLI options if you add any
 ```
+
+For the best SDL experience with transitions:
+```sh
+MIAOU_SDL_TRANSITION=explode MIAOU_DRIVER=sdl \
+  MIAOU_SDL_FONT=/usr/share/fonts/TTF/FiraCode-Regular.ttf \
+  dune exec -- miaou.demo-sdl
+```
+
+### Demo Pages
+
+The demo includes several example pages showcasing different widgets:
+
+- **System Monitor**: Real-time system metrics (CPU, memory, network) with live sparkline and line chart visualization
+- **Chart Demo**: Interactive demonstrations of sparkline, line chart, and bar chart widgets
+- **Image Viewer**: Display PNG images with terminal (Unicode block) or SDL (pixel-perfect) rendering
+- **QR Code Generator**: Generate QR codes with URL encoding
+- **File Browser**: Navigate filesystem with path editing
+- **Text Editor**: Multi-line text input with cursor control
+- **Table Demo**: Sortable, paginated data tables
+- **Modal Forms**: Input dialogs and confirmation prompts
 
 The demo registers mock System/Logger/Service_lifecycle implementations so you can inspect how capabilities are wired before integrating Miaou into your own driver.
 
@@ -188,16 +223,28 @@ Configuration & options
 Debugging & environment variables
 ---------------------------------
 
-- `MIAOU_TUI_DEBUG_MODAL=1` — verbose modal-manager logging (also honored by `Miaou_internals.Modal_renderer`).
-- `MIAOU_TUI_UNICODE_BORDERS=false` — force ASCII borders if your terminal font lacks box-drawing glyphs.
-- `MIAOU_TUI_ROWS` / `MIAOU_TUI_COLS` — override terminal geometry for the Lambda-Term driver during development.
-- `MIAOU_DRIVER=sdl` — switch to the experimental SDL2 backend (requires `tsdl` + `tsdl-ttf`).
-- `MIAOU_SDL_FONT` / `MIAOU_SDL_FONT_SIZE` / `MIAOU_SDL_WINDOW_TITLE` — font + size + title overrides for the SDL driver.
-- `MIAOU_DEBUG_KEYSTROKE_CAPTURE` / `MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH` — capture keystrokes to JSONL (see *Recording & replay*).
-- `MIAOU_DEBUG_FRAME_CAPTURE` / `MIAOU_DEBUG_FRAME_CAPTURE_PATH` — capture rendered frames.
-- `MIAOU_DEBUG_CAPTURE_DIR` — default directory for the capture files when explicit paths are not provided.
+**General:**
+- `MIAOU_DEBUG=1` — enable debug logging output (driver events, SDL context, widget rendering)
+- `MIAOU_TUI_DEBUG_MODAL=1` — verbose modal-manager logging (also honored by `Miaou_internals.Modal_renderer`)
+- `MIAOU_TUI_UNICODE_BORDERS=false` — force ASCII borders if your terminal font lacks box-drawing glyphs
+- `MIAOU_TUI_ROWS` / `MIAOU_TUI_COLS` — override terminal geometry for the Lambda-Term driver during development
 
-- `MIAOU_TEST_ALLOW_FORCED_SWITCH=1` — enable the headless driver's `__SWITCH__:` escape hatch (useful in scripted tests).
+**SDL Backend:**
+- `MIAOU_DRIVER=sdl` — switch to the experimental SDL2 backend (requires `tsdl` + `tsdl-ttf` + `tsdl-image`)
+- `MIAOU_SDL_FONT=/path/to/font.ttf` — specify TrueType font for SDL rendering
+- `MIAOU_SDL_FONT_SIZE=14` — font size in pixels (default: 14)
+- `MIAOU_SDL_WINDOW_TITLE="My App"` — custom window title
+- `MIAOU_SDL_TRANSITION=explode|fade|slide` — page transition effect
+
+**Recording & Replay:**
+- `MIAOU_DEBUG_KEYSTROKE_CAPTURE=1` — capture keystrokes to JSONL (see *Recording & replay*)
+- `MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH=/path/to/file.jsonl` — custom keystroke capture path
+- `MIAOU_DEBUG_FRAME_CAPTURE=1` — capture rendered frames
+- `MIAOU_DEBUG_FRAME_CAPTURE_PATH=/path/to/file.jsonl` — custom frame capture path
+- `MIAOU_DEBUG_CAPTURE_DIR=./recordings` — default directory for capture files
+
+**Testing:**
+- `MIAOU_TEST_ALLOW_FORCED_SWITCH=1` — enable the headless driver's `__SWITCH__:` escape hatch (useful in scripted tests)
 
 Troubleshooting
 ---------------
@@ -212,7 +259,11 @@ Design notes
 MIAOU is intentionally experimental. The library splits responsibilities into three conceptual parts:
 
 - **Core:** Public API, page lifecycle, modal manager, driver-facing helpers. Now includes a robust capability system for abstracting side-effects.
-- **Widgets:** Reusable UI widgets (tables, textboxes, selectors, file browser). Many widgets have been generalized and improved (e.g., `File_browser_widget` with advanced path editing).
+- **Widgets:** Reusable UI widgets including:
+  - **Layout:** tables, panes, file browser, progress bars
+  - **Input:** textboxes, selectors, modal forms
+  - **Display:** sparkline charts, line charts, bar charts, image viewer, QR code generator, pager, tree view, description lists
+  - Many widgets support SDL-enhanced rendering for superior visual quality
 - **Internals:** Renderer and implementation details that are not part of the public API.
 
 This split helps enforce that only the driver composes overlays and that pages cannot directly call internal renderer APIs.
@@ -242,7 +293,11 @@ Further reading
 
 - Core API and driver: source under [src/miaou_core/](./src/miaou_core/)
 - Widgets:
-	- Display primitives and pager: [src/miaou_widgets_display/](./src/miaou_widgets_display/)
+	- Display primitives, charts, images, and pager: [src/miaou_widgets_display/](./src/miaou_widgets_display/)
+	  - Chart widgets: `sparkline_widget`, `line_chart_widget`, `bar_chart_widget`
+	  - Image display: `image_widget`, `qr_code_widget`
+	  - SDL-enhanced versions: `*_widget_sdl` modules for anti-aliased graphics
+	  - See [SDL Charts README](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details
 	- Layout (panes, vsection, progress, file browser): [src/miaou_widgets_layout/](./src/miaou_widgets_layout/)
 	- Input (textbox, select): [src/miaou_widgets_input/](./src/miaou_widgets_input/)
 - Internals (renderer, modal machinery internals): [src/miaou_internals/](./src/miaou_internals/)
