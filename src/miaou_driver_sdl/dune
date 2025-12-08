@@ -1,12 +1,25 @@
 (library
  (name miaou_driver_sdl)
  (public_name miaou.driver.sdl)
- (modules sdl_enabled sdl_driver)
+ (modules
+  sdl_enabled
+  sdl_config
+  sdl_window
+  sdl_text_render
+  sdl_driver
+  sdl_colors
+  sdl_transitions
+  sdl_font
+  sdl_events
+  sdl_ansi
+  sdl_render
+  sdl_renderer)
  (instrumentation
   (backend bisect_ppx))
  (libraries
   miaou.core
   miaou.helpers
+  miaou.driver-common
   miaou.interfaces
   miaou.internals
   miaou.widgets.display

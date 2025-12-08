@@ -9,19 +9,20 @@
 
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Capture = Miaou_core.Tui_capture
-module Modal_renderer = Miaou_internals.Modal_renderer
 module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
+module Driver_common = Miaou_driver_common.Driver_common
 open Miaou_core.Tui_page
 module Ttf = Tsdl_ttf.Ttf
 module Sdl = Tsdl.Sdl
+module Colors = Sdl_colors
 open LTerm_geom
 
 let () = Random.self_init ()
 
 let available = true
 
-type color = {r : int; g : int; b : int; a : int}
+type color = Colors.color
 
 (* TODO: Architecture improvement - GADT-Based Render Tree Abstraction
    =====================================================================
@@ -86,7 +87,7 @@ type color = {r : int; g : int; b : int; a : int}
    long-term but requires significant refactoring effort.
 *)
 
-type ansi_state = {fg : color; bg : color}
+type ansi_state = Colors.ansi_state
 
 type config = {
   font_path : string option;
@@ -116,8 +117,8 @@ let default_config =
       | None -> 16);
     window_title =
       Sys.getenv_opt "MIAOU_SDL_WINDOW_TITLE" |> Option.value ~default:"Miaou";
-    fg = {r = 235; g = 235; b = 235; a = 255};
-    bg = {r = 20; g = 20; b = 20; a = 255};
+    fg = Colors.{r = 235; g = 235; b = 235; a = 255};
+    bg = Colors.{r = 20; g = 20; b = 20; a = 255};
     gradient =
       (match Sys.getenv_opt "MIAOU_SDL_GRADIENT" with
       | Some v ->
@@ -202,127 +203,6 @@ let with_sdl init_fn =
             Sdl.quit () ;
             raise e))
 
-let ansi_palette =
-  [|
-    {r = 0; g = 0; b = 0; a = 255};
-    {r = 205; g = 49; b = 49; a = 255};
-    {r = 13; g = 188; b = 121; a = 255};
-    {r = 229; g = 229; b = 16; a = 255};
-    {r = 36; g = 114; b = 200; a = 255};
-    {r = 188; g = 63; b = 188; a = 255};
-    {r = 17; g = 168; b = 205; a = 255};
-    {r = 229; g = 229; b = 229; a = 255};
-  |]
-
-let ansi_bright_palette =
-  [|
-    {r = 102; g = 102; b = 102; a = 255};
-    {r = 241; g = 76; b = 76; a = 255};
-    {r = 35; g = 209; b = 139; a = 255};
-    {r = 245; g = 245; b = 67; a = 255};
-    {r = 59; g = 142; b = 234; a = 255};
-    {r = 214; g = 112; b = 214; a = 255};
-    {r = 41; g = 184; b = 219; a = 255};
-    {r = 229; g = 229; b = 229; a = 255};
-  |]
-
-let color_to_sdl ({r; g; b; a} : color) : Sdl.color =
-  Sdl.Color.create ~r ~g ~b ~a
-
-let clamp lo hi v = if v < lo then lo else if v > hi then hi else v
-
-let color256 idx =
-  let idx = clamp 0 255 idx in
-  if idx < 16 then
-    let base = ansi_palette in
-    let bright = ansi_bright_palette in
-    if idx < 8 then base.(idx) else bright.(idx - 8)
-  else if idx < 232 then
-    let n = idx - 16 in
-    let r = n / 36 in
-    let g = n / 6 mod 6 in
-    let b = n mod 6 in
-    let to_int c = if c = 0 then 0 else 55 + (c * 40) in
-    {r = to_int r; g = to_int g; b = to_int b; a = 255}
-  else
-    let level = 8 + ((idx - 232) * 10) in
-    {r = level; g = level; b = level; a = 255}
-
-let apply_sgr_code ~(default : ansi_state) state code =
-  match code with
-  | 0 ->
-      (* reset *)
-      {fg = default.fg; bg = default.bg}
-  | 39 -> {state with fg = default.fg}
-  | 49 -> {state with bg = default.bg}
-  | c when c >= 30 && c <= 37 ->
-      let idx = c - 30 in
-      {state with fg = ansi_palette.(idx)}
-  | c when c >= 90 && c <= 97 ->
-      let idx = c - 90 in
-      {state with fg = ansi_bright_palette.(idx)}
-  | c when c >= 40 && c <= 47 ->
-      let idx = c - 40 in
-      {state with bg = ansi_palette.(idx)}
-  | c when c >= 100 && c <= 107 ->
-      let idx = c - 100 in
-      {state with bg = ansi_bright_palette.(idx)}
-  | _ -> state
-
-let apply_extended_sgr ~(default : ansi_state) state codes =
-  match codes with
-  | 38 :: 5 :: n :: tl ->
-      let fg = color256 n in
-      List.fold_left (apply_sgr_code ~default) {state with fg} tl
-  | 48 :: 5 :: n :: tl ->
-      let bg = color256 n in
-      List.fold_left (apply_sgr_code ~default) {state with bg} tl
-  | lst -> List.fold_left (apply_sgr_code ~default) state lst
-
-let parse_ansi_segments ~(default : ansi_state) (s : string) =
-  let len = String.length s in
-  let buf = Buffer.create 64 in
-  let add_chunk acc state =
-    if Buffer.length buf = 0 then acc
-    else
-      let chunk = Buffer.contents buf in
-      Buffer.clear buf ;
-      (state, chunk) :: acc
-  in
-  let rec loop i acc state =
-    if i >= len then List.rev (add_chunk acc state)
-    else
-      match s.[i] with
-      | '\027' when i + 1 < len && s.[i + 1] = '[' ->
-          let j = ref (i + 2) in
-          while !j < len && s.[!j] <> 'm' do
-            incr j
-          done ;
-          if !j >= len then (
-            Buffer.add_char buf s.[i] ;
-            loop (i + 1) acc state)
-          else
-            let codes_str = String.sub s (i + 2) (!j - (i + 2)) in
-            let codes =
-              codes_str |> String.split_on_char ';'
-              |> List.filter_map (fun c ->
-                  match int_of_string_opt (String.trim c) with
-                  | Some v -> Some v
-                  | None -> None)
-            in
-            let state' = apply_extended_sgr ~default state codes in
-            let acc' = add_chunk acc state in
-            loop (!j + 1) acc' state'
-      | '\r' -> loop (i + 1) acc state
-      | c ->
-          Buffer.add_char buf c ;
-          loop (i + 1) acc state
-  in
-  loop 0 [] {fg = default.fg; bg = default.bg}
-
-let strip_ansi_to_text ~default s =
-  parse_ansi_segments ~default s |> List.map snd |> String.concat ""
-
 let create_renderer window =
   match
     Sdl.create_renderer
@@ -332,21 +212,6 @@ let create_renderer window =
   with
   | Error (`Msg e) -> sdl_fail "create_renderer" e
   | Ok r -> r
-
-let create_window title ~w ~h =
-  match
-    Sdl.create_window ~w ~h title Sdl.Window.(shown + resizable + allow_highdpi)
-  with
-  | Error (`Msg e) -> sdl_fail "create_window" e
-  | Ok w -> w
-
-let size_from_window ~char_w ~char_h ~scale window =
-  let w, h = Sdl.get_window_size window in
-  let cw = max 1 (int_of_float (float char_w *. scale)) in
-  let ch = max 1 (int_of_float (float char_h *. scale)) in
-  let cols = max 40 (w / cw) in
-  let rows = max 12 (h / ch) in
-  {rows; cols}
 
 let render_lines renderer font ~(fg : color) ~(bg : color) ~(char_w : int)
     ~(char_h : int) ?(clear = true) ?(offset = 0) ?(present = true) lines =
@@ -367,7 +232,7 @@ let render_lines renderer font ~(fg : color) ~(bg : color) ~(char_w : int)
           if offset <= 0 then line else String.make offset ' ' ^ line
         in
         let segments =
-          parse_ansi_segments ~default:default_state padded
+          Colors.parse_ansi_segments ~default:default_state padded
           |> List.map (fun ((st : ansi_state), txt) -> ((st.fg, st.bg), txt))
         in
         let rec render_seg x = function
@@ -395,7 +260,7 @@ let render_lines renderer font ~(fg : color) ~(bg : color) ~(char_w : int)
                 (* Restore default draw color for subsequent clears. *)
                 ignore (Sdl.set_render_draw_color renderer bg.r bg.g bg.b bg.a)) ;
               match
-                Ttf.render_utf8_blended font txt (color_to_sdl fg_color)
+                Ttf.render_utf8_blended font txt (Colors.color_to_sdl fg_color)
               with
               | Error (`Msg e) ->
                   (try Sdl.log "render_utf8_blended failed for '%s': %s" txt e
@@ -454,17 +319,19 @@ let draw_background renderer cfg _char_w char_h =
     in
     let target =
       let dim v = max 0 (v - 25) in
-      {r = dim cfg.bg.r; g = dim cfg.bg.g; b = dim cfg.bg.b; a = cfg.bg.a}
+      Colors.
+        {r = dim cfg.bg.r; g = dim cfg.bg.g; b = dim cfg.bg.b; a = cfg.bg.a}
     in
     for i = 0 to steps do
       let t = float_of_int i /. float_of_int (max 1 steps) in
       let col =
-        {
-          r = lerp cfg.bg.r target.r t;
-          g = lerp cfg.bg.g target.g t;
-          b = lerp cfg.bg.b target.b t;
-          a = cfg.bg.a;
-        }
+        Colors.
+          {
+            r = lerp cfg.bg.r target.r t;
+            g = lerp cfg.bg.g target.g t;
+            b = lerp cfg.bg.b target.b t;
+            a = cfg.bg.a;
+          }
       in
       ignore (Sdl.set_render_draw_color renderer col.r col.g col.b col.a) ;
       let y = int_of_float (float (i * char_h) *. cfg.scale) in
@@ -485,256 +352,42 @@ let draw_background renderer cfg _char_w char_h =
     | Ok () -> ignore (Sdl.render_clear renderer)
     | Error (`Msg e) -> sdl_fail "render_clear" e
 
-let transition_slide renderer font cfg char_w char_h ~from_lines ~to_lines ~size
-    =
-  let steps = 24 in
-  let width = size.cols in
-  for step = 0 to steps do
-    draw_background renderer cfg char_w char_h ;
-    let off_old = -(step * width / steps) in
-    let off_new = width - (step * width / steps) in
-    render_lines
-      renderer
-      font
-      ~fg:cfg.fg
-      ~bg:cfg.bg
-      ~char_w
-      ~char_h
-      ~clear:false
-      ~offset:off_old
-      ~present:false
-      from_lines ;
-    render_lines
-      renderer
-      font
-      ~fg:cfg.fg
-      ~bg:cfg.bg
-      ~char_w
-      ~char_h
-      ~clear:false
-      ~offset:off_new
-      ~present:false
-      to_lines ;
-    ignore (Sdl.render_present renderer) ;
-    Sdl.delay 16l
-  done
-
-let transition_fade renderer font cfg char_w char_h ~from_lines ~to_lines ~size
-    =
-  let steps = 24 in
-  let bg = cfg.bg in
-  (* Two-stage fade to reduce flicker: fade-out, then fade-in. *)
-  let blend_rect =
-    Sdl.Rect.create ~x:0 ~y:0 ~w:(size.cols * char_w) ~h:(size.rows * char_h)
-  in
-  let with_overlay alpha lines =
-    draw_background renderer cfg char_w char_h ;
-    render_lines
-      renderer
-      font
-      ~fg:cfg.fg
-      ~bg:cfg.bg
-      ~char_w
-      ~char_h
-      ~clear:false
-      ~present:false
-      lines ;
-    ignore (Sdl.set_render_draw_blend_mode renderer Sdl.Blend.mode_blend) ;
-    ignore (Sdl.set_render_draw_color renderer bg.r bg.g bg.b alpha) ;
-    ignore (Sdl.render_fill_rect renderer (Some blend_rect)) ;
-    ignore (Sdl.render_present renderer) ;
-    Sdl.delay 12l
-  in
-  for step = 0 to steps do
-    let alpha = int_of_float (255. *. (float step /. float steps)) in
-    with_overlay alpha from_lines
-  done ;
-  for step = 0 to steps do
-    let alpha = 255 - int_of_float (255. *. (float step /. float steps)) in
-    with_overlay alpha to_lines
-  done
-
-let transition_fade_soft renderer font cfg char_w char_h ~from_lines ~to_lines
-    ~size =
-  let steps = 32 in
-  let bg = cfg.bg in
-  let blend_rect =
-    Sdl.Rect.create ~x:0 ~y:0 ~w:(size.cols * char_w) ~h:(size.rows * char_h)
-  in
-  let phase lines alpha =
-    draw_background renderer cfg char_w char_h ;
-    render_lines
-      renderer
-      font
-      ~fg:cfg.fg
-      ~bg:cfg.bg
-      ~char_w
-      ~char_h
-      ~clear:false
-      ~present:false
-      lines ;
-    ignore (Sdl.set_render_draw_blend_mode renderer Sdl.Blend.mode_blend) ;
-    ignore (Sdl.set_render_draw_color renderer bg.r bg.g bg.b alpha) ;
-    ignore (Sdl.render_fill_rect renderer (Some blend_rect)) ;
-    ignore (Sdl.render_present renderer) ;
-    Sdl.delay 14l
-  in
-  for step = 0 to steps do
-    let t = float step /. float steps in
-    let alpha = int_of_float (255. *. (t *. t)) in
-    phase from_lines alpha
-  done ;
-  for step = 0 to steps do
-    let t = float step /. float steps in
-    let alpha = int_of_float (255. *. (1. -. (t *. t))) in
-    phase to_lines alpha
-  done
-
-let transition_explode renderer font cfg char_w char_h ~from_lines ~to_lines
-    ~size =
-  let _ = size in
-  let steps = 30 in
-  let dt = 0.018 in
-  let gravity = 300.0 in
-  let max_particles = 2200 in
-  let particles =
-    let acc = ref [] in
-    let count = ref 0 in
-    List.iteri
-      (fun row line ->
-        String.iteri
-          (fun col ch ->
-            if !count < max_particles && ch <> ' ' then (
-              incr count ;
-              let x0 = float_of_int ((col * char_w) + (char_w / 2)) in
-              let y0 = float_of_int ((row * char_h) + (char_h / 2)) in
-              let angle = Random.float (2.0 *. Float.pi) in
-              let speed = 140.0 +. Random.float 260.0 in
-              let vx = speed *. cos angle in
-              let vy = (speed *. sin angle) -. 40.0 in
-              let tint =
-                let jitter v =
-                  let off = Random.int 30 in
-                  max 0 (min 255 (v + off))
-                in
-                {
-                  cfg.fg with
-                  r = jitter cfg.fg.r;
-                  g = jitter cfg.fg.g;
-                  b = jitter cfg.fg.b;
-                }
-              in
-              acc := (ref x0, ref y0, vx, vy, tint) :: !acc))
-          line)
-      from_lines ;
-    !acc
-  in
-  let draw_particles t =
-    ignore (Sdl.set_render_draw_blend_mode renderer Sdl.Blend.mode_blend) ;
-    List.iter
-      (fun (x, y, vx, vy, c) ->
-        let alpha = int_of_float (255. *. max 0.0 (1.0 -. t)) in
-        let new_vy = vy +. (gravity *. dt *. float steps /. float steps) in
-        x := !x +. (vx *. dt) ;
-        y := !y +. (new_vy *. dt) ;
-        ignore (Sdl.set_render_draw_color renderer c.r c.g c.b alpha) ;
-        let rect =
-          Sdl.Rect.create
-            ~x:(int_of_float !x)
-            ~y:(int_of_float !y)
-            ~w:(max 1 (char_w / 2))
-            ~h:(max 1 (char_h / 2))
-        in
-        ignore (Sdl.render_fill_rect renderer (Some rect)))
-      particles
-  in
-  for step = 0 to steps do
-    let t = float step /. float steps in
-    draw_background renderer cfg char_w char_h ;
-    if step < steps / 3 then
-      render_lines
-        renderer
-        font
-        ~fg:cfg.fg
-        ~bg:cfg.bg
-        ~char_w
-        ~char_h
-        ~clear:false
-        ~present:false
-        from_lines ;
-    draw_particles t ;
-    if step >= steps / 2 then
-      render_lines
-        renderer
-        font
-        ~fg:cfg.fg
-        ~bg:cfg.bg
-        ~char_w
-        ~char_h
-        ~clear:false
-        ~present:false
-        to_lines ;
-    ignore (Sdl.render_present renderer) ;
-    Sdl.delay 14l
-  done
-
-let pick_random_transition () =
-  let options = [`Slide; `Fade; `Explode] in
-  let idx = Random.int (List.length options) in
-  List.nth options idx
-
 let perform_transition renderer font cfg char_w char_h ~from_lines ~to_lines
     ~size =
-  let kind =
-    match cfg.transition with
-    | `Random -> pick_random_transition ()
-    | other -> other
+  let trans_cfg =
+    {
+      Sdl_transitions.fg = cfg.fg;
+      bg = cfg.bg;
+      gradient = cfg.gradient;
+      scale = cfg.scale;
+      transition = cfg.transition;
+    }
   in
-  match kind with
-  | `Slide ->
-      transition_slide
-        renderer
-        font
-        cfg
-        char_w
-        char_h
-        ~from_lines
-        ~to_lines
-        ~size
-  | `Fade ->
-      let choose_soft = Random.int 2 = 0 in
-      if choose_soft then
-        transition_fade_soft
-          renderer
-          font
-          cfg
-          char_w
-          char_h
-          ~from_lines
-          ~to_lines
-          ~size
-      else
-        transition_fade
-          renderer
-          font
-          cfg
-          char_w
-          char_h
-          ~from_lines
-          ~to_lines
-          ~size
-  | `Explode ->
-      transition_explode
-        renderer
-        font
-        cfg
-        char_w
-        char_h
-        ~from_lines
-        ~to_lines
-        ~size
-  | `Random -> ()
-  | `None -> ()
+  let draw_background () = draw_background renderer cfg char_w char_h in
+  let render_lines_helper ?clear ?offset ?present lines =
+    render_lines
+      renderer
+      font
+      ~fg:cfg.fg
+      ~bg:cfg.bg
+      ~char_w
+      ~char_h
+      ?clear
+      ?offset
+      ?present
+      lines
+  in
+  Sdl_transitions.perform
+    renderer
+    font
+    trans_cfg
+    char_w
+    char_h
+    ~from_lines
+    ~to_lines
+    ~size
+    ~draw_background
+    ~render_lines:render_lines_helper
 
 let string_of_event_text e =
   match Sdl.Event.(get e typ |> enum) with
@@ -827,18 +480,10 @@ let poll_event ~timeout_ms ~on_resize =
 
 let render_page (type s) (module P : PAGE_SIG with type state = s) st size =
   let base = P.view st ~focus:true ~size in
-  let with_modal =
-    match
-      Modal_renderer.render_overlay
-        ~cols:(Some size.cols)
-        ~base
-        ~rows:size.rows
-        ()
-    with
-    | Some overlay -> overlay
-    | None -> base
-  in
-  with_modal
+  Driver_common.Modal_utils.render_with_modal_overlay
+    ~view:base
+    ~rows:size.rows
+    ~cols:size.cols
 
 let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
     [`Quit | `SwitchTo of string] =
@@ -860,13 +505,17 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
     | Error (`Msg e) -> sdl_fail "size_utf8" e
     | Ok (w, h) -> (max 8 w, max 12 h)
   in
-  let win = create_window cfg.window_title ~w:(80 * char_w) ~h:(30 * char_h) in
+  let win =
+    Sdl_window.create_window cfg.window_title ~w:(80 * char_w) ~h:(30 * char_h)
+  in
   let renderer = create_renderer win in
   ignore (Sdl.render_set_scale renderer cfg.scale cfg.scale) ;
   ignore (Sdl.start_text_input ()) ;
-  let size_ref = ref (size_from_window ~char_w ~char_h ~scale:cfg.scale win) in
+  let size_ref =
+    ref (Sdl_window.size_from_window ~char_w ~char_h ~scale:cfg.scale win)
+  in
   let update_size () =
-    let s = size_from_window ~char_w ~char_h ~scale:cfg.scale win in
+    let s = Sdl_window.size_from_window ~char_w ~char_h ~scale:cfg.scale win in
     size_ref := s ;
     Modal_manager.set_current_size s.rows s.cols
   in
@@ -875,31 +524,32 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
   let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
       (st : s) =
     let size = !size_ref in
-    
+
     (* Draw background FIRST, before any SDL chart rendering *)
     draw_background renderer cfg char_w char_h ;
-    
+
     (* Set up SDL rendering context for enhanced chart widgets *)
     Miaou_widgets_display.Sdl_chart_context.set_context_obj
       ~renderer
       ~font
       ~char_w
       ~char_h
-      ~y_offset:(char_h * 4) (* Start at line 4 - SDL charts stay at original position *)
+      ~y_offset:(char_h * 4)
+        (* Start at line 4 - SDL charts stay at original position *)
       ~cols:size.cols
       ~enabled:true
       () ;
-    
+
     (* Render page (may use SDL context for charts) *)
     let text = render_page (module P) st size in
-    
+
     (* Clear SDL context *)
     Miaou_widgets_display.Sdl_chart_context.clear_context () ;
-    
+
     let default_state : ansi_state = {fg = cfg.fg; bg = cfg.bg} in
-    let clean_text = strip_ansi_to_text ~default:default_state text in
+    let clean_text = Colors.strip_ansi_to_text ~default:default_state text in
     Capture.record_frame ~rows:size.rows ~cols:size.cols clean_text ;
-    
+
     (* Render text (without clearing background) *)
     render_lines
       renderer
@@ -908,7 +558,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       ~bg:cfg.bg
       ~char_w
       ~char_h
-      ~clear:false  (* Already cleared by draw_background above *)
+      ~clear:false (* Already cleared by draw_background above *)
       ~present:false
       (String.split_on_char '\n' text) ;
     ignore (Sdl.render_present renderer)
@@ -932,7 +582,14 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                 let size = !size_ref in
                 (* Disable SDL chart rendering during transition text capture *)
                 Miaou_widgets_display.Sdl_chart_context.set_context_obj
-                  ~renderer ~font ~char_w ~char_h ~y_offset:0 ~cols:size.cols ~enabled:false () ;
+                  ~renderer
+                  ~font
+                  ~char_w
+                  ~char_h
+                  ~y_offset:0
+                  ~cols:size.cols
+                  ~enabled:false
+                  () ;
                 let from_text = render_page (module P) st size in
                 let to_text = render_page (module Next) st_to size in
                 Miaou_widgets_display.Sdl_chart_context.clear_context () ;
@@ -967,7 +624,14 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
               let size = !size_ref in
               (* Disable SDL chart rendering during transition text capture *)
               Miaou_widgets_display.Sdl_chart_context.set_context_obj
-                ~renderer ~font ~char_w ~char_h ~y_offset:0 ~cols:size.cols ~enabled:false () ;
+                ~renderer
+                ~font
+                ~char_w
+                ~char_h
+                ~y_offset:0
+                ~cols:size.cols
+                ~enabled:false
+                () ;
               let from_text = render_page (module P) st size in
               let to_text = render_page (module Next) st_to size in
               Miaou_widgets_display.Sdl_chart_context.clear_context () ;
@@ -1007,7 +671,14 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                     let size = !size_ref in
                     (* Disable SDL chart rendering during transition text capture *)
                     Miaou_widgets_display.Sdl_chart_context.set_context_obj
-                      ~renderer ~font ~char_w ~char_h ~y_offset:0 ~cols:size.cols ~enabled:false () ;
+                      ~renderer
+                      ~font
+                      ~char_w
+                      ~char_h
+                      ~y_offset:0
+                      ~cols:size.cols
+                      ~enabled:false
+                      () ;
                     let from_text = render_page (module P) st' size in
                     let to_text = render_page (module Next) st_to size in
                     Miaou_widgets_display.Sdl_chart_context.clear_context () ;
