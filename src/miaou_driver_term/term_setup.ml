@@ -31,7 +31,8 @@ let disable_mouse_tracking () =
   try
     print_string
       "\027[?1000l\027[?1002l\027[?1003l\027[?1005l\027[?1006l\027[?1015l" ;
-    Stdlib.flush stdout
+    Stdlib.flush stdout ;
+    Unix.sleepf 0.01
   with _ -> ()
 
 let cleanup fd orig =
