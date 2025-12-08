@@ -20,6 +20,23 @@ val has_active : unit -> bool
 
 val clear : unit -> unit
 
+(** Push a modal onto the stack.
+
+    @param commit_on List of keys that close the modal with [`Commit] outcome.
+      Pass an empty list [[]] if the modal should handle its own closing logic
+      (useful for nested modals that open sub-modals on Enter).
+
+    @param cancel_on List of keys that close the modal with [`Cancel] outcome.
+      Pass an empty list [[]] if the modal handles Esc internally.
+
+    @param on_close Callback invoked with the final state and outcome when the
+      modal closes.
+
+    {b Note for nested modals}: If your modal opens another modal when the user
+    presses Enter, use [push] with [commit_on:[]] instead of [push_default].
+    Otherwise, the parent modal will close immediately after the child modal
+    opens, because the key check happens {i after} your [handle_key] is called.
+*)
 val push :
   (module Tui_page.PAGE_SIG with type state = 's) ->
   init:'s ->
@@ -31,11 +48,26 @@ val push :
 
 val handle_key : string -> unit
 
-(* Convenience wrapper: push with sensible defaults for UI and keys.
-  - title: modal title shown in header
-  - left/max_width/dim_background: optional ui overrides
-  - commit_on/cancel_on: default to ["Enter"] / ["Esc"]
-  This avoids repeating the common ui/keys boilerplate at call sites.
+(** Convenience wrapper: push with sensible defaults.
+
+    Automatically sets [commit_on:["Enter"]] and [cancel_on:["Esc"]].
+    This avoids repeating the common boilerplate at call sites.
+
+    {b ⚠ Warning}: If your modal handles [Enter] internally (e.g., to open a
+    nested modal), use [push] with [commit_on:[]] instead. Otherwise, the parent
+    modal will close immediately after your [handle_key] processes the Enter key,
+    because the modal manager checks [commit_on] {i after} calling [handle_key].
+
+    For nested modals, you typically want:
+    {[
+      Modal_manager.push
+        (module My_modal)
+        ~init:state
+        ~ui:{title = "Parent"; ...}
+        ~commit_on:[]   (* Don't auto-close on Enter *)
+        ~cancel_on:[]   (* Handle Esc manually *)
+        ~on_close:(fun s outcome -> ...)
+    ]}
 *)
 val push_default :
   (module Tui_page.PAGE_SIG with type state = 's) ->
@@ -49,12 +81,46 @@ val set_current_size : int -> int -> unit
 (* Get the last known terminal size (rows, cols) as published by the driver. *)
 val get_current_size : unit -> int * int
 
-(* Mark that the next key used to close a modal should be consumed by the
-  driver and not propagated to the underlying page. *)
+(** Prevent key propagation when closing a modal.
+
+    When you programmatically close a modal from within [handle_key] (e.g., when
+    the user presses Enter or Esc), call this function {i before} calling
+    [close_top] to prevent that key from propagating to the parent modal or
+    underlying page.
+
+    {b Why you need this}: When a modal closes, the key that triggered the close
+    is by default passed to the underlying page/modal. If you close a nested
+    modal on Enter, without calling [set_consume_next_key], the parent modal
+    will also receive that Enter key, potentially triggering unwanted behavior.
+
+    {b Typical pattern}:
+    {[
+      let handle_key state ~key ~size =
+        match key with
+        | "Enter" ->
+            Modal_manager.set_consume_next_key () ;
+            Modal_manager.close_top `Commit ;
+            state
+        | "Esc" ->
+            Modal_manager.set_consume_next_key () ;
+            Modal_manager.close_top `Cancel ;
+            state
+        | _ -> handle_other_key state key
+    ]}
+
+    The flag is automatically cleared after being consumed by the driver.
+*)
 val set_consume_next_key : unit -> unit
 
-(* Read and clear the consume-next-key flag. Returns true exactly once after
-  it was set. *)
+(** Read and clear the consume-next-key flag.
+
+    Returns [true] exactly once after [set_consume_next_key] was called.
+    This is used internally by the driver to determine if a key should be
+    consumed instead of propagated to the underlying page.
+
+    You typically don't need to call this function yourself unless you're
+    implementing custom modal handling logic.
+*)
 val take_consume_next_key : unit -> bool
 
 (* Access the UI metadata for the top-most modal, if any. *)
@@ -63,8 +129,18 @@ val top_ui_opt : unit -> ui option
 (* Return the title of the top-most modal, if any. *)
 val top_title_opt : unit -> string option
 
-(* Programmatically close the top-most modal with the given outcome, invoking
-  its on_close callback. No-op if no modal is active. *)
+(** Programmatically close the top-most modal.
+
+    Removes the top modal from the stack and invokes its [on_close] callback
+    with the final state and the specified outcome. No-op if no modal is active.
+
+    {b Important}: When calling this from within [handle_key], remember to call
+    [set_consume_next_key ()] first to prevent the key from propagating to the
+    parent modal or underlying page. See [set_consume_next_key] for details.
+
+    @param outcome Either [`Commit] or [`Cancel], passed to the modal's
+      [on_close] callback to indicate how the modal was closed.
+*)
 val close_top : outcome -> unit
 
 (* Higher-level convenience helpers. These are thin wrappers around existing

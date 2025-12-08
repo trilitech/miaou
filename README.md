@@ -251,6 +251,204 @@ The `Help_hint` module automatically handles responsive help text: it provides s
 
 See `src/miaou_core/help_hint.mli` for the complete API documentation.
 
+Working with Modals
+-------------------
+
+MIAOU provides a flexible modal system through the `Modal_manager` module. Modals are stacked overlays that can be used for forms, dialogs, and confirmations.
+
+### Basic Modal Usage
+
+The simplest way to open a modal is with `push_default`:
+
+```ocaml
+module My_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
+  type state = Miaou_widgets_input.Textbox_widget.t
+
+  let init () =
+    Miaou_widgets_input.Textbox_widget.open_centered
+      ~title:"Enter your name"
+      ~width:40
+      ()
+
+  let view state ~focus ~size =
+    Miaou_widgets_input.Textbox_widget.render state ~focus:true
+
+  let handle_key state ~key ~size =
+    Miaou_widgets_input.Textbox_widget.handle_key state ~key
+
+  (* ... other PAGE_SIG methods ... *)
+end
+
+(* Open the modal *)
+Modal_manager.push_default
+  (module My_modal)
+  ~init:(My_modal.init ())
+  ~ui:{title = "Input"; left = None; max_width = None; dim_background = true}
+  ~on_close:(fun state outcome ->
+    match outcome with
+    | `Commit -> Printf.printf "Got: %s\n" (Textbox_widget.get_text state)
+    | `Cancel -> Printf.printf "Cancelled\n")
+```
+
+`push_default` automatically:
+- Closes the modal with `Commit` when the user presses **Enter**
+- Closes the modal with `Cancel` when the user presses **Esc**
+
+### Nested Modals
+
+**⚠ Important**: If your modal needs to open another modal when the user presses Enter (or handle Enter internally for any reason), **do NOT use `push_default`**. Instead, use `push` with empty `commit_on` and `cancel_on` lists:
+
+```ocaml
+(* Parent modal that opens a child modal on Enter *)
+let handle_key state ~key ~size =
+  match key with
+  | "Enter" ->
+      (* Open a child modal *)
+      Modal_manager.push
+        (module Child_modal)
+        ~init:(Child_modal.init ())
+        ~ui:{title = "Child"; ...}
+        ~commit_on:[]   (* Don't auto-close on Enter! *)
+        ~cancel_on:[]   (* Handle Esc manually *)
+        ~on_close:(fun child_state outcome -> ...) ;
+      state
+  | "Esc" ->
+      (* Close this modal manually *)
+      Modal_manager.set_consume_next_key () ;
+      Modal_manager.close_top `Cancel ;
+      state
+  | _ -> (* handle other keys *) state
+
+(* Push the parent modal *)
+Modal_manager.push
+  (module Parent_modal)
+  ~init:(Parent_modal.init ())
+  ~ui:{title = "Parent"; ...}
+  ~commit_on:[]   (* Empty: we handle Enter ourselves *)
+  ~cancel_on:[]   (* Empty: we handle Esc ourselves *)
+  ~on_close:(fun state outcome -> ...)
+```
+
+**Why this matters**: The modal manager checks `commit_on`/`cancel_on` **after** calling your `handle_key` function. If you use `push_default` (which sets `commit_on:["Enter"]`), when you press Enter:
+
+1. Your `handle_key` processes the Enter and opens the child modal
+2. The modal manager sees Enter is in `commit_on` and immediately closes the parent
+3. Result: The parent modal disappears right after the child opens!
+
+### Preventing Key Propagation
+
+When you programmatically close a modal from within `handle_key`, call `set_consume_next_key()` **before** `close_top` to prevent the key from propagating to the underlying page or parent modal:
+
+```ocaml
+let handle_key state ~key ~size =
+  match key with
+  | "Enter" ->
+      Modal_manager.set_consume_next_key () ;  (* Consume the Enter key *)
+      Modal_manager.close_top `Commit ;
+      state
+  | "Esc" ->
+      Modal_manager.set_consume_next_key () ;  (* Consume the Esc key *)
+      Modal_manager.close_top `Cancel ;
+      state
+  | _ -> state
+```
+
+Without `set_consume_next_key()`, the Enter or Esc key that closed your modal would be passed to the parent modal or underlying page, potentially triggering unintended behavior.
+
+### Complete Nested Modal Example
+
+Here's a full working example of a parent modal that opens a confirmation dialog:
+
+```ocaml
+(* Confirmation dialog (child modal) *)
+module Confirm_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
+  type state = string  (* The confirmation message *)
+
+  let init message = message
+
+  let view message ~focus ~size =
+    message ^ "\n\nPress Enter to confirm, Esc to cancel"
+
+  let handle_key state ~key ~size =
+    match key with
+    | "Enter" ->
+        Modal_manager.set_consume_next_key () ;
+        Modal_manager.close_top `Commit ;
+        state
+    | "Esc" ->
+        Modal_manager.set_consume_next_key () ;
+        Modal_manager.close_top `Cancel ;
+        state
+    | _ -> state
+
+  (* ... other PAGE_SIG methods ... *)
+end
+
+(* Form modal (parent modal) *)
+module Form_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
+  type state = {
+    textbox : Miaou_widgets_input.Textbox_widget.t ;
+    waiting_confirmation : bool ;
+  }
+
+  let init () = {
+    textbox = Textbox_widget.open_centered ~width:40 () ;
+    waiting_confirmation = false ;
+  }
+
+  let handle_key state ~key ~size =
+    if state.waiting_confirmation then
+      state  (* Child modal is handling input *)
+    else
+      match key with
+      | "Enter" ->
+          (* Open confirmation dialog *)
+          Modal_manager.push
+            (module Confirm_modal)
+            ~init:"Submit this form?"
+            ~ui:{title = "Confirm"; left = None; max_width = Some 50; dim_background = true}
+            ~commit_on:[]
+            ~cancel_on:[]
+            ~on_close:(fun _ outcome ->
+              match outcome with
+              | `Commit ->
+                  (* User confirmed - close the form *)
+                  Modal_manager.set_consume_next_key () ;
+                  Modal_manager.close_top `Commit
+              | `Cancel ->
+                  (* User cancelled - stay in form *)
+                  ()) ;
+          {state with waiting_confirmation = true}
+      | "Esc" ->
+          Modal_manager.set_consume_next_key () ;
+          Modal_manager.close_top `Cancel ;
+          state
+      | _ ->
+          {state with textbox = Textbox_widget.handle_key state.textbox ~key}
+
+  let view state ~focus ~size =
+    Textbox_widget.render state.textbox ~focus
+
+  (* ... other PAGE_SIG methods ... *)
+end
+```
+
+### Quick Reference
+
+**Use `push_default` when**:
+- Simple modals that just accept/cancel input
+- No nested modals
+- Default Enter/Esc behavior is sufficient
+
+**Use `push` with `commit_on:[]` and `cancel_on:[]` when**:
+- Your modal opens nested modals
+- You need custom Enter/Esc handling
+- You want full control over modal closing
+
+**Always call `set_consume_next_key()` before `close_top`** when closing modals from within `handle_key`.
+
+For more details, see `src/miaou_core/modal_manager.mli` and the examples in `example/demo_lib.ml`.
+
 Configuration & options
 -----------------------
 
