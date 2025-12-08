@@ -10,6 +10,7 @@ module Modal_renderer = Miaou_internals.Modal_renderer
 module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
 module Page_transition_utils = Page_transition_utils
+module Pager_notify = Pager_notify
 
 module Modal_utils = struct
   let render_with_modal_overlay ~view ~rows ~cols =

@@ -235,15 +235,13 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
      flag which the main loop polls; when seen, the main loop performs the
      render from the main thread. This prevents unsafe cross-thread UI
      calls while keeping responsiveness. *)
-    (* Pager notify mechanism: use an atomic timestamp and debounce so bursts of
-    background notifications are coalesced. The notifier will set the
-    timestamp to Unix.gettimeofday(); the main loop will only emit a
-    Refresh when now - last_notify >= pager_notify_debounce_s. *)
-    let pager_last_notify = Atomic.make 0.0 in
-    let pager_notify_debounce_s = 0.08 in
+    (* Use the common Pager_notify module for debounced background updates *)
+    let pager_notifier =
+      Driver_common.Pager_notify.create ~debounce_s:0.08 ()
+    in
 
     let notify_render_from_pager_flag () =
-      Atomic.set pager_last_notify (Unix.gettimeofday ())
+      Driver_common.Pager_notify.notify pager_notifier
     in
 
     (* Buffered reader using Unix.read: keep a pending string of bytes read from
@@ -258,8 +256,6 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     let current_key_stack_ref : Khs.t ref = ref Khs.empty in
     (* Handle for the page frame we push into the key handler stack, so we can replace it each loop. *)
     let page_frame_handle : Khs.handle option ref = ref None in
-    (* Expose pager_last_notify to the local scope so read_key_blocking can poll it. *)
-    let pager_last_notify = pager_last_notify in
     let pending = ref "" in
     (* Helper: detect whether the transient narrow modal is currently active. *)
     let is_narrow_modal_active () =
@@ -293,12 +289,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           `Refresh)
         else
           (* If a background append requested a render, service it as a refresh
-           tick but only when the last notify timestamp is older than the
-           debounce window. This coalesces bursts from background threads. *)
-          let last = Atomic.get pager_last_notify in
-          let now = Unix.gettimeofday () in
-          if last > 0. && now -. last >= pager_notify_debounce_s then (
-            Atomic.set pager_last_notify 0.0 ;
+           tick but only when the debounce window has elapsed.
+           This coalesces bursts from background threads. *)
+          if Driver_common.Pager_notify.should_refresh pager_notifier then (
+            Driver_common.Pager_notify.mark_refreshed pager_notifier ;
             `Refresh)
           else (
             (* Ensure at least one byte: wait a short time; if none, emit a refresh tick to drive pages. *)

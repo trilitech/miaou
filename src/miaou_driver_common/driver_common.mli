@@ -27,6 +27,9 @@ end
 (** Page transition utilities *)
 module Page_transition_utils : module type of Page_transition_utils
 
+(** Pager notification utilities for debounced background updates *)
+module Pager_notify : module type of Pager_notify
+
 (** Signature for backend-specific driver implementations *)
 module type DRIVER_BACKEND = sig
   type size = {rows : int; cols : int}
