@@ -48,16 +48,25 @@ let calculate_bounds t =
   in
   (min_val, max_val)
 
+let color_name_to_ansi = function
+  | "green" -> "32"
+  | "red" -> "31"
+  | "yellow" -> "33"
+  | "blue" -> "34"
+  | "magenta" -> "35"
+  | "cyan" -> "36"
+  | code -> code
+
 let get_color ~thresholds ~default_color (value, bar_color) =
   let sorted_thresholds =
     List.sort (fun a b -> Float.compare b.value a.value) thresholds
   in
   match bar_color with
-  | Some c -> Some c
+  | Some c -> Some (color_name_to_ansi c)
   | None -> (
       match List.find_opt (fun t -> value > t.value) sorted_thresholds with
-      | Some t -> Some t.color
-      | None -> default_color)
+      | Some t -> Some (color_name_to_ansi t.color)
+      | None -> Option.map color_name_to_ansi default_color)
 
 let render t ~show_values ?(thresholds = []) () =
   if t.data = [] then ""
