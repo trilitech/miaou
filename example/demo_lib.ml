@@ -2608,6 +2608,417 @@ This demo shows daily sales. Press Space to randomize data.
 
   let back s = go_home s
 
+  let has_modal _ = false
+end
+
+module Qr_code_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module QR = Miaou_widgets_display.Qr_code_widget
+
+  let tutorial_markdown =
+    {|
+# QR Code Widgets
+
+QR codes encode text or URLs into scannable 2D barcodes. Useful for sharing links, configuration, or data.
+
+## Usage Pattern
+
+```ocaml
+match Qr_code_widget.create ~data:"https://example.com" ~scale:2 () with
+| Ok qr ->
+    let output = Qr_code_widget.render qr ~focus:true in
+    print_endline output
+| Error err ->
+    Printf.eprintf "QR generation failed: %s\n" err
+```
+
+## Key Features
+
+- **Automatic error correction**: Built-in error correction (M level by default)
+- **Version auto-selection**: Automatically chooses QR version based on data size
+- **Scale parameter**: Control visual size (1-4x recommended for terminal)
+- **Quiet zone**: Automatic 4-module border as per QR spec
+- **Terminal-friendly**: Uses block characters (█) for terminal display
+
+## Integration Tips
+
+- Use `update_data` to change QR content dynamically
+- Scale of 1 for compact display, 2-3 for easy scanning
+- Combine with modals for "Share" functionality
+- Check return value - data might be too large for QR encoding
+
+## Use Cases
+
+- Share URLs or configuration in TUI apps
+- Display API keys or tokens for mobile capture
+- Quick data transfer to mobile devices
+- 2FA setup flows (TOTP secrets)
+
+This demo shows QR codes for different types of data. Press 1-4 to switch between examples.
+|}
+
+  type example = {label : string; data : string}
+
+  type state = {
+    examples : example list;
+    current : int;
+    next_page : string option;
+  }
+
+  type msg = unit
+
+  let examples =
+    [
+      {label = "URL"; data = "miaou.dev"};
+      {label = "Text"; data = "MIAOU"};
+      {label = "Number"; data = "12345"};
+      {label = "Email"; data = "hi@miaou.dev"};
+    ]
+
+  let init () = {examples; current = 0; next_page = None}
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "QR Code Demo" in
+
+    let example = List.nth s.examples s.current in
+    let qr_result = QR.create ~data:example.data ~scale:1 () in
+
+    let qr_lines =
+      match qr_result with
+      | Ok qr -> String.split_on_char '\n' (QR.render qr ~focus:true)
+      | Error err -> ["QR Error: " ^ err]
+    in
+
+    (* Info panel to display on the right *)
+    let info_lines =
+      [
+        W.bold
+          (Printf.sprintf
+             "Example %d/%d"
+             (s.current + 1)
+             (List.length s.examples));
+        "";
+        W.bold "Type: " ^ example.label;
+        W.bold "Data: " ^ W.dim example.data;
+        "";
+        "Scan this QR code with";
+        "your phone's camera to";
+        "access the content.";
+        "";
+        W.dim "Keys:";
+        W.dim "  1-4: Switch example";
+        W.dim "  ?: Help";
+        W.dim "  q: Back";
+      ]
+    in
+
+    (* Combine QR code and info side by side *)
+    let max_lines = max (List.length qr_lines) (List.length info_lines) in
+    let combined_lines = ref [] in
+    for i = 0 to max_lines - 1 do
+      let qr_part =
+        if i < List.length qr_lines then List.nth qr_lines i else ""
+      in
+      let info_part =
+        if i < List.length info_lines then "  " ^ List.nth info_lines i else ""
+      in
+      combined_lines := (qr_part ^ info_part) :: !combined_lines
+    done ;
+
+    String.concat "\n" (header :: List.rev !combined_lines)
+
+  let handle_key s key_str ~size:_ =
+    match key_str with
+    | "1" -> {s with current = 0}
+    | "2" -> {s with current = 1}
+    | "3" -> {s with current = 2}
+    | "4" -> {s with current = 3}
+    | "?" ->
+        let () =
+          show_tutorial_modal
+            ~title:"QR Code Tutorial"
+            ~markdown:tutorial_markdown
+        in
+        s
+    | "q" -> {s with next_page = Some launcher_page_name}
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap _ = []
+
+  let back s = {s with next_page = Some launcher_page_name}
+
+  let has_modal _ = false
+end
+
+module Image_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Img = Miaou_widgets_display.Image_widget
+
+  let tutorial_markdown =
+    {|
+# Image Widgets
+
+Display images in the terminal using Unicode half-blocks (▀ ▄) with ANSI colors.
+
+## Usage Pattern
+
+```ocaml
+match Image_widget.load_from_file "logo.png" ~max_width:80 ~max_height:24 () with
+| Ok img ->
+    let output = Image_widget.render img ~focus:true in
+    print_endline output
+| Error err ->
+    Printf.eprintf "Failed to load: %s\n" err
+```
+
+## Key Features
+
+- **Format support**: PNG, BMP, PPM, PGM, PBM (via imagelib)
+- **Aspect ratio preservation**: Automatically scales while maintaining proportions
+- **Half-block rendering**: 2 pixels per character cell for better resolution
+- **ANSI 256-color**: Maps RGB to closest terminal colors
+- **Memory efficiency**: Nearest-neighbor scaling, minimal allocations
+
+## Rendering Details
+
+Terminal rendering uses Unicode half-blocks:
+- **▀** (upper half) - shows top pixel, bottom pixel in foreground and background colors
+- **█** (full block) - when both pixels same color
+- Achieves 2x vertical resolution vs simple character art
+
+## Integration Tips
+
+- Call `load_from_file` once, cache the result
+- Use `max_width`/`max_height` to fit terminal size
+- For dynamic resizing, reload on terminal size change
+- Consider showing loading state for large images
+
+## Use Cases
+
+- Display logos or branding in TUI apps
+- Show charts/graphs exported as images
+- Preview image files in file browsers
+- Display user avatars or thumbnails
+
+This demo shows both file loading (PNG) and procedural image generation.
+|}
+
+  type display_mode = Logo | Gradient
+
+  type state = {
+    mode : display_mode;
+    next_page : string option;
+    logo_image : (Img.t, string) result option; (* Cached logo *)
+    mutable logo_widget : Miaou_widgets_display.Image_widget.t option;
+        (* Cached widget with frame tracking *)
+    mutable gradient_widget : Miaou_widgets_display.Image_widget.t option;
+  }
+
+  type msg = KeyPressed of string
+
+  let init () =
+    (* Pre-load logo at init time to enable caching *)
+    let logo_result =
+      let module W = Miaou_widgets_display.Widgets in
+      let img_width, img_height =
+        match W.get_backend () with `Terminal -> (50, 25) | `Sdl -> (600, 450)
+      in
+      let logo_path =
+        match W.get_backend () with
+        | `Terminal -> "cropped_miaou_image_small.png"
+        | `Sdl -> "miaou_image_sdl_small.png"
+      in
+      Img.load_from_file
+        logo_path
+        ~max_width:img_width
+        ~max_height:img_height
+        ()
+    in
+    {
+      mode = Logo;
+      next_page = None;
+      logo_image = Some logo_result;
+      logo_widget = None;
+      gradient_widget = None;
+    }
+
+  let update s = function
+    | KeyPressed ("escape" | "Esc") -> {s with next_page = Some launcher_page_name}
+    | KeyPressed _ -> s
+
+  (* Create a simple gradient image *)
+  let create_gradient_image width height =
+    let rgb_data = Bytes.create (width * height * 3) in
+    for y = 0 to height - 1 do
+      for x = 0 to width - 1 do
+        let offset = ((y * width) + x) * 3 in
+        (* Rainbow gradient *)
+        let r = x * 255 / width in
+        let g = y * 255 / height in
+        let b = (x + y) * 255 / (width + height) in
+        Bytes.set rgb_data offset (Char.chr r) ;
+        Bytes.set rgb_data (offset + 1) (Char.chr g) ;
+        Bytes.set rgb_data (offset + 2) (Char.chr b)
+      done
+    done ;
+    Img.create_from_rgb ~width ~height ~rgb_data ()
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "Image Widget Demo" in
+
+    (* Image dimensions: constrain for TUI, reasonable for SDL *)
+    let img_width, img_height =
+      match W.get_backend () with
+      | `Terminal -> (50, 25) (* Constrained for TUI layout *)
+      | `Sdl -> (600, 450)
+      (* Smaller for responsive SDL *)
+    in
+
+    let img_display, img_info =
+      match s.mode with
+      | Logo ->
+          (* Check if SDL context is disabled (during transition capture) *)
+          let sdl_context =
+            Miaou_widgets_display.Sdl_chart_context.get_context ()
+          in
+          let in_transition = W.get_backend () = `Sdl && sdl_context = None in
+
+          if in_transition then
+            (* During transition - use lightweight placeholder *)
+            ("", "Loading...")
+          else
+            (* Use or create cached widget *)
+            let widget =
+              match s.logo_widget with
+              | Some w -> w
+              | None -> (
+                  let img_result =
+                    match s.logo_image with
+                    | Some result -> result
+                    | None -> Error "Image not loaded at init"
+                  in
+                  match img_result with
+                  | Ok img ->
+                      s.logo_widget <- Some img ;
+                      img
+                  | Error _ ->
+                      let img = create_gradient_image img_width img_height in
+                      s.logo_widget <- Some img ;
+                      img)
+            in
+            let w, h = Img.get_dimensions widget in
+            let backend_info =
+              match W.get_backend () with
+              | `Terminal ->
+                  "TUI (cropped)\nUnicode half-blocks (▀▄)\nANSI 256-color"
+              | `Sdl -> "SDL (full image)\nDirect pixel rendering"
+            in
+            ( Img.render widget ~focus:true,
+              Printf.sprintf
+                "MIAOU Logo\nDisplayed: %d×%d\n\n%s"
+                w
+                h
+                backend_info )
+      | Gradient ->
+          let widget =
+            match s.gradient_widget with
+            | Some w -> w
+            | None ->
+                let img = create_gradient_image img_width img_height in
+                s.gradient_widget <- Some img ;
+                img
+          in
+          ( Img.render widget ~focus:true,
+            Printf.sprintf
+              "Procedural Gradient\nGenerated: %d×%d pixels\nRGB interpolation"
+              img_width
+              img_height )
+    in
+
+    let mode_label =
+      match s.mode with
+      | Logo -> W.bold "1: Logo (current)"
+      | Gradient -> "1: Logo"
+    in
+    let gradient_label =
+      match s.mode with
+      | Logo -> "2: Gradient"
+      | Gradient -> W.bold "2: Gradient (current)"
+    in
+
+    (* Side-by-side layout: image on left, details on right *)
+    let img_lines = String.split_on_char '\n' img_display in
+    let info_lines = String.split_on_char '\n' img_info in
+    let max_img_lines = List.length img_lines in
+
+    let combined_lines = ref [] in
+    for i = 0 to max_img_lines - 1 do
+      let img_line =
+        if i < List.length img_lines then List.nth img_lines i else ""
+      in
+      let info_line =
+        if i < List.length info_lines then "  │ " ^ List.nth info_lines i
+        else ""
+      in
+      combined_lines := (img_line ^ info_line) :: !combined_lines
+    done ;
+
+    let combined = String.concat "\n" (List.rev !combined_lines) in
+
+    let instructions =
+      W.dim (mode_label ^ " | " ^ gradient_label ^ " | ?: help | q: back")
+    in
+
+    String.concat "\n\n" [header; combined; instructions]
+
+  let handle_key s key_str ~size:_ =
+    let s = update s (KeyPressed key_str) in
+    match key_str with
+    | "1" -> {s with mode = Logo}
+    | "2" -> {s with mode = Gradient}
+    | "?" ->
+        let () =
+          show_tutorial_modal
+            ~title:"Image Widget Tutorial"
+            ~markdown:tutorial_markdown
+        in
+        s
+    | "q" -> {s with next_page = Some launcher_page_name}
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap _ = []
+
+  let back s = {s with next_page = Some launcher_page_name}
 
   let has_modal _ = false
 end
@@ -2871,6 +3282,20 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           goto
             "demo_system_monitor"
             (module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "QR Code";
+        open_demo =
+          goto
+            "demo_qr_code"
+            (module Qr_code_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Image";
+        open_demo =
+          goto
+            "demo_image"
+            (module Image_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
       };
     ]
 

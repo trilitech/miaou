@@ -14,6 +14,8 @@
   bar_chart_widget
   chart_utils
   sdl_chart_context
+  qr_code_widget
+  qr_code_widget_sdl
   image_widget
   image_widget_sdl
   widgets
