@@ -40,11 +40,14 @@ let setup_and_cleanup () =
            "\027[?1000l\027[?1002l\027[?1003l\027[?1005l\027[?1006l\027[?1015l" ;
          (* Also send a hard reset sequence as fallback *)
          print_string "\027[?1000l\027[?1006l" ;
+         (* Force multiple flushes to ensure escape sequences go through *)
          Stdlib.flush stdout ;
-         Stdlib.flush stdout
+         Stdlib.flush stderr ;
+         (* Write directly to terminal to ensure it gets through *)
+         ignore (Unix.write Unix.stdout (Bytes.of_string "\027[?1000l\027[?1006l") 0 18)
        with _ -> ()) ;
       (* Small delay to ensure escape sequences are processed *)
-      (try Unix.sleepf 0.05 with _ -> ()) ;
+      (try Unix.sleepf 0.1 with _ -> ()) ;
       try restore () with _ -> ())
   in
   let install_signal_handlers () =
