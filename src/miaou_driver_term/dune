@@ -1,12 +1,21 @@
 (library
  (name miaou_driver_term)
  (public_name miaou.driver.term)
- (modules lambda_term_driver)
+ (modules
+  lambda_term_driver
+  term_events
+  term_test_runner
+  term_size_detection
+  term_terminal_setup
+  term_renderer
+  term_render
+  term_event_reader)
  (instrumentation
   (backend bisect_ppx))
  (libraries
   miaou.core
   miaou.helpers
+  miaou.driver-common
   miaou.interfaces
   miaou.internals
   miaou.widgets.display

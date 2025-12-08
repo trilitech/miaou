@@ -16,6 +16,7 @@ module Modal_manager = Miaou_core.Modal_manager
 module Narrow_modal = Miaou_core.Narrow_modal
 module Quit_flag = Miaou_core.Quit_flag
 module Help_hint = Miaou_core.Help_hint
+module Driver_common = Miaou_driver_common.Driver_common
 
 (* Persistent session flags *)
 let narrow_warned = ref false
@@ -28,8 +29,9 @@ let available = true
 
 let size () = (Obj.magic 0 : t)
 
-(* Internal key type used by the driver. *)
-type driver_key =
+module Events = Term_events
+
+type driver_key = Events.driver_key =
   | Quit
   | Refresh
   | Enter
@@ -41,124 +43,18 @@ type driver_key =
   | Right
   | Other of string
 
-let clear () =
-  print_string "\027[2J\027[H" ;
-  Stdlib.flush stdout
+let clear = Events.clear
 
-(* top-level reader removed; a local reader is used inside run_with_page to allow
-  buffered read of escape sequences specific to the interactive driver. *)
-(* Other imports and module definitions *)
-
-(* Test helper: deterministic runner with injected key source, bypassing TTY setup. *)
-let run_with_key_source_for_tests ~read_key (module Page : PAGE_SIG) :
-    [`Quit | `SwitchTo of string] =
-  let default_size = {LTerm_geom.rows = 24; cols = 80} in
-  let rec loop st =
-    match (read_key () : driver_key) with
-    | Quit -> `Quit
-    | Refresh -> (
-        let st' = Page.service_cycle st 0 in
-        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
-    | Enter -> (
-        if Modal_manager.has_active () then (
-          Modal_manager.handle_key "Enter" ;
-          let st' = Page.refresh st in
-          if Modal_manager.take_consume_next_key () then
-            if not (Modal_manager.has_active ()) then
-              let st'' = Page.service_cycle st' 0 in
-              match Page.next_page st'' with
-              | Some p -> `SwitchTo p
-              | None -> loop st''
-            else loop st'
-          else if not (Modal_manager.has_active ()) then
-            let st'' = Page.service_cycle st' 0 in
-            match Page.next_page st'' with
-            | Some p -> `SwitchTo p
-            | None -> loop st''
-          else loop st')
-        else
-          match Page.next_page st with
-          | Some p -> `SwitchTo p
-          | None -> (
-              let st' = Page.enter st in
-              match Page.next_page st' with
-              | Some p -> `SwitchTo p
-              | None -> loop st'))
-    | Up | Down | Left | Right | NextPage | PrevPage ->
-        (* For test purposes, treat navigation keys as no-ops. *)
-        loop st
-    | Other key -> (
-        let st' = Page.handle_key st key ~size:default_size in
-        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
-  in
-  Modal_manager.clear () ;
-  let st0 = Page.init () in
-  loop st0
+let run_with_key_source_for_tests = Term_test_runner.run_with_key_source
 
 let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
   let run_with_page (module Page : PAGE_SIG) =
     (* Ensure widgets render with terminal-friendly glyphs when using the lambda-term backend. *)
     Miaou_widgets_display.Widgets.set_backend `Terminal ;
-    let fd = Unix.descr_of_in_channel stdin in
-
-    if not (try Unix.isatty fd with _ -> false) then
-      failwith "interactive TUI requires a terminal" ;
-    let orig = try Some (Unix.tcgetattr fd) with _ -> None in
-    let enter_raw () =
-      match orig with
-      | None -> ()
-      | Some o ->
-          let raw =
-            {
-              o with
-              Unix.c_icanon = false;
-              Unix.c_echo = false;
-              Unix.c_vmin = 1;
-              Unix.c_vtime = 0;
-            }
-          in
-          Unix.tcsetattr fd Unix.TCSANOW raw
+    let fd, enter_raw, cleanup, install_signal_handlers =
+      Term_terminal_setup.setup_and_cleanup ()
     in
-    let restore () =
-      match orig with None -> () | Some o -> Unix.tcsetattr fd Unix.TCSANOW o
-    in
-    (* Ensure terminal is restored and mouse tracking disabled on any exit path. *)
-    let cleanup_done = ref false in
-    let cleanup () =
-      if not !cleanup_done then (
-        (* Disable xterm mouse tracking modes. We only enable 1000/1006 here,
-           but also disable 1002/1003/1005/1015 defensively in case they were
-           toggled by an earlier run or a different program. *)
-        (try
-           print_string
-             "\027[?1000l\027[?1002l\027[?1003l\027[?1005l\027[?1006l\027[?1015l" ;
-           Stdlib.flush stdout
-         with _ -> ()) ;
-        (* Restore original termios if available. *)
-        (try restore () with _ -> ()) ;
-        cleanup_done := true)
-    in
-    (* Register process-exit cleanup and trap a few common termination signals. *)
     let () = at_exit cleanup in
-    let install_signal_handlers () =
-      let set sigv =
-        try
-          Sys.set_signal
-            sigv
-            (Sys.Signal_handle
-               (fun _sig ->
-                 (* Best-effort cleanup then terminate. *)
-                 (try cleanup () with _ -> ()) ;
-                 (* Exit with a conventional non-zero status. *)
-                 exit 130))
-        with _ -> ()
-      in
-      (* Linux: INT (C-c), TERM, HUP, QUIT; ignore failures on platforms without some signals. *)
-      set Sys.sigint ;
-      set Sys.sigterm ;
-      (try set Sys.sighup with _ -> ()) ;
-      try set Sys.sigquit with _ -> ()
-    in
     install_signal_handlers () ;
     (* Track terminal resizes via SIGWINCH to force immediate refresh. *)
     let resize_pending = Atomic.make false in
@@ -180,154 +76,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
        First, try lambda-term directly (in-process, no subprocess TTY issues).
        Then fall back to external tools. Avoid touching stdin to not interfere
        with input handling. *)
-    let detect_size () =
-      (* Highest-priority: ask lambda-term for the current terminal size. This
-         works even when subprocess stdio are pipes (e.g., when capturing output),
-         where `stty` would fail. *)
-      let try_lterm () =
-        try
-          (* Obtain the terminal handle and ask lambda-term for its size. *)
-          let term = Lwt_main.run (Lazy.force LTerm.stdout) in
-          let sz = LTerm.size term in
-          Some {LTerm_geom.rows = sz.LTerm_geom.rows; cols = sz.LTerm_geom.cols}
-        with _ -> None
-      in
-      (* Highest-priority: allow explicit overrides for debugging or constrained environments. *)
-      let try_env_override () =
-        match
-          (Sys.getenv_opt "MIAOU_TUI_ROWS", Sys.getenv_opt "MIAOU_TUI_COLS")
-        with
-        | Some r, Some c -> (
-            try
-              let rows = int_of_string (String.trim r) in
-              let cols = int_of_string (String.trim c) in
-              Some {LTerm_geom.rows; cols}
-            with _ -> None)
-        | _ -> None
-      in
-      let try_stty () =
-        try
-          let sys = Miaou_interfaces.System.require () in
-          (* Prefer querying the actual stdout fd which is our drawing surface. *)
-          let try_stdout_fd () =
-            match
-              sys.run_command
-                ~argv:["stty"; "size"; "-F"; "/proc/self/fd/1"]
-                ~cwd:None
-            with
-            | Ok {stdout; _} -> (
-                let trimmed = String.trim stdout in
-                match String.split_on_char ' ' trimmed with
-                | [r; c] ->
-                    let rows = int_of_string r in
-                    let cols = int_of_string c in
-                    Some {LTerm_geom.rows; cols}
-                | _ -> None)
-            | Error _ -> None
-          in
-          match try_stdout_fd () with
-          | Some s -> Some s
-          | None -> (
-              (* Prefer stty size on /dev/tty when available. *)
-              match
-                sys.run_command
-                  ~argv:["stty"; "size"; "-F"; "/dev/tty"]
-                  ~cwd:None
-              with
-              | Ok {stdout; _} -> (
-                  let trimmed = String.trim stdout in
-                  match String.split_on_char ' ' trimmed with
-                  | [r; c] ->
-                      let rows = int_of_string r in
-                      let cols = int_of_string c in
-                      Some {LTerm_geom.rows; cols}
-                  | _ -> None)
-              | Error _ -> (
-                  match sys.run_command ~argv:["stty"; "size"] ~cwd:None with
-                  | Ok {stdout; _} -> (
-                      let trimmed = String.trim stdout in
-                      match String.split_on_char ' ' trimmed with
-                      | [r; c] ->
-                          let rows = int_of_string r in
-                          let cols = int_of_string c in
-                          Some {LTerm_geom.rows; cols}
-                      | _ -> None)
-                  | Error _ -> None))
-        with _ -> None
-      in
-      let try_tput () =
-        try
-          let sys = Miaou_interfaces.System.require () in
-          match sys.run_command ~argv:["tput"; "lines"] ~cwd:None with
-          | Ok {stdout = l; _} -> (
-              match sys.run_command ~argv:["tput"; "cols"] ~cwd:None with
-              | Ok {stdout = c; _} ->
-                  let rows = int_of_string (String.trim l) in
-                  let cols = int_of_string (String.trim c) in
-                  Some {LTerm_geom.rows; cols}
-              | Error _ -> None)
-          | Error _ -> None
-        with _ -> None
-      in
-      let try_stty_a () =
-        let parse_rows_cols s =
-          let open Str in
-          let rgx1 = regexp ".*rows \\([0-9]+\\); columns \\([0-9]+\\).*" in
-          let rgx2 = regexp ".*columns \\([0-9]+\\); rows \\([0-9]+\\).*" in
-          if string_match rgx1 s 0 then
-            let rows = int_of_string (matched_group 1 s) in
-            let cols = int_of_string (matched_group 2 s) in
-            Some {LTerm_geom.rows; cols}
-          else if string_match rgx2 s 0 then
-            let cols = int_of_string (matched_group 1 s) in
-            let rows = int_of_string (matched_group 2 s) in
-            Some {LTerm_geom.rows; cols}
-          else None
-        in
-        try
-          let sys = Miaou_interfaces.System.require () in
-          match
-            sys.run_command ~argv:["stty"; "-a"; "-F"; "/dev/tty"] ~cwd:None
-          with
-          | Ok {stdout; _} -> (
-              match parse_rows_cols stdout with
-              | Some s -> Some s
-              | None -> (
-                  match sys.run_command ~argv:["stty"; "-a"] ~cwd:None with
-                  | Ok {stdout; _} -> parse_rows_cols stdout
-                  | Error _ -> None))
-          | Error _ -> None
-        with _ -> None
-      in
-      let try_env () =
-        match (Sys.getenv_opt "LINES", Sys.getenv_opt "COLUMNS") with
-        | Some r, Some c -> (
-            try
-              let rows = int_of_string (String.trim r) in
-              let cols = int_of_string (String.trim c) in
-              Some {LTerm_geom.rows; cols}
-            with _ -> None)
-        | _ -> None
-      in
-      match try_lterm () with
-      | Some s -> s
-      | None -> (
-          match try_env_override () with
-          | Some s -> s
-          | None -> (
-              match try_stty () with
-              | Some s -> s
-              | None -> (
-                  match try_tput () with
-                  | Some s -> s
-                  | None -> (
-                      match try_stty_a () with
-                      | Some s -> s
-                      | None -> (
-                          match try_env () with
-                          | Some s -> s
-                          | None -> !last_size)))))
-    in
+    let detect_size = Term_size_detection.detect_size in
     let footer_ref : string option ref = ref None in
     let clear_and_render st key_stack =
       (* Log driver render tick using the Miaou TUI logger if available. *)
@@ -443,15 +192,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             hdr ^ body ^ "\n" ^ wrapped_footer
       in
       let out =
-        match
-          Miaou_internals.Modal_renderer.render_overlay
-            ~cols:(Some size.cols)
-            ~base:main_out
-            ~rows:size.rows
-            ()
-        with
-        | Some s -> s
-        | None -> main_out
+        Driver_common.Modal_utils.render_with_modal_overlay
+          ~view:main_out
+          ~rows:size.rows
+          ~cols:size.cols
       in
       (* Trim output to the current terminal rows so height resizing is respected.
        Keep the top of the output and the final footer line when possible. *)
