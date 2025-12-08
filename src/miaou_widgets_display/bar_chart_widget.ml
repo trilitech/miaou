@@ -90,13 +90,14 @@ let render t ~show_values ?(thresholds = []) () =
           let color =
             get_color ~thresholds ~default_color:t.color (value, bar_color)
           in
-          let bar_char = if W.prefer_ascii () then "█" else "█" in
-          let top_char = if W.prefer_ascii () then "▀" else "▀" in
+          let bar_char = if W.prefer_ascii () then "#" else "█" in
+          let top_char = if W.prefer_ascii () then "-" else "▀" in
 
           let segment =
-            if row < bar_height then String.make bar_width bar_char.[0]
+            if row < bar_height then
+              String.concat "" (List.init bar_width (fun _ -> bar_char))
             else if row = bar_height && value > y_val_at_row then
-              String.make bar_width top_char.[0]
+              String.concat "" (List.init bar_width (fun _ -> top_char))
             else String.make bar_width ' '
           in
           let styled_segment =
