@@ -2501,7 +2501,7 @@ Bar charts display values as vertical bars, perfect for comparing categories or 
 ```ocaml
 let data = [
   ("Product A", 1250.0, None);
-  ("Product B", 2100.0, Some "green");
+  ("Product B", 2100.0, Some "32");  (* green ANSI code *)
   ("Product C", 1800.0, None);
   ("Product D", 900.0, None);
 ] in
@@ -2536,9 +2536,9 @@ This demo shows daily sales. Press Space to randomize data.
     [
       ("Monday", 1250.0, None);
       ("Tuesday", 1800.0, None);
-      ("Wednesday", 2100.0, Some "green");
+      ("Wednesday", 2100.0, Some "32");
       ("Thursday", 1650.0, None);
-      ("Friday", 2400.0, Some "green");
+      ("Friday", 2400.0, Some "32");
       ("Saturday", 1900.0, None);
       ("Sunday", 1100.0, None);
     ]
