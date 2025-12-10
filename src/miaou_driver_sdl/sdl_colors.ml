@@ -128,4 +128,7 @@ let parse_ansi_segments ~(default : ansi_state) (s : string) =
   loop 0 [] {fg = default.fg; bg = default.bg}
 
 let strip_ansi_to_text ~default s =
-  parse_ansi_segments ~default s |> List.map snd |> String.concat ""
+  let segments = parse_ansi_segments ~default s in
+  let buf = Buffer.create (String.length s) in
+  List.iter (fun (_, text) -> Buffer.add_string buf text) segments;
+  Buffer.contents buf
