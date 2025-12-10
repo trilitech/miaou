@@ -15,3 +15,9 @@ node_modules/
 /miaou_capture_frames_*.jsonl
 bisect*.out
 _coverage/
+
+# Perf data
+perf-*.data
+perf-*.data.old
+bench-output.txt
+final-bench.txt
