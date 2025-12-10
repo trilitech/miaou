@@ -75,8 +75,9 @@ let add_repeat buf s n =
   done
 
 let pad s w =
-  if visible_chars_count s <= w then
-    s ^ String.make (w - visible_chars_count s) ' '
+  let vis = visible_chars_count s in
+  if vis <= w then
+    s ^ String.make (w - vis) ' '
   else
     let byte_idx = visible_byte_index_of_pos s (max 0 (w - 1)) in
     String.sub s 0 byte_idx ^ "…"
@@ -104,8 +105,9 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
   in
   let inner_w = max 10 (total_w - 4) in
   let pad_cell s w =
-    if visible_chars_count s <= w then
-      s ^ String.make (max 0 (w - visible_chars_count s)) ' '
+    let vis = visible_chars_count s in
+    if vis <= w then
+      s ^ String.make (max 0 (w - vis)) ' '
     else
       let idx = visible_byte_index_of_pos s (max 0 (w - 1)) in
       String.sub s 0 idx ^ "…"
