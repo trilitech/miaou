@@ -180,7 +180,7 @@ let render ?(crop_center = 1.0) t ~focus:_ =
 
       for char_y = 0 to char_height - 1 do
         if char_y > 0 then Buffer.add_char result_buf '\n';
-        
+
         for x = 0 to crop_width - 1 do
           let pixel_y_upper = crop_y + (char_y * 2) in
           let pixel_y_lower = pixel_y_upper + 1 in

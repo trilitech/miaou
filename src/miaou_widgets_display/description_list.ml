@@ -53,8 +53,8 @@ let render ?cols ?(wrap = true) t ~focus:_ =
       | first :: rest ->
           let first_line = key ^ "  " ^ pad first val_width in
           let indent = String.make (key_w + 2) ' ' in
-           let tails = List.map (fun l -> indent ^ pad l val_width) rest in
-           first_line :: tails
+          let tails = List.map (fun l -> indent ^ pad l val_width) rest in
+          first_line :: tails
   in
   let lines = List.concat_map render_item t.items in
   match t.title with
