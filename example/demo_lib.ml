@@ -3452,6 +3452,19 @@ let bench_cases : bench list =
     make_page_case "sparkline" (module Sparkline_demo_page);
     make_page_case "line_chart" (module Line_chart_demo_page);
     make_page_case "bar_chart" (module Bar_chart_demo_page);
+    make_page_case "tree" (module Tree_demo_page);
+    make_page_case "breadcrumbs" (module Breadcrumbs_demo_page);
+    make_page_case "tabs" (module Tabs_demo_page);
+    make_page_case "link" (module Link_demo_page);
+    make_page_case "checkbox" (module Checkbox_demo_page);
+    make_page_case "radio" (module Radio_demo_page);
+    make_page_case "switch" (module Switch_demo_page);
+    make_page_case "button" (module Button_demo_page);
+    make_page_case "validated_textbox" (module Validated_textbox_demo_page);
+    make_page_case "description_list" (module Description_list_demo);
+    make_page_case "card_sidebar" (module Card_sidebar_demo_page);
+    make_page_case "qr_code" (module Qr_code_demo_page);
+    (* Image widget excluded - too slow for benchmarking *)
   ]
 
 let bench_names () = List.map (fun c -> c.name) bench_cases
