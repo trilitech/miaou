@@ -533,7 +533,13 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     else take max_content_h cont_lines []
   in
   let total_h = 2 + (2 * padding) + List.length cont_lines in
-  let repeat n s = String.concat "" (List.init (max 0 n) (fun _ -> s)) in
+  let repeat n s =
+    let buf = Buffer.create (n * String.length s) in
+    for _ = 1 to max 0 n do
+      Buffer.add_string buf s
+    done;
+    Buffer.contents buf
+  in
   let hline = repeat (max 0 inner_area_w) glyph_hline in
   let top_bar_colored =
     match title with
@@ -587,7 +593,14 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     @ List.map pad_line cont_lines
     @ List.map pad_line bot_pad @ [bottom_bar_colored]
   in
-  let boxed_colored = String.concat "\n" boxed_colored_lines in
+  let boxed_colored =
+    let buf = Buffer.create (total_h * (total_w + 1)) in
+    List.iteri (fun i line ->
+      if i > 0 then Buffer.add_char buf '\n';
+      Buffer.add_string buf line)
+      boxed_colored_lines;
+    Buffer.contents buf
+  in
   let base_to_use =
     if dim_background then
       String.concat
