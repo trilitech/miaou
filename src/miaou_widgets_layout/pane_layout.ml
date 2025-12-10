@@ -51,6 +51,27 @@ let split_lines s =
     in
     loop [] 0 0
 
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter (fun l -> Buffer.add_char buf '\n' ; Buffer.add_string buf l) tl ;
+      Buffer.contents buf
+
+let join_two l r =
+  let buf = Buffer.create (String.length l + String.length r + 1) in
+  Buffer.add_string buf l ;
+  Buffer.add_char buf ' ' ;
+  Buffer.add_string buf r ;
+  Buffer.contents buf
+
 let render t width =
   let left_w = max 0 (int_of_float (float width *. t.left_ratio)) in
   let right_w = max 0 (width - left_w - 1) in
@@ -62,6 +83,6 @@ let render t width =
     List.init max_lines (fun i ->
         let l = pad_or_trim (nth_or_empty left_lines i) left_w in
         let r = pad_or_trim (nth_or_empty right_lines i) right_w in
-        String.concat "" [l; " "; r])
+        join_two l r)
   in
-  String.concat "\n" lines
+  concat_lines lines

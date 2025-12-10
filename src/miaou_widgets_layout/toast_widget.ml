@@ -49,6 +49,20 @@ let color_of_sev = function
   | Warn -> W.fg 214
   | Error -> W.fg 196
 
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter (fun l -> Buffer.add_char buf '\n' ; Buffer.add_string buf l) tl ;
+      Buffer.contents buf
+
 let render_line ~cols (msg : string) =
   let visible = W.visible_chars_count msg in
   if visible >= cols then msg
@@ -89,4 +103,4 @@ let render t ~cols =
     | `Top_left | `Top_right -> List.rev base_lines
     | `Bottom_left | `Bottom_right -> base_lines
   in
-  String.concat "\n" (apply_pos ordered)
+  concat_lines (apply_pos ordered)

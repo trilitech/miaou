@@ -10,6 +10,24 @@ let render ~size ~(header : string list) ~(footer : string list)
     ~(child : LTerm_geom.size -> string) : string =
   let rows = size.LTerm_geom.rows in
   let cols = size.LTerm_geom.cols in
+  let concat_lines lines =
+    match lines with
+    | [] -> ""
+    | hd :: tl ->
+        let buf =
+          let est =
+            List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+          in
+          Buffer.create est
+        in
+        Buffer.add_string buf hd ;
+        List.iter
+          (fun l ->
+            Buffer.add_char buf '\n' ;
+            Buffer.add_string buf l)
+          tl ;
+        Buffer.contents buf
+  in
   let sep =
     Miaou_widgets_display.Widgets.fg
       238
@@ -40,6 +58,6 @@ let render ~size ~(header : string list) ~(footer : string list)
       in
       take inner_rows child_lines
   in
-  let child_out = String.concat "\n" child_lines_adjusted in
+  let child_out = concat_lines child_lines_adjusted in
   let parts = header @ [sep] @ [child_out] @ [sep] @ footer in
-  String.concat "\n" parts
+  concat_lines parts

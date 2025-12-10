@@ -33,6 +33,20 @@ let pad s w =
   if visible_chars_count s >= w then trunc_visible w s
   else s ^ String.make (w - visible_chars_count s) ' '
 
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter (fun l -> Buffer.add_char buf '\n' ; Buffer.add_string buf l) tl ;
+      Buffer.contents buf
+
 let render ?cols ?(wrap = true) t ~focus:_ =
   let key_w =
     match t.key_width with
@@ -51,10 +65,16 @@ let render ?cols ?(wrap = true) t ~focus:_ =
       | first :: rest ->
           let first_line = key ^ "  " ^ pad first val_width in
           let indent = String.make (key_w + 2) ' ' in
-          let tails = List.map (fun l -> indent ^ pad l val_width) rest in
-          first_line :: tails
+           let tails = List.map (fun l -> indent ^ pad l val_width) rest in
+           first_line :: tails
   in
   let lines = List.concat_map render_item t.items in
   match t.title with
-  | Some title -> titleize title ^ "\n" ^ String.concat "\n" lines
-  | None -> String.concat "\n" lines
+  | Some title ->
+      let body = concat_lines lines in
+      let buf = Buffer.create (String.length title + String.length body + 1) in
+      Buffer.add_string buf (titleize title) ;
+      Buffer.add_char buf '\n' ;
+      Buffer.add_string buf body ;
+      Buffer.contents buf
+  | None -> concat_lines lines
