@@ -17,23 +17,17 @@ let set_left t s = {t with left = s}
 let set_right t s = {t with right = s}
 
 (* Preserve ANSI escape sequences and UTF-8 visible widths when padding or
-	 trimming. Uses helpers so we don't cut escape sequences and we always append
-	 a reset when truncating to avoid background color bleed into adjacent text. *)
+   trimming. Uses helpers so we don't cut escape sequences and we always append
+   a reset when truncating to avoid background color bleed into adjacent text. *)
 let pad_or_trim s w =
   let module H = Miaou_helpers.Helpers in
   let vis = H.visible_chars_count s in
   if vis = w then s
-  else if vis < w then
-    (* Pad by inserting spaces before trailing reset if present. *)
-    let rec build acc =
-      if H.visible_chars_count acc >= w then acc
-      else build (H.insert_before_reset acc " ")
-    in
-    build s
+  else if vis < w then H.pad_to_width s w ' '
   else
     (* Truncate at visible character boundary to avoid chopping UTF-8 or ANSI
-			 sequences. Ensure we append a reset sequence if the truncation removed
-			 the trailing reset so coloring does not leak to the right pane. *)
+       sequences. Ensure we append a reset sequence if the truncation removed
+       the trailing reset so coloring does not leak to the right pane. *)
     let byte_idx = H.visible_byte_index_of_pos s w in
     let trunc = String.sub s 0 byte_idx in
     if H.has_trailing_reset trunc then trunc else trunc ^ "\027[0m"
