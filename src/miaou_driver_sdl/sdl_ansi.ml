@@ -133,5 +133,5 @@ let strip_ansi_to_text ~default s =
         in
         Buffer.create est
       in
-      List.iter (fun seg -> Buffer.add_string buf seg.text) segments ;
+      List.iter (fun seg -> Buffer.add_string buf seg.text) segments;
       Buffer.contents buf

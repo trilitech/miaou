@@ -20,3 +20,9 @@ val has_trailing_reset : string -> bool
 val insert_before_reset : string -> string -> string
 
 val pad_to_width : string -> int -> char -> string
+
+val concat_lines : string list -> string
+(** Efficiently concatenate lines with newlines using Buffer *)
+
+val concat_with_sep : string -> string list -> string
+(** Efficiently concatenate strings with separator using Buffer *)

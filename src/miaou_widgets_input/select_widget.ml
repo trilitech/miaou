@@ -7,6 +7,8 @@
 (* Select widget: supports both monomorphic string items and a polymorphic API *)
 [@@@warning "-32-34-37-69"]
 
+module Helpers = Miaou_helpers.Helpers
+
 type outer_t = {
   title : string;
   items : string list;
@@ -23,24 +25,6 @@ let move_cursor ~total ~cursor ~delta =
 let page_move ~total ~cursor ~page_size ~dir =
   let delta = match dir with `Up -> -page_size | `Down -> page_size in
   move_cursor ~total ~cursor ~delta
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun l ->
-          Buffer.add_char buf '\n' ;
-          Buffer.add_string buf l)
-        tl ;
-      Buffer.contents buf
 
 let create_inner ?(cursor = 0) ~title ~items () =
   {
@@ -182,7 +166,7 @@ let render_inner
            down);
     ]
   in
-  concat_lines (header @ top_indicator @ body_core @ bottom_indicator @ range_hint)
+  Helpers.concat_lines (header @ top_indicator @ body_core @ bottom_indicator @ range_hint)
 
 (* Polymorphic-by-default API *)
 

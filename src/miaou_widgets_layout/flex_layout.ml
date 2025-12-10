@@ -9,6 +9,7 @@
 
 module W = Miaou_widgets_display.Widgets
 module H = Miaou_helpers.Helpers
+module Helpers = Miaou_helpers.Helpers
 
 type direction = Row | Column
 
@@ -67,20 +68,6 @@ let split_lines s = String.split_on_char '\n' s
 let rec take n lst =
   if n <= 0 then []
   else match lst with [] -> [] | x :: xs -> x :: take (n - 1) xs
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter (fun l -> Buffer.add_char buf '\n' ; Buffer.add_string buf l) tl ;
-      Buffer.contents buf
 
 let pad_block ?(align : align_items = Start) lines ~width ~height =
   let lines =
@@ -289,4 +276,4 @@ let render t ~size =
     | Row -> render_row t ~size
     | Column -> render_column t ~size
   in
-  concat_lines lines
+  Helpers.concat_lines lines

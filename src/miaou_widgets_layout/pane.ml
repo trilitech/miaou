@@ -9,6 +9,8 @@
 [@@@warning "-32-34-37-69"]
 
 (* reuse visible/ansi helpers and glyphs from display widgets/helpers *)
+module Helpers = Miaou_helpers.Helpers
+
 let visible_chars_count = Miaou_helpers.Helpers.visible_chars_count
 
 let visible_byte_index_of_pos = Miaou_helpers.Helpers.visible_byte_index_of_pos
@@ -16,24 +18,6 @@ let visible_byte_index_of_pos = Miaou_helpers.Helpers.visible_byte_index_of_pos
 let insert_before_reset = Miaou_helpers.Helpers.insert_before_reset
 
 let has_trailing_reset = Miaou_helpers.Helpers.has_trailing_reset
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun l ->
-          Buffer.add_char buf '\n' ;
-          Buffer.add_string buf l)
-        tl ;
-      Buffer.contents buf
 
 let repeat s n =
   let buf = Buffer.create (max 0 n * String.length s) in
@@ -133,7 +117,7 @@ let split_vertical_with_left_width ~width ~left_pad ~right_pad ~border ~wrap
         pad_right l left_w ^ sep ^ pad_right (List.nth right_rows i) right_w)
       left_rows
   in
-  let body = concat_lines rows in
+  let body = Helpers.concat_lines rows in
   if border then
     let top =
       glyph_corner_tl ^ repeat glyph_hline (total_w - 2) ^ glyph_corner_tr
@@ -166,8 +150,8 @@ let split_horizontal ~height ~top_pad ~bottom_pad ~border ~wrap ~sep ~top
   (* apply vertical padding lines *)
   let top_padded = List.init top_pad (fun _ -> "") @ top_lines in
   let bottom_padded = bottom_lines @ List.init bottom_pad (fun _ -> "") in
-  let top_s = concat_lines top_padded in
-  let bottom_s = concat_lines bottom_padded in
+  let top_s = Helpers.concat_lines top_padded in
+  let bottom_s = Helpers.concat_lines bottom_padded in
   let frame_width = max 10 height in
   let _ = wrap in
   if border then

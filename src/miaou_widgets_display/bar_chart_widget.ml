@@ -5,6 +5,8 @@
 (*                                                                           *)
 (*****************************************************************************)
 
+module Helpers = Miaou_helpers.Helpers
+
 module W = Widgets
 
 type bar = string * float * string option
@@ -68,25 +70,6 @@ let render t ~show_values ?(thresholds = []) () =
     let bar_width = max 1 (t.width / num_bars) in
 
     let lines = ref [] in
-
-    let concat_lines lines =
-      match lines with
-      | [] -> ""
-      | hd :: tl ->
-          let buf =
-            let est =
-              List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-            in
-            Buffer.create est
-          in
-          Buffer.add_string buf hd ;
-          List.iter
-            (fun l ->
-              Buffer.add_char buf '\n' ;
-              Buffer.add_string buf l)
-            tl ;
-          Buffer.contents buf
-    in
 
     let repeat ch count =
       let buf = Buffer.create count in
@@ -171,4 +154,4 @@ let render t ~show_values ?(thresholds = []) () =
         t.data ;
       lines := Buffer.contents values_line :: !lines) ;
 
-    concat_lines !lines
+    Helpers.concat_lines !lines

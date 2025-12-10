@@ -1,3 +1,11 @@
+(*****************************************************************************)
+(*                                                                           *)
+(* SPDX-License-Identifier: MIT                                              *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(*                                                                           *)
+(*****************************************************************************)
+
+module Helpers = Miaou_helpers.Helpers
 module W = Widgets
 
 type t = {data : string; matrix : bool array array; scale : int}
@@ -35,20 +43,6 @@ let get_module t ~x ~y =
          y
          size)
   else t.matrix.(y).(x)
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter (fun l -> Buffer.add_char buf '\n' ; Buffer.add_string buf l) tl ;
-      Buffer.contents buf
 
 let render t ~focus:_ =
   let size = Array.length t.matrix in
@@ -114,4 +108,4 @@ let render t ~focus:_ =
     lines := Buffer.contents row :: !lines
   done ;
 
-  concat_lines (List.rev !lines)
+  Helpers.concat_lines (List.rev !lines)

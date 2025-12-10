@@ -28,6 +28,7 @@ type t = {
 and mode = Browsing | EditingPath
 
 module Textbox = Miaou_widgets_input.Textbox_widget
+module Helpers = Miaou_helpers.Helpers
 
 let textbox_create ?(width = 60) ?(initial = "") () =
   Textbox.create ~width ~initial ()
@@ -86,24 +87,6 @@ let clamp = List_nav.clamp
 let is_writable path =
   let sys = Miaou_interfaces.System.require () in
   match sys.probe_writable ~path with Ok b -> b | Error _ -> false
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun l ->
-          Buffer.add_char buf '\n' ;
-          Buffer.add_string buf l)
-        tl ;
-      Buffer.contents buf
 
 let list_entries path ~dirs_only =
   let sys = Miaou_interfaces.System.require () in
@@ -503,7 +486,7 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     W.dim (truncate "Enter select • n new" |> pad_to_width)
   in
   let sections = header @ body @ [""; status; footer_controls] in
-  concat_lines sections
+  Helpers.concat_lines sections
 
 let render w ~focus =
   let default_size : LTerm_geom.size = {rows = 24; cols = 80} in
