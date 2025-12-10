@@ -26,6 +26,37 @@ let tokenize_ansi_utf8 (s : string) : string list =
   in
   loop 0 []
 
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun l ->
+          Buffer.add_char buf '\n' ;
+          Buffer.add_string buf l)
+        tl ;
+      Buffer.contents buf
+
+let concat_rev parts =
+  match parts with
+  | [] -> ""
+  | _ ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l) 0 parts
+        in
+        Buffer.create est
+      in
+      List.iter (Buffer.add_string buf) parts ;
+      Buffer.contents buf
+
 let wrap_line_to_width (line : string) (width : int) : string list =
   if width <= 0 then [line]
   else
@@ -116,7 +147,7 @@ let wrap_content_to_width content content_width =
   let wrapped_lines =
     List.flatten (List.map (fun l -> wrap_line_to_width l content_width) lines)
   in
-  String.concat "\n" wrapped_lines
+  concat_lines wrapped_lines
 
 let wrap_line_to_width_words (line : string) (width : int) : string list =
   if width <= 0 then [line]
@@ -126,12 +157,12 @@ let wrap_line_to_width_words (line : string) (width : int) : string list =
     let words =
       let rec fold acc cur = function
         | [] ->
-            let w = String.trim (String.concat "" (List.rev cur)) in
+            let w = String.trim (concat_rev (List.rev cur)) in
             let acc = if w = "" then acc else w :: acc in
             List.rev acc
         | tk :: tl ->
             if String.length tk > 0 && tk.[0] <> '\027' && tk = " " then
-              let w = String.trim (String.concat "" (List.rev cur)) in
+              let w = String.trim (concat_rev (List.rev cur)) in
               let acc = if w = "" then acc else w :: acc in
               fold acc [] tl
             else fold acc (tk :: cur) tl
@@ -180,7 +211,7 @@ let wrap_content_to_width_words content content_width =
     List.flatten
       (List.map (fun l -> wrap_line_to_width_words l content_width) lines)
   in
-  String.concat "\n" wrapped_lines
+  concat_lines wrapped_lines
 
 let markdown_to_ansi (s : string) : string =
   let open Miaou_widgets_display.Widgets in
