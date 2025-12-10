@@ -29,9 +29,19 @@ let open_root node = {root = node; cursor_path = [0]}
 
 let handle_key t ~key:_ = t
 
-let rec render_node indent n =
-  let line = String.make indent ' ' ^ n.label in
-  let children = List.map (render_node (indent + 2)) n.children in
-  String.concat "\n" (line :: children)
+let render_node indent n =
+  let buf = Buffer.create 64 in
+  let rec render_into buf indent n =
+    Buffer.add_string buf (String.make indent ' ') ;
+    Buffer.add_string buf n.label ;
+    if n.children <> [] then Buffer.add_char buf '\n' ;
+    List.iteri
+      (fun idx child ->
+        render_into buf (indent + 2) child ;
+        if idx < List.length n.children - 1 then Buffer.add_char buf '\n')
+      n.children
+  in
+  render_into buf indent n ;
+  Buffer.contents buf
 
 let render t ~focus:_ = render_node 0 t.root
