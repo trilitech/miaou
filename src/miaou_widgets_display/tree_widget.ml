@@ -34,12 +34,15 @@ let render_node indent n =
   let rec render_into buf indent n =
     Buffer.add_string buf (String.make indent ' ') ;
     Buffer.add_string buf n.label ;
-    if n.children <> [] then Buffer.add_char buf '\n' ;
-    List.iteri
-      (fun idx child ->
-        render_into buf (indent + 2) child ;
-        if idx < List.length n.children - 1 then Buffer.add_char buf '\n')
-      n.children
+    match n.children with
+    | [] -> ()
+    | children ->
+        Buffer.add_char buf '\n' ;
+        List.iteri
+          (fun idx child ->
+            if idx > 0 then Buffer.add_char buf '\n' ;
+            render_into buf (indent + 2) child)
+          children
   in
   render_into buf indent n ;
   Buffer.contents buf
