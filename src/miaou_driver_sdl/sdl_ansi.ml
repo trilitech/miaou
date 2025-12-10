@@ -123,6 +123,15 @@ let parse_ansi_segments ~(default : ansi_state) (s : string) =
   loop 0 [] {fg = default.fg; bg = default.bg}
 
 let strip_ansi_to_text ~default s =
-  parse_ansi_segments ~default s
-  |> List.map (fun seg -> seg.text)
-  |> String.concat ""
+  let segments = parse_ansi_segments ~default s in
+  match segments with
+  | [] -> ""
+  | _ ->
+      let buf =
+        let est =
+          List.fold_left (fun acc seg -> acc + String.length seg.text) 0 segments
+        in
+        Buffer.create est
+      in
+      List.iter (fun seg -> Buffer.add_string buf seg.text) segments ;
+      Buffer.contents buf
