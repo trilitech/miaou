@@ -65,6 +65,25 @@ let handle_key t ~key =
   let t, _ = handle_event t ~key in
   t
 
+let concat_with_sep sep parts =
+  match parts with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc p -> acc + String.length p) 0 parts
+          + (String.length sep * max 0 (List.length parts - 1))
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun p ->
+          Buffer.add_string buf sep ;
+          Buffer.add_string buf p)
+        tl ;
+      Buffer.contents buf
+
 let render t ~focus =
   let pad s = if String.length s = 0 then s else Printf.sprintf " %s " s in
   let highlight s = if focus then W.bold s else s in
@@ -75,4 +94,4 @@ let render t ~focus =
         else W.dim (pad tab.label))
       t.tabs
   in
-  match rendered with [] -> "" | _ -> String.concat (W.dim "|") rendered
+  match rendered with [] -> "" | _ -> concat_with_sep (W.dim "|") rendered

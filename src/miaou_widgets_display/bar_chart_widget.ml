@@ -69,6 +69,33 @@ let render t ~show_values ?(thresholds = []) () =
 
     let lines = ref [] in
 
+    let concat_lines lines =
+      match lines with
+      | [] -> ""
+      | hd :: tl ->
+          let buf =
+            let est =
+              List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+            in
+            Buffer.create est
+          in
+          Buffer.add_string buf hd ;
+          List.iter
+            (fun l ->
+              Buffer.add_char buf '\n' ;
+              Buffer.add_string buf l)
+            tl ;
+          Buffer.contents buf
+    in
+
+    let repeat ch count =
+      let buf = Buffer.create count in
+      for _ = 1 to count do
+        Buffer.add_string buf ch
+      done ;
+      Buffer.contents buf
+    in
+
     (* Title *)
     (match t.title with
     | Some title -> lines := W.bold title :: !lines
@@ -94,10 +121,9 @@ let render t ~show_values ?(thresholds = []) () =
           let top_char = if W.prefer_ascii () then "-" else "▀" in
 
           let segment =
-            if row < bar_height then
-              String.concat "" (List.init bar_width (fun _ -> bar_char))
+            if row < bar_height then repeat bar_char bar_width
             else if row = bar_height && value > y_val_at_row then
-              String.concat "" (List.init bar_width (fun _ -> top_char))
+              repeat top_char bar_width
             else String.make bar_width ' '
           in
           let styled_segment =
@@ -145,4 +171,4 @@ let render t ~show_values ?(thresholds = []) () =
         t.data ;
       lines := Buffer.contents values_line :: !lines) ;
 
-    String.concat "\n" !lines
+    concat_lines !lines

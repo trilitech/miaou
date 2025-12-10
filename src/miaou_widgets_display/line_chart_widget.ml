@@ -222,8 +222,26 @@ let render t ~show_axes ~show_grid ?(thresholds = []) () =
 
   (* Add title if present *)
   match t.title with
-  | Some title -> W.bold title ^ "\n" ^ String.concat "\n" lines
-  | None -> String.concat "\n" lines
+  | Some title ->
+      let buf =
+        Buffer.create (String.length title + List.length lines * t.width + 1)
+      in
+      Buffer.add_string buf (W.bold title) ;
+      Buffer.add_char buf '\n' ;
+      List.iteri
+        (fun i line ->
+          if i > 0 then Buffer.add_char buf '\n' ;
+          Buffer.add_string buf line)
+        lines ;
+      Buffer.contents buf
+  | None ->
+      let buf = Buffer.create (List.length lines * (t.width + 1)) in
+      List.iteri
+        (fun i line ->
+          if i > 0 then Buffer.add_char buf '\n' ;
+          Buffer.add_string buf line)
+        lines ;
+      Buffer.contents buf
 
 (* Accessor functions for SDL rendering *)
 let get_series t = t.series
