@@ -4,6 +4,8 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
+module Helpers = Miaou_helpers.Helpers
+
 module W = Widgets
 module Palette = Palette
 
@@ -51,23 +53,6 @@ let glyphs_for_backend ?backend () =
 let visible_chars_count = W.visible_chars_count
 
 let visible_byte_index_of_pos = W.visible_byte_index_of_pos
-
-let concat_with_sep sep parts =
-  match parts with
-  | [] -> ""
-  | hd :: tl ->
-      let estimated =
-        List.fold_left (fun acc p -> acc + String.length p) 0 parts
-        + (String.length sep * max 0 (List.length parts - 1))
-      in
-      let buf = Buffer.create estimated in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun part ->
-          Buffer.add_string buf sep ;
-          Buffer.add_string buf part)
-        tl ;
-      Buffer.contents buf
 
 let add_repeat buf s n =
   for _ = 1 to n do
@@ -255,7 +240,7 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
   let header_line =
     let line =
       glyphs.vline
-      ^ concat_with_sep glyphs.vline (headers_padded |> List.map W.bold)
+      ^ Helpers.concat_with_sep glyphs.vline (headers_padded |> List.map W.bold)
       ^ glyphs.vline
     in
     if opts.highlight_header then Palette.purple_gradient_line Right line

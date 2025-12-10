@@ -10,26 +10,9 @@ module Khs = Miaou_internals.Key_handler_stack
 module Modal_manager = Miaou_core.Modal_manager
 module Narrow_modal = Miaou_core.Narrow_modal
 module Capture = Miaou_core.Tui_capture
+module Helpers = Miaou_helpers.Helpers
 
 let narrow_warned = ref false
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun l ->
-          Buffer.add_char buf '\n' ;
-          Buffer.add_string buf l)
-        tl ;
-      Buffer.contents buf
 
 let clear_and_render (type a)
     (module Page : Miaou_core.Tui_page.PAGE_SIG with type state = a) st
@@ -133,7 +116,7 @@ let clear_and_render (type a)
         (match header_lines with
         | [] -> ()
         | lst ->
-            Buffer.add_string buf (concat_lines lst) ;
+            Buffer.add_string buf (Helpers.concat_lines lst) ;
             Buffer.add_char buf '\n') ;
         Buffer.add_string buf body ;
         Buffer.add_char buf '\n' ;
@@ -163,7 +146,7 @@ let clear_and_render (type a)
       in
       let last_line = List.nth lines (List.length lines - 1) in
       let head = take head_count lines in
-      concat_lines (head @ [last_line])
+      Helpers.concat_lines (head @ [last_line])
   in
   Capture.record_frame
     ~rows:size.LTerm_geom.rows

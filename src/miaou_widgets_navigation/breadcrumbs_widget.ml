@@ -8,6 +8,7 @@
 [@@@warning "-32-34-37-69"]
 
 module W = Miaou_widgets_display.Widgets
+module Helpers = Miaou_helpers.Helpers
 
 type crumb = {id : string; label : string; on_enter : (unit -> unit) option}
 
@@ -70,25 +71,6 @@ let handle_key t ~key =
   let t, status = handle_event t ~key in
   (t, match status with `Handled -> `Handled | `Bubble -> `Ignored)
 
-let concat_with_sep sep parts =
-  match parts with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc p -> acc + String.length p) 0 parts
-          + (String.length sep * max 0 (List.length parts - 1))
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun p ->
-          Buffer.add_string buf sep ;
-          Buffer.add_string buf p)
-        tl ;
-      Buffer.contents buf
-
 let render t ~focus =
   let parts =
     List.mapi
@@ -97,4 +79,4 @@ let render t ~focus =
         if focus && i = t.selected then W.title_highlight base else base)
       t.crumbs
   in
-  match parts with [] -> "" | _ -> concat_with_sep (W.dim " > ") parts
+  match parts with [] -> "" | _ -> Helpers.concat_with_sep (W.dim " > ") parts

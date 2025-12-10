@@ -4,6 +4,8 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
+module Helpers = Miaou_helpers.Helpers
+
 type t = {
   left : string;
   right : string;
@@ -45,20 +47,6 @@ let split_lines s =
     in
     loop [] 0 0
 
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter (fun l -> Buffer.add_char buf '\n' ; Buffer.add_string buf l) tl ;
-      Buffer.contents buf
-
 let join_two l r =
   let buf = Buffer.create (String.length l + String.length r + 1) in
   Buffer.add_string buf l ;
@@ -79,4 +67,4 @@ let render t width =
         let r = pad_or_trim (nth_or_empty right_lines i) right_w in
         join_two l r)
   in
-  concat_lines lines
+  Helpers.concat_lines lines

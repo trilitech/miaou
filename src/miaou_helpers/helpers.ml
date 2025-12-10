@@ -90,3 +90,34 @@ let pad_to_width s target_width pad_char =
         Buffer.add_char buf pad_char
       done;
       Buffer.contents buf
+
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est = List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd;
+      List.iter (fun l ->
+        Buffer.add_char buf '\n';
+        Buffer.add_string buf l) tl;
+      Buffer.contents buf
+
+let concat_with_sep sep parts =
+  match parts with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc p -> acc + String.length p) 0 parts
+          + (String.length sep * max 0 (List.length parts - 1))
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd;
+      List.iter (fun p ->
+        Buffer.add_string buf sep;
+        Buffer.add_string buf p) tl;
+      Buffer.contents buf

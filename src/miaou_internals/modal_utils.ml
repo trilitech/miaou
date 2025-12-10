@@ -6,6 +6,8 @@
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
 
+module Helpers = Miaou_helpers.Helpers
+
 let tokenize_ansi_utf8 (s : string) : string list =
   let len = String.length s in
   let rec loop i acc =
@@ -25,24 +27,6 @@ let tokenize_ansi_utf8 (s : string) : string list =
       loop !i (token :: acc)
   in
   loop 0 []
-
-let concat_lines lines =
-  match lines with
-  | [] -> ""
-  | hd :: tl ->
-      let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-        in
-        Buffer.create est
-      in
-      Buffer.add_string buf hd ;
-      List.iter
-        (fun l ->
-          Buffer.add_char buf '\n' ;
-          Buffer.add_string buf l)
-        tl ;
-      Buffer.contents buf
 
 let concat_rev parts =
   match parts with
@@ -147,7 +131,7 @@ let wrap_content_to_width content content_width =
   let wrapped_lines =
     List.flatten (List.map (fun l -> wrap_line_to_width l content_width) lines)
   in
-  concat_lines wrapped_lines
+  Helpers.concat_lines wrapped_lines
 
 let wrap_line_to_width_words (line : string) (width : int) : string list =
   if width <= 0 then [line]
@@ -211,7 +195,7 @@ let wrap_content_to_width_words content content_width =
     List.flatten
       (List.map (fun l -> wrap_line_to_width_words l content_width) lines)
   in
-  concat_lines wrapped_lines
+  Helpers.concat_lines wrapped_lines
 
 let markdown_to_ansi (s : string) : string =
   let open Miaou_widgets_display.Widgets in
