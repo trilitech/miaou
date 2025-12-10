@@ -95,8 +95,12 @@ let pick_font_path (cfg : config) =
           match available with
           | p :: _ -> Ok p
           | [] ->
+              let buf = Buffer.create 256 in
+              List.iteri (fun i p ->
+                if i > 0 then Buffer.add_string buf ", ";
+                Buffer.add_string buf p) font_candidates;
               Error
                 (Printf.sprintf
                    "Could not find any monospaced font. Provide \
                     MIAOU_SDL_FONT=<path> to a .ttf file. Probed: %s"
-                   (String.concat ", " font_candidates))))
+                   (Buffer.contents buf))))

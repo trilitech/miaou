@@ -17,6 +17,31 @@ let insert_before_reset = Miaou_helpers.Helpers.insert_before_reset
 
 let has_trailing_reset = Miaou_helpers.Helpers.has_trailing_reset
 
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun l ->
+          Buffer.add_char buf '\n' ;
+          Buffer.add_string buf l)
+        tl ;
+      Buffer.contents buf
+
+let repeat s n =
+  let buf = Buffer.create (max 0 n * String.length s) in
+  for _ = 1 to max 0 n do
+    Buffer.add_string buf s
+  done ;
+  Buffer.contents buf
+
 let ansi = Miaou_widgets_display.Widgets.ansi
 
 (* Canonical glyphs and unicode-border flag come from display Widgets so behavior is
@@ -113,9 +138,8 @@ let split_vertical_with_left_width ~width ~left_pad ~right_pad ~border ~wrap
         pad_right l left_w ^ sep ^ pad_right (List.nth right_rows i) right_w)
       left_rows
   in
-  let body = String.concat "\n" rows in
+  let body = concat_lines rows in
   if border then
-    let repeat s n = String.concat "" (List.init n (fun _ -> s)) in
     let top =
       glyph_corner_tl ^ repeat glyph_hline (total_w - 2) ^ glyph_corner_tr
     in
@@ -147,12 +171,11 @@ let split_horizontal ~height ~top_pad ~bottom_pad ~border ~wrap ~sep ~top
   (* apply vertical padding lines *)
   let top_padded = List.init top_pad (fun _ -> "") @ top_lines in
   let bottom_padded = bottom_lines @ List.init bottom_pad (fun _ -> "") in
-  let top_s = String.concat "\n" top_padded in
-  let bottom_s = String.concat "\n" bottom_padded in
+  let top_s = concat_lines top_padded in
+  let bottom_s = concat_lines bottom_padded in
   let frame_width = max 10 height in
   let _ = wrap in
   if border then
-    let repeat s n = String.concat "" (List.init n (fun _ -> s)) in
     let top_frame =
       glyph_corner_tl ^ repeat glyph_hline (frame_width - 2) ^ glyph_corner_tr
     in
