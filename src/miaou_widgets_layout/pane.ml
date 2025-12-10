@@ -63,12 +63,7 @@ let glyph_vline = Miaou_widgets_display.Widgets.glyph_vline
 let pad_right s n =
   let v = visible_chars_count s in
   if v >= n then s
-  else
-    let rec loop acc =
-      if visible_chars_count acc >= n then acc
-      else loop (insert_before_reset acc " ")
-    in
-    loop s
+  else Miaou_helpers.Helpers.pad_to_width s n ' '
 
 let trunc_visible n s =
   let v = visible_chars_count s in
