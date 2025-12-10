@@ -266,7 +266,8 @@ let render_column t ~size =
         let trimmed =
           if vis > max_w then truncate_visible line max_w else line
         in
-        let free = max 0 (max_w - W.visible_chars_count trimmed) in
+        let trimmed_vis = if vis > max_w then max_w else vis in
+        let free = max 0 (max_w - trimmed_vis) in
         let left_pad, right_pad =
           match t.align_items with
           | Start | Stretch -> (0, free)
