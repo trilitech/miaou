@@ -49,6 +49,27 @@ let split_lines s = String.split_on_char '\n' s
 
 let clamp lo hi x = max lo (min hi x)
 
+let build_body_buffer ~wrap ~cols lines =
+  let buf =
+    let est =
+      List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+      + 16
+    in
+    Buffer.create est
+  in
+  let first = ref true in
+  let add_line line =
+    if !first then first := false else Buffer.add_char buf '\n' ;
+    Buffer.add_string buf line
+  in
+  if wrap then
+    let width = max 10 (cols - 2) in
+    List.iter
+      (fun line -> Widgets.wrap_text ~width line |> List.iter add_line)
+      lines
+  else List.iter add_line lines ;
+  Buffer.contents buf
+
 let open_lines ?title lines =
   {
     title;
@@ -442,6 +463,7 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
     let mode = if t.follow then " [follow]" else "" in
     Widgets.dim (Widgets.fg 242 (pos ^ mode))
   in
+  let cols = match cols with Some c -> c | None -> 80 in
   let footer =
     let hints =
       [
@@ -452,22 +474,12 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
         ("f", if t.follow then "follow off" else "follow on");
       ]
     in
-    let cols = match cols with Some c -> c | None -> 80 in
     Widgets.footer_hints_wrapped_capped
       ~cols
       ~max_lines:(if focus then 2 else 1)
       hints
   in
-  let body = String.concat "\n" body_lines in
-  let cols = match cols with Some c -> c | None -> 80 in
-  let body =
-    if not wrap then body
-    else
-      let width = max 10 (cols - 2) in
-      body_lines
-      |> List.concat_map (Widgets.wrap_text ~width)
-      |> String.concat "\n"
-  in
+  let body = build_body_buffer ~wrap ~cols body_lines in
   Widgets.render_frame ~title ~header:[status] ~body ~footer ~cols ()
 
 (* Kept for compatibility; callers that can compute terminal cols should prefer
