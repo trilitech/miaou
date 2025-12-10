@@ -52,6 +52,28 @@ let visible_chars_count = W.visible_chars_count
 
 let visible_byte_index_of_pos = W.visible_byte_index_of_pos
 
+let concat_with_sep sep parts =
+  match parts with
+  | [] -> ""
+  | hd :: tl ->
+      let estimated =
+        List.fold_left (fun acc p -> acc + String.length p) 0 parts
+        + (String.length sep * max 0 (List.length parts - 1))
+      in
+      let buf = Buffer.create estimated in
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun part ->
+          Buffer.add_string buf sep ;
+          Buffer.add_string buf part)
+        tl ;
+      Buffer.contents buf
+
+let add_repeat buf s n =
+  for _ = 1 to n do
+    Buffer.add_string buf s
+  done
+
 let pad s w =
   if visible_chars_count s <= w then
     s ^ String.make (w - visible_chars_count s) ' '
@@ -170,7 +192,6 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
   let total_w =
     match cols with Some c -> max 20 (min c 240) | None -> col_widths_total
   in
-  let repeat s n = String.concat "" (List.init n (fun _ -> s)) in
   let inner_w = max 0 (total_w - 4) in
   let col_count = List.length header_list in
   let default_col_opt : column_opts =
@@ -232,41 +253,40 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
   let header_line =
     let line =
       glyphs.vline
-      ^ (headers_padded |> List.map W.bold |> String.concat glyphs.vline)
+      ^ concat_with_sep glyphs.vline (headers_padded |> List.map W.bold)
       ^ glyphs.vline
     in
     if opts.highlight_header then Palette.purple_gradient_line Right line
     else line
   in
-  let top_border =
-    glyphs.corner_tl
-    ^ (List.mapi
-         (fun i w ->
-           repeat glyphs.hline w
-           ^ if i = col_count - 1 then glyphs.corner_tr else glyphs.top_sep)
-         col_widths
-      |> String.concat "")
+  let build_border left sep right =
+    let buf = Buffer.create total_w in
+    Buffer.add_string buf left ;
+    List.iteri
+      (fun i w ->
+        add_repeat buf glyphs.hline w ;
+        Buffer.add_string buf (if i = col_count - 1 then right else sep))
+      col_widths ;
+    Buffer.contents buf
   in
-  let mid_border =
-    glyphs.mid_left
-    ^ (List.mapi
-         (fun i w ->
-           repeat glyphs.hline w
-           ^ if i = col_count - 1 then glyphs.mid_right else glyphs.mid_sep)
-         col_widths
-      |> String.concat "")
-  in
+  let top_border = build_border glyphs.corner_tl glyphs.top_sep glyphs.corner_tr in
+  let mid_border = build_border glyphs.mid_left glyphs.mid_sep glyphs.mid_right in
   let bottom_border =
-    glyphs.corner_bl
-    ^ (List.mapi
-         (fun i w ->
-           repeat glyphs.hline w
-           ^ if i = col_count - 1 then glyphs.corner_br else glyphs.bottom_sep)
-         col_widths
-      |> String.concat "")
+    build_border glyphs.corner_bl glyphs.bottom_sep glyphs.corner_br
   in
   let blank_for_col =
     List.mapi (fun idx w -> (idx, String.make w ' ')) col_widths
+  in
+  let assemble_columns cols =
+    let buf = Buffer.create inner_w in
+    Buffer.add_string buf glyphs.vline ;
+    List.iteri
+      (fun idx col ->
+        if idx > 0 then Buffer.add_string buf glyphs.vline ;
+        Buffer.add_string buf col)
+      cols ;
+    Buffer.add_string buf glyphs.vline ;
+    Buffer.contents buf
   in
   let row_to_lines i cols_cells =
     if not wrap then
@@ -281,9 +301,7 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
             ^ String.make copts.pad_right ' ')
           cols_cells
       in
-      let line_core =
-        glyphs.vline ^ (cells |> String.concat glyphs.vline) ^ glyphs.vline
-      in
+      let line_core = assemble_columns cells in
       let line =
         match opts.selection_mode with
         | Row when i = cursor ->
@@ -336,9 +354,7 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
             padded_lines
         in
         let line_core =
-          glyphs.vline
-          ^ (cols_for_idx |> String.concat glyphs.vline)
-          ^ glyphs.vline
+          assemble_columns cols_for_idx
         in
         let line =
           match opts.selection_mode with
@@ -350,10 +366,19 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
       in
       List.init height assemble_line
   in
-  let body = List.concat (List.mapi row_to_lines rows_sorted) in
-  String.concat
-    "\n"
-    ((top_border :: header_line :: mid_border :: body) @ [bottom_border])
+  let buf = Buffer.create (total_w * (List.length rows_sorted + 4)) in
+  let add_line line =
+    Buffer.add_string buf line ;
+    Buffer.add_char buf '\n'
+  in
+  add_line top_border ;
+  add_line header_line ;
+  add_line mid_border ;
+  List.iter
+    (fun lines -> List.iter add_line lines)
+    (List.mapi row_to_lines rows_sorted) ;
+  Buffer.add_string buf bottom_border ;
+  Buffer.contents buf
 
 let render_table_80_with_opts ?backend ?wrap ~cols ~header:(h1, h2, h3) ~rows
     ~cursor ~sel_col ~opts () =
