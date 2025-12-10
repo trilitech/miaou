@@ -60,7 +60,12 @@ let render_bar ~width ~progress : string =
       if whole_cells < inner_w then partial_blocks.(partial_idx) else ""
     in
     let filled_uncolored =
-      String.concat "" (List.init whole_cells (fun _ -> "█")) ^ tip_char
+      let buf = Buffer.create ((whole_cells + 2) * 3) in
+      for _ = 1 to whole_cells do
+        Buffer.add_string buf "█"
+      done ;
+      Buffer.add_string buf tip_char ;
+      Buffer.contents buf
     in
     let filled_colored =
       Miaou_widgets_display.Palette.purple_gradient_line
@@ -95,7 +100,13 @@ let render_terminal w ~cols:_ =
       (* Centered variant: include a small title header line. Outer centering is
 				 handled by caller. *)
       let title = Miaou_widgets_display.Widgets.titleize t in
-      String.concat "\n" [title; bar_and_pct]
+      let buf =
+        Buffer.create (String.length title + String.length bar_and_pct + 1)
+      in
+      Buffer.add_string buf title ;
+      Buffer.add_char buf '\n' ;
+      Buffer.add_string buf bar_and_pct ;
+      Buffer.contents buf
   | None, None -> bar_and_pct
 
 let render w ~cols =

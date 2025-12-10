@@ -111,7 +111,14 @@ let render ~width ~progress ~label ~title ~cols:_ =
   let bar = render_bar ~inner_w:bar_w ~progress in
   let pct_s = Palette.fg_secondary (Printf.sprintf "%3d%%" pct) in
   let line = bar ^ " " ^ pct_s in
+  let two_lines a b =
+    let buf = Buffer.create (String.length a + String.length b + 1) in
+    Buffer.add_string buf a ;
+    Buffer.add_char buf '\n' ;
+    Buffer.add_string buf b ;
+    Buffer.contents buf
+  in
   match (label, title) with
   | Some lbl, _ -> Palette.fg_steel lbl ^ "  " ^ line
-  | None, Some t -> String.concat "\n" [W.titleize t; line]
+  | None, Some t -> two_lines (W.titleize t) line
   | None, None -> line
