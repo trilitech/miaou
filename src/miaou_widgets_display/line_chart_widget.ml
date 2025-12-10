@@ -212,12 +212,13 @@ let render t ~show_axes ~show_grid ?(thresholds = []) () =
   let lines =
     Array.to_list grid
     |> List.map (fun row ->
-        Array.to_list row
-        |> List.map (fun cell ->
+        let buf = Buffer.create (t.width * 10) in
+        Array.iter (fun cell ->
             match cell.style with
-            | Some style -> W.ansi style cell.char
-            | None -> cell.char)
-        |> String.concat "")
+            | Some style -> Buffer.add_string buf (W.ansi style cell.char)
+            | None -> Buffer.add_string buf cell.char)
+          row;
+        Buffer.contents buf)
   in
 
   (* Add title if present *)
