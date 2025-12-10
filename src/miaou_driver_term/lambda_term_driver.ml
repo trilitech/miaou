@@ -21,6 +21,24 @@ module Driver_common = Miaou_driver_common.Driver_common
 (* Persistent session flags *)
 let narrow_warned = ref false
 
+let concat_lines lines =
+  match lines with
+  | [] -> ""
+  | hd :: tl ->
+      let buf =
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
+        Buffer.create est
+      in
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun l ->
+          Buffer.add_char buf '\n' ;
+          Buffer.add_string buf l)
+        tl ;
+      Buffer.contents buf
+
 module LT = LTerm
 
 type t = private T
@@ -184,12 +202,19 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                 ~max_lines:3
                 (Khs.top_bindings key_stack)
             in
-            let hdr =
-              match header_lines with
-              | [] -> ""
-              | lst -> String.concat "\n" lst ^ "\n"
+            let buf =
+              Buffer.create
+                (String.length body + String.length wrapped_footer + 64)
             in
-            hdr ^ body ^ "\n" ^ wrapped_footer
+            (match header_lines with
+            | [] -> ()
+            | lst ->
+                Buffer.add_string buf (concat_lines lst) ;
+                Buffer.add_char buf '\n') ;
+            Buffer.add_string buf body ;
+            Buffer.add_char buf '\n' ;
+            Buffer.add_string buf wrapped_footer ;
+            Buffer.contents buf
       in
       let out =
         Driver_common.Modal_utils.render_with_modal_overlay
@@ -211,7 +236,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           in
           let last_line = List.nth lines (List.length lines - 1) in
           let head = take head_count lines in
-          String.concat "\n" (head @ [last_line])
+          concat_lines (head @ [last_line])
       in
       (* Write only when output changed; keeps the terminal stable and avoids flicker. *)
       Capture.record_frame
@@ -736,8 +761,14 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     Miaou_widgets_display.Widgets.bold
                       (Miaou_widgets_display.Widgets.fg 81 "Key Bindings")
                   in
-                  let keys = String.concat "\n" key_lines in
-                  String.concat "\n" [header; keys]
+                  let keys = concat_lines key_lines in
+                  let buf =
+                    Buffer.create (String.length header + String.length keys + 2)
+                  in
+                  Buffer.add_string buf header ;
+                  Buffer.add_char buf '\n' ;
+                  Buffer.add_string buf keys ;
+                  Buffer.contents buf
               | Some hb ->
                   let sep =
                     Miaou_widgets_display.Widgets.fg
@@ -750,8 +781,20 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     Miaou_widgets_display.Widgets.bold
                       (Miaou_widgets_display.Widgets.fg 81 "Key Bindings")
                   in
-                  let keys = String.concat "\n" key_lines in
-                  String.concat "\n" [hb; sep; header; keys]
+                  let keys = concat_lines key_lines in
+                  let buf =
+                    Buffer.create
+                      (String.length hb + String.length sep + String.length header
+                     + String.length keys + 8)
+                  in
+                  Buffer.add_string buf hb ;
+                  Buffer.add_char buf '\n' ;
+                  Buffer.add_string buf sep ;
+                  Buffer.add_char buf '\n' ;
+                  Buffer.add_string buf header ;
+                  Buffer.add_char buf '\n' ;
+                  Buffer.add_string buf keys ;
+                  Buffer.contents buf
             in
             let module Help_modal = struct
               module Page : PAGE_SIG = struct
