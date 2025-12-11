@@ -37,7 +37,6 @@ module Page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let back st = st
 
-  let keymap _ = []
 
   let handle_modal_key st _ ~size:_ = st
 

@@ -812,6 +812,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                 let view _ ~focus:_ ~size:_ = body
 
                 let keymap (_ : state) = []
+
+                let handled_keys () = []
               end
             end in
             Modal_manager.push_default

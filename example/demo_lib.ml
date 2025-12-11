@@ -67,9 +67,10 @@ module Textbox_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = s
-
+  let keymap _ = []
   let has_modal _ = false
 end
 
@@ -110,6 +111,7 @@ module Select_modal : SELECT_MODAL_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let extract_selection s = Miaou_widgets_input.Select_widget.get_selection s
 
@@ -154,6 +156,7 @@ module File_browser_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = s
 
@@ -210,6 +213,7 @@ module Poly_select_modal : SELECT_MODAL_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   (* Extract the current label (string). Return [Some label]. *)
   let extract_selection (s : state) : string option =
@@ -314,6 +318,7 @@ module Table_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -378,6 +383,7 @@ module Poly_table_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back t = t
 
@@ -450,6 +456,7 @@ module Palette_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back _ = go_home
 
@@ -518,6 +525,7 @@ module Logger_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -617,6 +625,7 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -670,6 +679,7 @@ module Tree_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -733,6 +743,7 @@ module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back _ = {next_page = Some launcher_page_name}
 
@@ -805,6 +816,7 @@ module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -932,6 +944,7 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1030,6 +1043,7 @@ module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1103,6 +1117,7 @@ let handle_key s key_str ~size:_ =
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1161,6 +1176,7 @@ module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1229,6 +1245,7 @@ module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1328,6 +1345,7 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1406,6 +1424,7 @@ module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1504,6 +1523,7 @@ module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -1575,6 +1595,7 @@ module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -1716,6 +1737,7 @@ module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back _ = {next_page = Some launcher_page_name}
 
@@ -1778,6 +1800,7 @@ module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -1880,6 +1903,7 @@ let view s ~focus:_ ~size =
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s.sidebar_open
 
@@ -2061,6 +2085,7 @@ This demo reads real system metrics from `/proc` (Linux) and auto-updates the di
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -2234,6 +2259,7 @@ This demo shows sine/cosine waves. Press Space to add more points.
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -2536,6 +2562,7 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -2660,6 +2687,7 @@ This demo shows daily sales. Press Space to randomize data.
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = go_home s
 
@@ -2815,6 +2843,7 @@ This demo shows QR codes for different types of data. Press 1-4 to switch betwee
   let next_page s = s.next_page
 
   let keymap _ = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -3070,6 +3099,7 @@ This demo shows both file loading (PNG) and procedural image generation.
   let next_page s = s.next_page
 
   let keymap _ = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
@@ -3422,6 +3452,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = s
 
@@ -3466,6 +3497,7 @@ and Key_handling_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+  let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 

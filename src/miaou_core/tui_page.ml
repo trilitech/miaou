@@ -38,6 +38,8 @@ module type PAGE_SIG = sig
 
   val keymap : state -> (string * (state -> state) * string) list
 
+  val handled_keys : unit -> Keys.t list
+
   (* When a modal is active, pages can handle raw key strings here *)
   val handle_modal_key : state -> string -> size:LTerm_geom.size -> state
 
