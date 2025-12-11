@@ -75,6 +75,10 @@ val render : t -> string
 val render_with :
   t -> f:(x:int -> y:int -> string -> string) -> string
 
+(** Add a bitmask directly to a cell (OR assignment). Intended for optimized
+    rendering paths that precompute braille patterns. *)
+val add_cell_bits : t -> cell_x:int -> cell_y:int -> int -> unit
+
 (** Get canvas dimensions in cells (not dots). *)
 val get_dimensions : t -> int * int
 
