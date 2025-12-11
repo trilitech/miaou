@@ -41,9 +41,10 @@ let add_point t ~label ~point =
   let series =
     List.map
       (fun s ->
-        if s.label = label then {s with points = s.points @ [point]} else s)
+        if s.label = label then {s with points = point :: s.points} else s)
       t.series
   in
+  (* Reverse points list when rendering if order matters, or keep as-is for perf *)
   {t with series}
 
 let set_axis_config t axis_config = {t with axis_config}
