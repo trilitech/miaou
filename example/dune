@@ -37,3 +37,11 @@
  (package miaou)
  (modules braille_demo)
  (libraries miaou.widgets.display))
+
+(executable
+ (name diagnostics_dashboard)
+ (public_name miaou.diagnostics-demo)
+ (package miaou)
+ (modules diagnostics_dashboard)
+ (libraries miaou.widgets.display))
+
