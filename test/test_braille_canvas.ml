@@ -82,6 +82,21 @@ let test_out_of_bounds () =
   Braille.set_dot canvas ~x:(-1) ~y:(-1) ;
   check bool "negative bounds ignored" false (Braille.get_dot canvas ~x:(-1) ~y:(-1))
 
+let test_add_cell_bits () =
+  let canvas = Braille.create ~width:1 ~height:1 in
+  Braille.add_cell_bits canvas ~cell_x:0 ~cell_y:0 0x01 ;
+  check bool "dot via cell bits" true (Braille.get_dot canvas ~x:0 ~y:0)
+
+let test_render_with_callback () =
+  let canvas = Braille.create ~width:2 ~height:1 in
+  let calls = ref 0 in
+  let _ =
+    Braille.render_with canvas ~f:(fun ~x:_ ~y:_ ch ->
+        incr calls ;
+        ch)
+  in
+  check int "callback count" 2 !calls
+
 let suite =
   [
     test_case "create" `Quick test_create;
@@ -95,6 +110,8 @@ let suite =
     test_case "vertical line" `Quick test_vertical_line;
     test_case "diagonal line" `Quick test_diagonal_line;
     test_case "out of bounds" `Quick test_out_of_bounds;
+    test_case "add cell bits" `Quick test_add_cell_bits;
+    test_case "render with callback" `Quick test_render_with_callback;
   ]
 
 let () = run "braille_canvas" [("braille_canvas", suite)]
