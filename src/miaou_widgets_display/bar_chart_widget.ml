@@ -13,6 +13,8 @@ type bar = string * float * string option
 
 type threshold = {value : float; color : string}
 
+type render_mode = ASCII | Braille
+
 type t = {
   width : int;
   height : int;
@@ -61,97 +63,187 @@ let get_color ~thresholds ~default_color (value, bar_color) =
       | Some t -> Some t.color
       | None -> default_color)
 
-let render t ~show_values ?(thresholds = []) () =
+let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
   if t.data = [] then ""
   else
-    let min_val, max_val = calculate_bounds t in
-    let range = max_val -. min_val in
-    let num_bars = List.length t.data in
-    let bar_width = max 1 (t.width / num_bars) in
+    match mode with
+    | ASCII ->
+        let min_val, max_val = calculate_bounds t in
+        let range = max_val -. min_val in
+        let num_bars = List.length t.data in
+        let bar_width = max 1 (t.width / num_bars) in
 
-    let lines = ref [] in
+        let lines = ref [] in
 
-    let repeat ch count =
-      let buf = Buffer.create count in
-      for _ = 1 to count do
-        Buffer.add_string buf ch
-      done ;
-      Buffer.contents buf
-    in
-
-    (* Title *)
-    (match t.title with
-    | Some title -> lines := W.bold title :: !lines
-    | None -> ()) ;
-
-    (* Chart area *)
-    for row = t.height - 1 downto 0 do
-      let line_buf = Buffer.create t.width in
-      let y_val_at_row =
-        min_val +. (range *. (float_of_int row /. float_of_int t.height))
-      in
-      List.iter
-        (fun (_label, value, bar_color) ->
-          let bar_height =
-            if range = 0. then t.height
-            else
-              int_of_float ((value -. min_val) /. range *. float_of_int t.height)
-          in
-          let color =
-            get_color ~thresholds ~default_color:t.color (value, bar_color)
-          in
-          let bar_char = if W.prefer_ascii () then "#" else "█" in
-          let top_char = if W.prefer_ascii () then "-" else "▀" in
-
-          let segment =
-            if row < bar_height then repeat bar_char bar_width
-            else if row = bar_height && value > y_val_at_row then
-              repeat top_char bar_width
-            else String.make bar_width ' '
-          in
-          let styled_segment =
-            if row <= bar_height && value > y_val_at_row then
-              match color with Some c -> W.ansi c segment | None -> segment
-            else segment
-          in
-          Buffer.add_string line_buf styled_segment)
-        t.data ;
-      lines := Buffer.contents line_buf :: !lines
-    done ;
-
-    (* X-axis labels *)
-    let labels_line = Buffer.create t.width in
-    List.iter
-      (fun (label, _, _) ->
-        let truncated =
-          if String.length label > bar_width then String.sub label 0 bar_width
-          else label
+        let repeat ch count =
+          let buf = Buffer.create count in
+          for _ = 1 to count do
+            Buffer.add_string buf ch
+          done ;
+          Buffer.contents buf
         in
-        let padding = max 0 (bar_width - String.length truncated) / 2 in
-        Buffer.add_string labels_line (String.make padding ' ') ;
-        Buffer.add_string labels_line truncated ;
-        Buffer.add_string
-          labels_line
-          (String.make (bar_width - String.length truncated - padding) ' '))
-      t.data ;
-    lines := Buffer.contents labels_line :: !lines ;
 
-    (* Add values on top of bars *)
-    if show_values then (
-      let values_line = Buffer.create t.width in
-      List.iter
-        (fun (_, value, _) ->
-          let s = Printf.sprintf "%.1f" value in
-          let s =
-            if String.length s > bar_width then String.sub s 0 bar_width else s
+        (* Title *)
+        (match t.title with
+        | Some title -> lines := W.bold title :: !lines
+        | None -> ()) ;
+
+        (* Chart area *)
+        for row = t.height - 1 downto 0 do
+          let line_buf = Buffer.create t.width in
+          let y_val_at_row =
+            min_val +. (range *. (float_of_int row /. float_of_int t.height))
           in
-          let padding = max 0 (bar_width - String.length s) / 2 in
-          Buffer.add_string values_line (String.make padding ' ') ;
-          Buffer.add_string values_line s ;
-          Buffer.add_string
-            values_line
-            (String.make (bar_width - String.length s - padding) ' '))
-        t.data ;
-      lines := Buffer.contents values_line :: !lines) ;
+          List.iter
+            (fun (_label, value, bar_color) ->
+              let bar_height =
+                if range = 0. then t.height
+                else
+                  int_of_float
+                    ((value -. min_val) /. range *. float_of_int t.height)
+              in
+              let color =
+                get_color ~thresholds ~default_color:t.color (value, bar_color)
+              in
+              let bar_char = if W.prefer_ascii () then "#" else "█" in
+              let top_char = if W.prefer_ascii () then "-" else "▀" in
 
-    Helpers.concat_lines !lines
+              let segment =
+                if row < bar_height then repeat bar_char bar_width
+                else if row = bar_height && value > y_val_at_row then
+                  repeat top_char bar_width
+                else String.make bar_width ' '
+              in
+              let styled_segment =
+                if row <= bar_height && value > y_val_at_row then
+                  match color with Some c -> W.ansi c segment | None -> segment
+                else segment
+              in
+              Buffer.add_string line_buf styled_segment)
+            t.data ;
+          lines := Buffer.contents line_buf :: !lines
+        done ;
+
+        (* X-axis labels *)
+        let labels_line = Buffer.create t.width in
+        List.iter
+          (fun (label, _, _) ->
+            let truncated =
+              if String.length label > bar_width then
+                String.sub label 0 bar_width
+              else label
+            in
+            let padding = max 0 (bar_width - String.length truncated) / 2 in
+            Buffer.add_string labels_line (String.make padding ' ') ;
+            Buffer.add_string labels_line truncated ;
+            Buffer.add_string
+              labels_line
+              (String.make (bar_width - String.length truncated - padding) ' '))
+          t.data ;
+        lines := Buffer.contents labels_line :: !lines ;
+
+        (* Add values on top of bars *)
+        if show_values then (
+          let values_line = Buffer.create t.width in
+          List.iter
+            (fun (_, value, _) ->
+              let s = Printf.sprintf "%.1f" value in
+              let s =
+                if String.length s > bar_width then String.sub s 0 bar_width
+                else s
+              in
+              let padding = max 0 (bar_width - String.length s) / 2 in
+              Buffer.add_string values_line (String.make padding ' ') ;
+              Buffer.add_string values_line s ;
+              Buffer.add_string
+                values_line
+                (String.make (bar_width - String.length s - padding) ' '))
+            t.data ;
+          lines := Buffer.contents values_line :: !lines) ;
+
+        Helpers.concat_lines !lines
+    | Braille ->
+        (* Use braille canvas for higher resolution bars *)
+        let min_val, max_val = calculate_bounds t in
+        let range = max_val -. min_val in
+        let num_bars = List.length t.data in
+        let bar_width_cells = max 1 (t.width / num_bars) in
+
+        let canvas = Braille_canvas.create ~width:t.width ~height:t.height in
+        let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
+        let bar_width_dots = max 1 (dot_width / num_bars) in
+
+        (* Draw each bar *)
+        List.iteri
+          (fun idx (_label, value, _bar_color) ->
+            let bar_height_dots =
+              if range = 0. then dot_height
+              else
+                int_of_float
+                  ((value -. min_val) /. range *. float_of_int dot_height)
+            in
+            let x_start = idx * bar_width_dots in
+            let x_end = min dot_width ((idx + 1) * bar_width_dots) in
+            (* Fill bar from bottom up *)
+            for y = 0 to bar_height_dots - 1 do
+              for x = x_start to x_end - 1 do
+                (* Y is inverted: 0 at top, so we draw from bottom *)
+                let y_pos = dot_height - 1 - y in
+                Braille_canvas.set_dot canvas ~x ~y:y_pos
+              done
+            done)
+          t.data ;
+
+        let lines = ref [] in
+
+        (* Title *)
+        (match t.title with
+        | Some title -> lines := W.bold title :: !lines
+        | None -> ()) ;
+
+        (* Chart *)
+        lines := Braille_canvas.render canvas :: !lines ;
+
+        (* X-axis labels *)
+        let labels_line = Buffer.create t.width in
+        List.iter
+          (fun (label, _, _) ->
+            let truncated =
+              if String.length label > bar_width_cells then
+                String.sub label 0 bar_width_cells
+              else label
+            in
+            let padding =
+              max 0 (bar_width_cells - String.length truncated) / 2
+            in
+            Buffer.add_string labels_line (String.make padding ' ') ;
+            Buffer.add_string labels_line truncated ;
+            Buffer.add_string
+              labels_line
+              (String.make
+                 (bar_width_cells - String.length truncated - padding)
+                 ' '))
+          t.data ;
+        lines := Buffer.contents labels_line :: !lines ;
+
+        (* Add values *)
+        if show_values then (
+          let values_line = Buffer.create t.width in
+          List.iter
+            (fun (_, value, _) ->
+              let s = Printf.sprintf "%.1f" value in
+              let s =
+                if String.length s > bar_width_cells then
+                  String.sub s 0 bar_width_cells
+                else s
+              in
+              let padding = max 0 (bar_width_cells - String.length s) / 2 in
+              Buffer.add_string values_line (String.make padding ' ') ;
+              Buffer.add_string values_line s ;
+              Buffer.add_string
+                values_line
+                (String.make (bar_width_cells - String.length s - padding) ' '))
+            t.data ;
+          lines := Buffer.contents values_line :: !lines) ;
+
+        Helpers.concat_lines !lines

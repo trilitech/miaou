@@ -47,6 +47,11 @@ type bar = string * float * string option
 (** A threshold for coloring bars with a value above it. *)
 type threshold = {value : float; color : string}
 
+(** Rendering mode for bar charts. *)
+type render_mode =
+  | ASCII  (** Use block characters (█▀) - standard resolution *)
+  | Braille  (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+
 (** The bar chart widget type. *)
 type t
 
@@ -77,9 +82,16 @@ val create :
       colored with the threshold's [color]. If multiple thresholds are
       exceeded, the one with the highest value is used. Bar-specific
       colors have precedence over threshold colors, which have precedence
-      over the default color. *)
+      over the default color.
+    - [mode] Rendering mode (default: ASCII). Use [Braille] for higher
+      resolution with smoother bars. *)
 val render :
-  t -> show_values:bool -> ?thresholds:threshold list -> unit -> string
+  t ->
+  show_values:bool ->
+  ?thresholds:threshold list ->
+  ?mode:render_mode ->
+  unit ->
+  string
 
 (** Update the chart data. Returns updated chart. *)
 val update_data : t -> data:bar list -> t

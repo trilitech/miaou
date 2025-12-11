@@ -49,6 +49,11 @@ type series = {label : string; points : point list; color : string option}
 (** A threshold for coloring points above a certain value. *)
 type threshold = {value : float; color : string}
 
+(** Rendering mode for line charts. *)
+type render_mode =
+  | ASCII  (** Use standard Unicode symbols (●■▲◆★) - one character per cell *)
+  | Braille  (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+
 (** Axis configuration for labels and tick marks. *)
 type axis_config = {
   show_labels : bool;
@@ -83,12 +88,15 @@ val create :
       Points with a [y] value greater than a threshold's [value] will be
       colored with the threshold's [color]. If multiple thresholds are
       exceeded, the one with the highest value is used. Point-specific
-      colors and series colors have precedence. *)
+      colors and series colors have precedence.
+    - [mode] Rendering mode (default: ASCII). Use [Braille] for higher
+      resolution with smoother lines. *)
 val render :
   t ->
   show_axes:bool ->
   show_grid:bool ->
   ?thresholds:threshold list ->
+  ?mode:render_mode ->
   unit ->
   string
 

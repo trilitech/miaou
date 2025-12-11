@@ -6,6 +6,8 @@ type series = {label : string; points : point list; color : string option}
 
 type threshold = {value : float; color : string}
 
+type render_mode = ASCII | Braille
+
 type axis_config = {
   show_labels : bool;
   x_label : string;
@@ -178,71 +180,121 @@ let calculate_bounds series_list =
     let y_min, y_max = Chart_utils.bounds ys in
     (x_min, x_max, y_min, y_max)
 
-let render t ~show_axes ~show_grid ?(thresholds = []) () =
-  let grid = make_grid t.width t.height in
-  let x_min, x_max, y_min, y_max = calculate_bounds t.series in
+let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
+  match mode with
+  | ASCII ->
+      let grid = make_grid t.width t.height in
+      let x_min, x_max, y_min, y_max = calculate_bounds t.series in
 
-  (* Render grid lines first (background) *)
-  if show_grid then render_grid_lines grid t ;
+      (* Render grid lines first (background) *)
+      if show_grid then render_grid_lines grid t ;
 
-  (* Render axes *)
-  if show_axes then render_axes grid t x_min x_max y_min y_max ;
+      (* Render axes *)
+      if show_axes then render_axes grid t x_min x_max y_min y_max ;
 
-  (* Plot symbols for different series *)
-  let symbols = [|"●"; "■"; "▲"; "◆"; "★"|] in
+      (* Plot symbols for different series *)
+      let symbols = [|"●"; "■"; "▲"; "◆"; "★"|] in
 
-  (* Plot each series *)
-  List.iteri
-    (fun idx series ->
-      let symbol = symbols.(idx mod Array.length symbols) in
-      plot_series
-        grid
-        series
-        x_min
-        x_max
-        y_min
-        y_max
-        t.width
-        t.height
-        symbol
-        ~thresholds)
-    t.series ;
+      (* Plot each series *)
+      List.iteri
+        (fun idx series ->
+          let symbol = symbols.(idx mod Array.length symbols) in
+          plot_series
+            grid
+            series
+            x_min
+            x_max
+            y_min
+            y_max
+            t.width
+            t.height
+            symbol
+            ~thresholds)
+        t.series ;
 
-  (* Convert grid to string *)
-  let lines =
-    Array.to_list grid
-    |> List.map (fun row ->
-        let buf = Buffer.create (t.width * 10) in
-        Array.iter (fun cell ->
-            match cell.style with
-            | Some style -> Buffer.add_string buf (W.ansi style cell.char)
-            | None -> Buffer.add_string buf cell.char)
-          row;
-        Buffer.contents buf)
-  in
-
-  (* Add title if present *)
-  match t.title with
-  | Some title ->
-      let buf =
-        Buffer.create (String.length title + List.length lines * t.width + 1)
+      (* Convert grid to string *)
+      let lines =
+        Array.to_list grid
+        |> List.map (fun row ->
+            let buf = Buffer.create (t.width * 10) in
+            Array.iter
+              (fun cell ->
+                match cell.style with
+                | Some style -> Buffer.add_string buf (W.ansi style cell.char)
+                | None -> Buffer.add_string buf cell.char)
+              row ;
+            Buffer.contents buf)
       in
-      Buffer.add_string buf (W.bold title) ;
-      Buffer.add_char buf '\n' ;
-      List.iteri
-        (fun i line ->
-          if i > 0 then Buffer.add_char buf '\n' ;
-          Buffer.add_string buf line)
-        lines ;
-      Buffer.contents buf
-  | None ->
-      let buf = Buffer.create (List.length lines * (t.width + 1)) in
-      List.iteri
-        (fun i line ->
-          if i > 0 then Buffer.add_char buf '\n' ;
-          Buffer.add_string buf line)
-        lines ;
-      Buffer.contents buf
+
+      (* Add title if present *)
+      (match t.title with
+      | Some title ->
+          let buf =
+            Buffer.create
+              (String.length title + (List.length lines * t.width) + 1)
+          in
+          Buffer.add_string buf (W.bold title) ;
+          Buffer.add_char buf '\n' ;
+          List.iteri
+            (fun i line ->
+              if i > 0 then Buffer.add_char buf '\n' ;
+              Buffer.add_string buf line)
+            lines ;
+          Buffer.contents buf
+      | None ->
+          let buf = Buffer.create (List.length lines * (t.width + 1)) in
+          List.iteri
+            (fun i line ->
+              if i > 0 then Buffer.add_char buf '\n' ;
+              Buffer.add_string buf line)
+            lines ;
+          Buffer.contents buf)
+  | Braille ->
+      (* Use braille canvas for higher resolution *)
+      let canvas = Braille_canvas.create ~width:t.width ~height:t.height in
+      let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
+      let x_min, x_max, y_min, y_max = calculate_bounds t.series in
+
+      (* Map coordinate to dot position *)
+      let map_x x =
+        let range = x_max -. x_min in
+        if range = 0. then dot_width / 2
+        else int_of_float ((x -. x_min) /. range *. float_of_int (dot_width - 1))
+      in
+
+      let map_y y =
+        let range = y_max -. y_min in
+        if range = 0. then dot_height / 2
+        else
+          (* Invert Y because terminal coordinates go top-down *)
+          dot_height - 1
+          - int_of_float ((y -. y_min) /. range *. float_of_int (dot_height - 1))
+      in
+
+      (* Plot each series *)
+      List.iter
+        (fun series ->
+          List.iteri
+            (fun idx point ->
+              let x = map_x point.x in
+              let y = map_y point.y in
+              Braille_canvas.set_dot canvas ~x ~y ;
+              (* Draw line to next point *)
+              match List.nth_opt series.points (idx + 1) with
+              | Some next_point ->
+                  let next_x = map_x next_point.x in
+                  let next_y = map_y next_point.y in
+                  Braille_canvas.draw_line canvas ~x0:x ~y0:y ~x1:next_x ~y1:next_y
+              | None -> ())
+            series.points)
+        t.series ;
+
+      let chart_output = Braille_canvas.render canvas in
+
+      (* Add title if present *)
+      match t.title with
+      | Some title -> W.bold title ^ "\n" ^ chart_output
+      | None -> chart_output
 
 (* Accessor functions for SDL rendering *)
 let get_series t = t.series

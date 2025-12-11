@@ -79,6 +79,51 @@ let test_fixed_range () =
   let output = Bar_chart.render chart ~show_values:false ~thresholds:[] () in
   check bool "rendered with fixed range" true (String.length output > 50)
 
+let test_braille_mode () =
+  let chart =
+    Bar_chart.create
+      ~width:30
+      ~height:10
+      ~data:[("Mon", 45.0, None); ("Tue", 67.0, None); ("Wed", 82.0, None)]
+      ()
+  in
+  let output =
+    Bar_chart.render
+      chart
+      ~show_values:false
+      ~thresholds:[]
+      ~mode:Bar_chart.Braille
+      ()
+  in
+  check bool "braille has output" true (String.length output > 50)
+
+let test_braille_vs_ascii () =
+  let chart =
+    Bar_chart.create
+      ~width:30
+      ~height:10
+      ~data:[("A", 30.0, None); ("B", 60.0, None); ("C", 90.0, None)]
+      ()
+  in
+  let ascii_output =
+    Bar_chart.render
+      chart
+      ~show_values:false
+      ~thresholds:[]
+      ~mode:Bar_chart.ASCII
+      ()
+  in
+  let braille_output =
+    Bar_chart.render
+      chart
+      ~show_values:false
+      ~thresholds:[]
+      ~mode:Bar_chart.Braille
+      ()
+  in
+  check bool "ascii not empty" true (String.length ascii_output > 0) ;
+  check bool "braille not empty" true (String.length braille_output > 0)
+
 let suite =
   [
     test_case "empty chart" `Quick test_empty_chart;
@@ -88,6 +133,8 @@ let suite =
     test_case "with values" `Quick test_with_values;
     test_case "update data" `Quick test_update_data;
     test_case "fixed range" `Quick test_fixed_range;
+    test_case "braille mode" `Quick test_braille_mode;
+    test_case "braille vs ascii" `Quick test_braille_vs_ascii;
   ]
 
 let () = run "bar_chart" [("bar_chart", suite)]
