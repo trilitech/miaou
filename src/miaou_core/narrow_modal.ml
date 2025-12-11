@@ -41,4 +41,6 @@ module Page : PAGE_SIG = struct
   let view s ~focus:_ ~size:_ = s
 
   let keymap (_ : state) = []
+
+  let handled_keys () = []
 end

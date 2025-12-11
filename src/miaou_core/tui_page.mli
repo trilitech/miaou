@@ -32,6 +32,11 @@ module type PAGE_SIG = sig
      Each entry: (key, state transformer, short help). *)
   val keymap : state -> (string * (state -> state) * string) list
 
+  (* Declare which keys this page handles (for conflict detection).
+     Pages should list all keys they handle, using Keys.t variants.
+     This enables compile-time checking and auto-generated help. *)
+  val handled_keys : unit -> Keys.t list
+
   (* When a modal is active, pages can handle raw key strings here (e.g., "a", "Backspace", "Left"). *)
   val handle_modal_key : state -> string -> size:LTerm_geom.size -> state
 

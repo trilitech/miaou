@@ -33,7 +33,8 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
     let back s = s
 
-    let keymap (_ : state) = []
+  $1  let handled_keys () = []
+
 
     let handle_modal_key s key ~size:_ =
       (match key with
@@ -94,7 +95,7 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let back s = s
 
-  let keymap (_ : state) = []
+
 
   let handle_modal_key s key ~size:_ =
     Miaou_core.Modal_manager.handle_key key ;

@@ -37,6 +37,8 @@ module Placeholder_page : Tui_page.PAGE_SIG = struct
 
   let keymap _ = []
 
+  let handled_keys () = []
+
   let handle_modal_key s _ ~size:_ = s
 
   let handle_key s _ ~size:_ = s
