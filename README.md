@@ -34,13 +34,15 @@ Backends
 
 MIAOU supports two rendering backends:
 
-1. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Excellent compatibility across terminals.
+1. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Excellent compatibility across terminals. Chart widgets now support **Unicode Braille mode** for higher resolution rendering (2×4 dots per cell vs 1 character per cell).
 
 2. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, smooth curves, pixel-perfect rendering, and full RGB color support. Provides superior visual quality for charts, sparklines, images, and QR codes.
 
 The SDL2 backend (`miaou-driver-sdl` package) requires Tsdl + Tsdl_ttf + Tsdl_image. Run with `MIAOU_DRIVER=sdl dune exec -- miaou.demo-sdl`. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if auto-detection fails.
 
 **SDL-Enhanced Widgets**: Chart widgets (sparkline, line chart), image viewer, and QR code widgets automatically use native SDL rendering when the SDL backend is active, providing smooth anti-aliased graphics instead of text approximation. See [`src/miaou_widgets_display/SDL_CHARTS_README.md`](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details.
+
+**Braille Charts**: Terminal chart widgets support Unicode Braille patterns for higher resolution. Each terminal cell becomes a 2×4 dot grid, providing smoother curves and denser plots. See [`docs/BRAILLE_CANVAS.md`](./docs/BRAILLE_CANVAS.md) for details and examples.
 
 Quick start — build & depend
 ----------------------------
@@ -135,6 +137,44 @@ Minimal usage example
 ---------------------
 
 This repository ships an `example/` directory with mocked capabilities plus a driver bridge demonstrating the public API. Build it with dune and run `dune exec -- miaou.demo` (TUI-only) or `dune exec -- miaou.demo-sdl` (SDL with terminal fallback) to see the widgets in action. For your own app, create a tiny program that registers a `Tui_page` and invoke the driver — see the library modules under `miaou_core` for the public API.
+
+### Chart Rendering Modes
+
+Chart widgets support multiple rendering modes for different use cases:
+
+```ocaml
+open Miaou.Widgets.Display
+
+(* ASCII mode - one character per data point, maximum compatibility *)
+let sparkline = Sparkline_widget.create ~width:30 ~max_points:30 () in
+for i = 0 to 29 do
+  Sparkline_widget.push sparkline (Random.float 100.)
+done;
+let ascii_output = 
+  Sparkline_widget.render sparkline ~focus:false ~show_value:true ~mode:ASCII () in
+(* Output: ▂▃▄▅▆▇█▇▆▅▄▃▂ ... *)
+
+(* Braille mode - 2×4 dots per cell, higher resolution for smoother curves *)
+let braille_output = 
+  Sparkline_widget.render sparkline ~focus:false ~show_value:true ~mode:Braille () in
+(* Output: ⠀⠁⠃⠇⡇⣇⣧⣷⣿⣷⣧⣇⡇⠇⠃⠁ ... *)
+
+(* Line charts also support braille mode *)
+let points = List.init 50 (fun i ->
+  let x = float_of_int i in
+  let y = sin (x /. 5.0) *. 10.0 in
+  { Line_chart_widget.x; y; color = None }
+) in
+let chart = Line_chart_widget.create
+  ~width:60 ~height:20
+  ~series:[{ label = "Sine Wave"; points; color = None }]
+  () in
+let chart_output = 
+  Line_chart_widget.render chart 
+    ~show_axes:false ~show_grid:false ~mode:Braille () in
+```
+
+See [`docs/BRAILLE_CANVAS.md`](./docs/BRAILLE_CANVAS.md) for more details on braille rendering.
 
 Examples
 --------
