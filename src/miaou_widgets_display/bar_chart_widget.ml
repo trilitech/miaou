@@ -176,6 +176,9 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
         let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
         let bar_width_dots = max 1 (dot_width / num_bars) in
 
+        let mask_left = [|0; 0x40; 0x44; 0x46; 0x47|] in
+        let mask_right = [|0; 0x80; 0xA0; 0xB0; 0xB8|] in
+
         (* Draw each bar *)
         List.iteri
           (fun idx (_label, value, bar_color) ->
@@ -190,17 +193,28 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
             in
             let x_start = idx * bar_width_dots in
             let x_end = min dot_width ((idx + 1) * bar_width_dots) in
-            (* Fill bar from bottom up *)
-            for y = 0 to bar_height_dots - 1 do
-              for x = x_start to x_end - 1 do
-                (* Y is inverted: 0 at top, so we draw from bottom *)
-                let y_pos = dot_height - 1 - y in
-                let cell_x = x / 2 in
-                let cell_y = y_pos / 4 in
-                if cell_y < height_cells && cell_x < width_cells then
+            let max_cell_y = height_cells - 1 in
+            (* Fill bar column-by-column using precomputed masks *)
+            for x = x_start to x_end - 1 do
+              let col = x land 1 in
+              let cell_x = x lsr 1 in
+              let rec fill cell_y remaining =
+                if remaining <= 0 || cell_y < 0 then ()
+                else
+                  let dots_in_cell = min 4 remaining in
+                  let mask =
+                    if col = 0 then mask_left.(dots_in_cell)
+                    else mask_right.(dots_in_cell)
+                  in
                   styles.(cell_y).(cell_x) <- color ;
-                Braille_canvas.set_dot canvas ~x ~y:y_pos
-              done
+                  Braille_canvas.add_cell_bits
+                    canvas
+                    ~cell_x
+                    ~cell_y
+                    mask ;
+                  fill (cell_y - 1) (remaining - 4)
+              in
+              fill max_cell_y bar_height_dots
             done)
           t.data ;
 
