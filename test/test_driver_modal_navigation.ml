@@ -104,6 +104,10 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
     Miaou_core.Modal_manager.handle_key key ;
     s
 
+  let keymap _ = []
+
+  let handled_keys () = []
+
   let handle_key s _ ~size:_ = s
 
   let next_page _ = !nav
