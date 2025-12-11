@@ -182,6 +182,7 @@ Examples
 ```sh
 dune exec -- miaou.demo             # TUI-only demo (lambda-term)
 dune exec -- miaou.demo-sdl         # SDL demo with enhanced graphics
+dune exec -- miaou.diagnostics-demo # Advanced diagnostics dashboard example
 dune exec -- miaou-runner-tui       # generic runner forcing TUI
 dune exec -- miaou-runner-native    # generic runner preferring SDL
 ```
@@ -207,6 +208,46 @@ The demo includes several example pages showcasing different widgets:
 - **Modal Forms**: Input dialogs and confirmation prompts
 
 The demo registers mock System/Logger/Service_lifecycle implementations so you can inspect how capabilities are wired before integrating Miaou into your own driver.
+
+### Advanced Example: Diagnostics Dashboard
+
+The `example/diagnostics_dashboard.ml` demonstrates production-ready patterns for building real-time monitoring dashboards:
+
+- **Ring Buffers**: Efficient sliding-window data structures for time-series metrics
+- **Histogram-based Percentiles**: O(1) p50/p90/p99 calculations without sorting
+- **Multi-chart Visualization**: Multiple colored line charts with threshold-based coloring
+- **Color Best Practices**: Proper use of ANSI SGR codes and color precedence rules
+- **State Management**: Incremental updates and auto-refresh patterns
+
+Run it with:
+```sh
+dune exec -- miaou.diagnostics-demo
+```
+
+This example shows how to build professional monitoring UIs using only stock Miaou widgets, with no custom rendering required. See the source code for detailed comments on each pattern.
+
+### Color Usage Guide
+
+Chart widgets support ANSI SGR color codes for flexible styling. See [`docs/colors.md`](./docs/colors.md) for a comprehensive guide covering:
+
+- ANSI color code format (use `"32"` for green, not palette index `10`)
+- Color precedence rules (point > series > threshold)
+- Best practices for accessibility and consistency
+- Common pitfalls and solutions
+
+Quick example:
+```ocaml
+(* Green series with yellow/red thresholds *)
+let series = {
+  label = "Temperature";
+  points = [{x = 1.0; y = 75.0; color = None}];
+  color = Some "32"  (* Green - ANSI SGR code *)
+} in
+let thresholds = [
+  {value = 60.0; color = "33"};  (* Yellow warning *)
+  {value = 80.0; color = "31"};  (* Red critical *)
+]
+```
 
 Recording & replay
 --------------------
