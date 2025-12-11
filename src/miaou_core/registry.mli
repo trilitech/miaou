@@ -26,6 +26,14 @@ val register_lazy : string -> (unit -> page) -> unit
 (** Override an existing page registration. *)
 val override : string -> page -> unit
 
+(** Check for key conflicts between all registered pages.
+    Returns a list of (key_string, page_names) where multiple pages handle the same key. *)
+val check_all_conflicts : unit -> (string * string list) list
+
+(** Get a human-readable report of key conflicts, if any exist.
+    Returns None if no conflicts, Some report_string if conflicts found. *)
+val conflict_report : unit -> string option
+
 (* Application-specific helpers (e.g. storing a last selected instance) were
 	intentionally removed from the core registry to keep the core library
 	generic. Implement these helpers in application code if needed. *)
