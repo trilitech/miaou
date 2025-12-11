@@ -2110,6 +2110,7 @@ This demo shows sine/cosine waves. Press Space to add more points.
   type state = {
     chart : Line_chart.t;
     point_count : int;
+    mode : Line_chart.render_mode;
     next_page : string option;
   }
 
@@ -2150,8 +2151,9 @@ This demo shows sine/cosine waves. Press Space to add more points.
           ~height:18
           ~series:[sine_series; cosine_series]
           ~title:"Trigonometric Functions"
-          ();
+        ();
       point_count = 15;
+      mode = Line_chart.ASCII;
       next_page = None;
     }
 
@@ -2176,14 +2178,24 @@ This demo shows sine/cosine waves. Press Space to add more points.
     let thresholds =
       [{Line_chart.value = 80.0; color = "31"}; {value = 60.0; color = "33"}]
     in
+    let mode_label =
+      match s.mode with Line_chart.ASCII -> "ASCII" | Braille -> "Braille"
+    in
     let chart_output =
-      Line_chart.render s.chart ~show_axes:true ~show_grid:true ~thresholds ()
+      Line_chart.render
+        s.chart
+        ~show_axes:true
+        ~show_grid:true
+        ~thresholds
+        ~mode:s.mode
+        ()
     in
     let hint =
       W.dim
         (Printf.sprintf
-           "Points: %d • Space to add more • t tutorial • Esc returns"
-           s.point_count)
+           "Points: %d • Space to add more • b toggle Braille (%s) • t tutorial • Esc returns"
+           s.point_count
+           mode_label)
     in
     String.concat "\n" [header; ""; chart_output; ""; hint]
 
@@ -2199,6 +2211,11 @@ This demo shows sine/cosine waves. Press Space to add more points.
           ~title:"Line chart tutorial"
           ~markdown:tutorial_markdown ;
         s
+    | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "b" ->
+        let mode =
+          match s.mode with Line_chart.ASCII -> Line_chart.Braille | Braille -> Line_chart.ASCII
+        in
+        {s with mode}
     | Some (Miaou.Core.Keys.Char " ") -> add_points s
     | _ -> s
 
@@ -2235,6 +2252,7 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     net_spark : Sparkline.t;
     cpu_history : Line_chart.point list;
     tick_count : int;
+    mode : Line_chart.render_mode;
     next_page : string option;
   }
 
@@ -2259,6 +2277,7 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
       net_spark = Sparkline.create ~width:35 ~max_points:35 ();
       cpu_history = [];
       tick_count = 0;
+      mode = Line_chart.ASCII;
       next_page = None;
     }
 
@@ -2317,6 +2336,9 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let cpu_thresholds =
       [{Sparkline.value = 90.0; color = "31"}; {value = 75.0; color = "33"}]
     in
+    let mode_label =
+      match s.mode with Line_chart.ASCII -> "ASCII" | Braille -> "Braille"
+    in
 
     (* Combine system info (left) with metrics (right) *)
     (* Calculate widths based on terminal size *)
@@ -2358,26 +2380,42 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let _, _, mem_val = Sparkline.get_bounds s_mem_adjusted in
     let _, _, net_val = Sparkline.get_bounds s_net_adjusted in
 
+    let spark_mode =
+      match s.mode with Line_chart.ASCII -> Sparkline.ASCII | Braille -> Braille
+    in
+
     let cpu_line_adj =
       Printf.sprintf "CPU: %5.1f " cpu_val
-      ^ SDL_render.render_sparkline_sdl
+      ^ Sparkline.render
           s_cpu_adjusted
-          ~color:"32"
+          ~focus:false
+          ~show_value:false
           ~thresholds:cpu_thresholds
+          ~color:"32"
+          ~mode:spark_mode
+          ()
     in
     let mem_line_adj =
       Printf.sprintf "MEM: %5.1f " mem_val
-      ^ SDL_render.render_sparkline_sdl
+      ^ Sparkline.render
           s_mem_adjusted
-          ~color:"34"
+          ~focus:false
+          ~show_value:false
           ~thresholds:[]
+          ~color:"34"
+          ~mode:spark_mode
+          ()
     in
     let net_line_adj =
       Printf.sprintf "NET: %5.1f KB/s " net_val
-      ^ SDL_render.render_sparkline_sdl
+      ^ Sparkline.render
           s_net_adjusted
-          ~color:"35"
+          ~focus:false
+          ~show_value:false
           ~thresholds:[]
+          ~color:"35"
+          ~mode:spark_mode
+          ()
     in
 
     let sys_info_lines =
@@ -2444,14 +2482,26 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
             {Line_chart.value = 90.0; color = "31"}; {value = 75.0; color = "33"};
           ]
         in
-        "\n" ^ SDL_render.render_line_chart_sdl chart ~thresholds
+        "\n"
+        ^ Line_chart.render
+            chart
+            ~show_axes:false
+            ~show_grid:false
+            ~thresholds
+            ~mode:s.mode
+            ()
       else ""
     in
 
     (* Assemble view *)
     let header = W.titleize "System Monitor" in
     let sep = String.make width '-' in
-    let hint = W.dim "Auto-updating every ~150ms • Esc to return" in
+    let hint =
+      W.dim
+        (Printf.sprintf
+           "Auto-updating every ~150ms • b toggle Braille (%s) • Esc to return"
+           mode_label)
+    in
 
     String.concat
       "\n"
@@ -2464,6 +2514,11 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
       ->
         go_home s
+    | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "b" ->
+        let mode =
+          match s.mode with Line_chart.ASCII -> Line_chart.Braille | Braille -> Line_chart.ASCII
+        in
+        {s with mode}
     | _ -> s
 
   let move s _ = s
@@ -3440,6 +3495,96 @@ let make_page_case name (module P : Miaou.Core.Tui_page.PAGE_SIG) =
   in
   {name; run}
 
+let line_chart_braille_case =
+  let module LC = Miaou_widgets_display.Line_chart_widget in
+  let run ~size =
+    let series =
+      let make_wave f color =
+        {
+          LC.label = "wave";
+          points =
+            List.init 60 (fun i ->
+                let x = float_of_int i in
+                let y = f x in
+                {LC.x; y; color = None});
+          color;
+        }
+      in
+      [
+        make_wave (fun x -> (sin (x /. 4.)) *. 30. +. 50.) (Some "32");
+        make_wave (fun x -> (cos (x /. 5.)) *. 30. +. 40.) (Some "34");
+      ]
+    in
+    let chart =
+      LC.create
+        ~width:(min 120 size.LTerm_geom.cols)
+        ~height:(min 20 size.LTerm_geom.rows)
+        ~series
+        ()
+    in
+    LC.render
+      chart
+      ~show_axes:true
+      ~show_grid:true
+      ~thresholds:[{LC.value = 75.; color = "33"}; {value = 90.; color = "31"}]
+      ~mode:LC.Braille
+      ()
+    |> String.length
+  in
+  {name = "line_chart_braille"; run}
+
+let sparkline_braille_case =
+  let module SP = Miaou_widgets_display.Sparkline_widget in
+  let run ~size =
+    let width = min 100 size.LTerm_geom.cols in
+    let sp =
+      SP.create ~width ~max_points:(width * 2) ~min_value:0. ~max_value:100. ()
+    in
+    for i = 0 to (width * 2) - 1 do
+      let v = 50. +. (40. *. sin (float_of_int i /. 6.)) in
+      SP.push sp v
+    done ;
+    SP.render
+      sp
+      ~focus:false
+      ~show_value:false
+      ~color:"36"
+      ~thresholds:[{SP.value = 80.; color = "31"}; {value = 60.; color = "33"}]
+      ~mode:SP.Braille
+      ()
+    |> String.length
+  in
+  {name = "sparkline_braille"; run}
+
+let bar_chart_braille_case =
+  let module BC = Miaou_widgets_display.Bar_chart_widget in
+  let run ~size =
+    let labels = ["Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"; "Sun"] in
+    let data =
+      List.mapi
+        (fun i lbl ->
+          let base = 40. +. (float_of_int (i * 7 mod 30)) in
+          (lbl, base, None))
+        labels
+    in
+    let chart =
+      BC.create
+        ~width:(min 120 size.LTerm_geom.cols)
+        ~height:(min 15 size.LTerm_geom.rows)
+        ~data
+        ~title:"Weekly"
+        ()
+    in
+    BC.render
+      chart
+      ~show_values:false
+      ~thresholds:[{BC.value = 60.; color = "33"}; {value = 80.; color = "31"}]
+      ~mode:BC.Braille
+      ()
+    |> String.length
+  in
+  {name = "bar_chart_braille"; run}
+
 let bench_cases : bench list =
   [
     make_page_case "table" (module Table_demo_page);
@@ -3450,8 +3595,11 @@ let bench_cases : bench list =
     make_page_case "toast" (module Toast_demo_page);
     make_page_case "spinner" (module Spinner_progress_demo_page);
     make_page_case "sparkline" (module Sparkline_demo_page);
+    sparkline_braille_case;
     make_page_case "line_chart" (module Line_chart_demo_page);
+    line_chart_braille_case;
     make_page_case "bar_chart" (module Bar_chart_demo_page);
+    bar_chart_braille_case;
     make_page_case "tree" (module Tree_demo_page);
     make_page_case "breadcrumbs" (module Breadcrumbs_demo_page);
     make_page_case "tabs" (module Tabs_demo_page);

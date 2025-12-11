@@ -252,6 +252,8 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
   | Braille ->
       (* Use braille canvas for higher resolution *)
       let canvas = Braille_canvas.create ~width:t.width ~height:t.height in
+      let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
+      let styles = Array.make_matrix height_cells width_cells None in
       let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
       let x_min, x_max, y_min, y_max = calculate_bounds t.series in
 
@@ -272,24 +274,64 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       in
 
       (* Plot each series *)
+      let set_style_for_dot x y color =
+        let cell_x = x / 2 in
+        let cell_y = y / 4 in
+        if cell_y < height_cells && cell_x < width_cells then
+          styles.(cell_y).(cell_x) <- color
+      in
+
+      let set_styled_dot x y color =
+        set_style_for_dot x y color ;
+        Braille_canvas.set_dot canvas ~x ~y
+      in
+
+      let draw_line_styled ~x0 ~y0 ~x1 ~y1 color =
+        let dx = abs (x1 - x0) in
+        let dy = abs (y1 - y0) in
+        let sx = if x0 < x1 then 1 else -1 in
+        let sy = if y0 < y1 then 1 else -1 in
+        let rec loop x y err =
+          set_styled_dot x y color ;
+          if x = x1 && y = y1 then ()
+          else
+            let e2 = 2 * err in
+            let x', err' = if e2 > -dy then (x + sx, err - dy) else (x, err) in
+            let y', err'' =
+              if e2 < dx then (y + sy, err' + dx) else (y, err')
+            in
+            loop x' y' err''
+        in
+        loop x0 y0 (dx - dy)
+      in
+
       List.iter
         (fun series ->
           List.iteri
             (fun idx point ->
               let x = map_x point.x in
               let y = map_y point.y in
-              Braille_canvas.set_dot canvas ~x ~y ;
+              let color =
+                get_color
+                  ~thresholds
+                  ~series_color:((series : series).color)
+                  point
+              in
+              set_styled_dot x y color ;
               (* Draw line to next point *)
               match List.nth_opt series.points (idx + 1) with
               | Some next_point ->
                   let next_x = map_x next_point.x in
                   let next_y = map_y next_point.y in
-                  Braille_canvas.draw_line canvas ~x0:x ~y0:y ~x1:next_x ~y1:next_y
+                  draw_line_styled ~x0:x ~y0:y ~x1:next_x ~y1:next_y color
               | None -> ())
             series.points)
         t.series ;
 
-      let chart_output = Braille_canvas.render canvas in
+      let chart_output =
+        Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
+            match styles.(y).(x) with Some c -> W.ansi c ch | None -> ch)
+      in
 
       (* Add title if present *)
       match t.title with

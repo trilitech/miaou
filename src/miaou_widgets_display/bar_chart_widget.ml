@@ -170,12 +170,17 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
         let bar_width_cells = max 1 (t.width / num_bars) in
 
         let canvas = Braille_canvas.create ~width:t.width ~height:t.height in
+        let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
+        let styles = Array.make_matrix height_cells width_cells None in
         let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
         let bar_width_dots = max 1 (dot_width / num_bars) in
 
         (* Draw each bar *)
         List.iteri
-          (fun idx (_label, value, _bar_color) ->
+          (fun idx (_label, value, bar_color) ->
+            let color =
+              get_color ~thresholds ~default_color:t.color (value, bar_color)
+            in
             let bar_height_dots =
               if range = 0. then dot_height
               else
@@ -189,6 +194,10 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
               for x = x_start to x_end - 1 do
                 (* Y is inverted: 0 at top, so we draw from bottom *)
                 let y_pos = dot_height - 1 - y in
+                let cell_x = x / 2 in
+                let cell_y = y_pos / 4 in
+                if cell_y < height_cells && cell_x < width_cells then
+                  styles.(cell_y).(cell_x) <- color ;
                 Braille_canvas.set_dot canvas ~x ~y:y_pos
               done
             done)
@@ -202,7 +211,10 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
         | None -> ()) ;
 
         (* Chart *)
-        lines := Braille_canvas.render canvas :: !lines ;
+        lines :=
+          Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
+              match styles.(y).(x) with Some c -> W.ansi c ch | None -> ch)
+          :: !lines ;
 
         (* X-axis labels *)
         let labels_line = Buffer.create t.width in

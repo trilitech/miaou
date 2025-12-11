@@ -69,6 +69,12 @@ val draw_line : t -> x0:int -> y0:int -> x1:int -> y1:int -> unit
     Each cell is rendered as a braille character (U+2800–U+28FF). *)
 val render : t -> string
 
+(** Render the canvas with a per-cell transformation, allowing styling.
+    The callback [f] receives the cell coordinates (in cells, not dots) and
+    the rendered braille character, and must return the string to emit. *)
+val render_with :
+  t -> f:(x:int -> y:int -> string -> string) -> string
+
 (** Get canvas dimensions in cells (not dots). *)
 val get_dimensions : t -> int * int
 

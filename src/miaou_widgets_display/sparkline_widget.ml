@@ -120,6 +120,8 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         let min_val, max_val, current = stats t in
         (* Create braille canvas: 1 cell height (4 dots), t.width cells wide *)
         let canvas = Braille_canvas.create ~width:t.width ~height:1 in
+        let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
+        let styles = Array.make_matrix height_cells width_cells None in
         let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
 
         (* Sample or interpolate points to match dot_width *)
@@ -154,10 +156,20 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
             in
             let y = dot_height - 1 - y in
             (* Set dot at position *)
+            let color =
+              get_color ~thresholds ~default_color:color value
+            in
+            let cell_x = x / 2 in
+            let cell_y = y / 4 in
+            if cell_y < height_cells && cell_x < width_cells then
+              styles.(cell_y).(cell_x) <- color ;
             Braille_canvas.set_dot canvas ~x ~y)
           samples ;
 
-        let sparkline = Braille_canvas.render canvas in
+        let sparkline =
+          Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
+              match styles.(y).(x) with Some c -> W.ansi c ch | None -> ch)
+        in
         let sparkline = if focus then W.bold sparkline else sparkline in
 
         if show_value then Printf.sprintf "%s %.1f" sparkline current

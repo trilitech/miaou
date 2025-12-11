@@ -137,3 +137,36 @@ let render t =
     done
   done ;
   Buffer.contents buf
+
+let render_with t ~f =
+  let buf = Buffer.create (t.height * (t.width * 3 + 1)) in
+  for y = 0 to t.height - 1 do
+    if y > 0 then Buffer.add_char buf '\n' ;
+    for x = 0 to t.width - 1 do
+      let pattern = t.cells.(y).(x) in
+      let unicode_point = braille_base + pattern in
+      let raw =
+        if unicode_point <= 0x7F then String.make 1 (Char.chr unicode_point)
+        else if unicode_point <= 0x7FF then
+          String.init 2 (fun i ->
+              match i with
+              | 0 -> Char.chr (0xC0 lor (unicode_point lsr 6))
+              | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
+        else if unicode_point <= 0xFFFF then
+          String.init 3 (fun i ->
+              match i with
+              | 0 -> Char.chr (0xE0 lor (unicode_point lsr 12))
+              | 1 -> Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))
+              | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
+        else
+          String.init 4 (fun i ->
+              match i with
+              | 0 -> Char.chr (0xF0 lor (unicode_point lsr 18))
+              | 1 -> Char.chr (0x80 lor ((unicode_point lsr 12) land 0x3F))
+              | 2 -> Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))
+              | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
+      in
+      Buffer.add_string buf (f ~x ~y raw)
+    done
+  done ;
+  Buffer.contents buf
