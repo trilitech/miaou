@@ -33,7 +33,6 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
     let back s = s
 
-  $1  let handled_keys () = []
 
 
     let handle_modal_key s key ~size:_ =
