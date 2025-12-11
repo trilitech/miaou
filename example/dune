@@ -30,3 +30,10 @@
  (package miaou)
  (modules demo_sdl)
  (libraries miaou_demo_lib miaou.runner.native))
+
+(executable
+ (name braille_demo)
+ (public_name miaou.braille-demo)
+ (package miaou)
+ (modules braille_demo)
+ (libraries miaou.widgets.display))
