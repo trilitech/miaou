@@ -198,6 +198,23 @@ let test_braille_vs_ascii () =
   check bool "ascii not empty" true (String.length ascii_output > 0) ;
   check bool "braille not empty" true (String.length braille_output > 0)
 
+let test_braille_colors () =
+  let sp = Sparkline.create ~width:8 ~max_points:8 () in
+  for i = 0 to 7 do
+    Sparkline.push sp (float_of_int (i * 10))
+  done ;
+  let output =
+    Sparkline.render
+      sp
+      ~focus:false
+      ~show_value:false
+      ~thresholds:[{Sparkline.value = 30.; color = "31"}]
+      ~mode:Sparkline.Braille
+      ()
+  in
+  (* Expect ANSI escape when threshold triggers *)
+  check bool "braille colored" true (String.contains output '\027')
+
 let suite =
   [
     test_case "empty sparkline" `Quick test_empty_sparkline;
@@ -213,6 +230,7 @@ let suite =
     test_case "braille mode empty" `Quick test_braille_mode_empty;
     test_case "braille mode with data" `Quick test_braille_mode_with_data;
     test_case "braille vs ascii" `Quick test_braille_vs_ascii;
+    test_case "braille colors" `Quick test_braille_colors;
   ]
 
 let () = run "sparkline" [("sparkline", suite)]

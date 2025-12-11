@@ -124,6 +124,25 @@ let test_braille_vs_ascii () =
   check bool "ascii not empty" true (String.length ascii_output > 0) ;
   check bool "braille not empty" true (String.length braille_output > 0)
 
+let test_braille_colors () =
+  let chart =
+    Bar_chart.create
+      ~width:30
+      ~height:10
+      ~data:[("A", 30.0, None); ("B", 70.0, None)]
+      ~color:"32"
+      ()
+  in
+  let output =
+    Bar_chart.render
+      chart
+      ~show_values:false
+      ~thresholds:[{Bar_chart.value = 60.0; color = "31"}]
+      ~mode:Bar_chart.Braille
+      ()
+  in
+  check bool "braille colored" true (String.contains output '\027')
+
 let suite =
   [
     test_case "empty chart" `Quick test_empty_chart;
@@ -135,6 +154,7 @@ let suite =
     test_case "fixed range" `Quick test_fixed_range;
     test_case "braille mode" `Quick test_braille_mode;
     test_case "braille vs ascii" `Quick test_braille_vs_ascii;
+    test_case "braille colors" `Quick test_braille_colors;
   ]
 
 let () = run "bar_chart" [("bar_chart", suite)]

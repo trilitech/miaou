@@ -230,6 +230,30 @@ let test_braille_vs_ascii () =
   check bool "ascii not empty" true (String.length ascii_output > 0) ;
   check bool "braille not empty" true (String.length braille_output > 0)
 
+let test_braille_colors () =
+  let series =
+    {
+      Line_chart.label = "test";
+      points =
+        [
+          {Line_chart.x = 0.0; y = 0.0; color = None};
+          {Line_chart.x = 5.0; y = 10.0; color = None};
+        ];
+      color = Some "32";
+    }
+  in
+  let chart = Line_chart.create ~width:15 ~height:8 ~series:[series] () in
+  let output =
+    Line_chart.render
+      chart
+      ~show_axes:false
+      ~show_grid:false
+      ~thresholds:[{Line_chart.value = 6.0; color = "31"}]
+      ~mode:Line_chart.Braille
+      ()
+  in
+  check bool "braille colored" true (String.contains output '\027')
+
 let suite =
   [
     test_case "empty chart" `Quick test_empty_chart;
@@ -243,6 +267,7 @@ let suite =
     test_case "with title" `Quick test_with_title;
     test_case "braille mode" `Quick test_braille_mode;
     test_case "braille vs ascii" `Quick test_braille_vs_ascii;
+    test_case "braille colors" `Quick test_braille_colors;
   ]
 
 let () = run "line_chart" [("line_chart", suite)]
