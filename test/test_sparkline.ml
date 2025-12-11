@@ -140,6 +140,64 @@ let test_clear () =
   in
   check string "cleared" (String.make 5 ' ') output
 
+let test_braille_mode_empty () =
+  let sp = Sparkline.create ~width:5 ~max_points:5 () in
+  let output =
+    Sparkline.render
+      sp
+      ~focus:false
+      ~show_value:false
+      ~thresholds:[]
+      ~mode:Sparkline.Braille
+      ()
+  in
+  (* Should render empty braille cells *)
+  check bool "has output" true (String.length output > 0)
+
+let test_braille_mode_with_data () =
+  let sp = Sparkline.create ~width:5 ~max_points:10 () in
+  for i = 0 to 9 do
+    Sparkline.push sp (float_of_int i)
+  done ;
+  let output =
+    Sparkline.render
+      sp
+      ~focus:false
+      ~show_value:false
+      ~thresholds:[]
+      ~mode:Sparkline.Braille
+      ()
+  in
+  (* Should contain braille characters (UTF-8 encoded) *)
+  check bool "has braille output" true (String.length output > 0)
+
+let test_braille_vs_ascii () =
+  let sp = Sparkline.create ~width:10 ~max_points:10 () in
+  for i = 0 to 9 do
+    Sparkline.push sp (float_of_int (i * i))
+  done ;
+  let ascii_output =
+    Sparkline.render
+      sp
+      ~focus:false
+      ~show_value:false
+      ~thresholds:[]
+      ~mode:Sparkline.ASCII
+      ()
+  in
+  let braille_output =
+    Sparkline.render
+      sp
+      ~focus:false
+      ~show_value:false
+      ~thresholds:[]
+      ~mode:Sparkline.Braille
+      ()
+  in
+  (* Both should produce non-empty output *)
+  check bool "ascii not empty" true (String.length ascii_output > 0) ;
+  check bool "braille not empty" true (String.length braille_output > 0)
+
 let suite =
   [
     test_case "empty sparkline" `Quick test_empty_sparkline;
@@ -152,6 +210,9 @@ let suite =
     test_case "render with label" `Quick test_render_with_label;
     test_case "fixed min/max" `Quick test_fixed_min_max;
     test_case "clear" `Quick test_clear;
+    test_case "braille mode empty" `Quick test_braille_mode_empty;
+    test_case "braille mode with data" `Quick test_braille_mode_with_data;
+    test_case "braille vs ascii" `Quick test_braille_vs_ascii;
   ]
 
 let () = run "sparkline" [("sparkline", suite)]
