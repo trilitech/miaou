@@ -21,6 +21,38 @@
     ]}
 
     Output: [ ▃▄▆▇█▇▅▃▂ ▂▃▅▆▇█▇▆▄▃▂ ] 42.3%
+
+    {1 Color Parameters}
+
+    The [color] parameter in [render], [render_with_label], and [threshold.color]
+    accepts ANSI SGR (Select Graphic Rendition) color codes as strings:
+
+    {b Basic foreground colors:}
+    - ["30"] = black, ["31"] = red, ["32"] = green, ["33"] = yellow
+    - ["34"] = blue, ["35"] = magenta, ["36"] = cyan, ["37"] = white
+
+    {b Bright foreground colors:}
+    - ["90"] = bright black (gray), ["91"] = bright red, ["92"] = bright green
+    - ["93"] = bright yellow, ["94"] = bright blue, ["95"] = bright magenta
+    - ["96"] = bright cyan, ["97"] = bright white
+
+    {b Note:} These are {e not} terminal palette indices (0-255).
+    Use ANSI escape code numbers as strings (e.g., ["32"] for green).
+
+    {b Example with color and thresholds:}
+    {[
+      let spark = Sparkline_widget.create ~width:20 ~max_points:20 () in
+      List.iter (Sparkline_widget.push spark) [10.; 25.; 50.; 75.; 90.; 60.; 30.];
+      
+      (* Render with thresholds: green below 50, yellow 50-80, red above 80 *)
+      let thresholds = [
+        { value = 50.0; color = "33" };  (* Yellow for values > 50 *)
+        { value = 80.0; color = "31" };  (* Red for values > 80 *)
+      ] in
+      Sparkline_widget.render spark ~focus:true ~show_value:true
+        ~color:"32"  (* Default green for values <= 50 *)
+        ~thresholds ()
+    ]}
 *)
 
 (** A threshold for coloring sparkline segments with a value above it. *)

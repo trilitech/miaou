@@ -38,6 +38,42 @@
      0 └─────────
        0   1   2   3
     v}
+
+    {1 Color Parameters}
+
+    The [color] field in [point], [series], and [threshold] accepts ANSI SGR
+    (Select Graphic Rendition) color codes as strings:
+
+    {b Basic foreground colors:}
+    - ["30"] = black, ["31"] = red, ["32"] = green, ["33"] = yellow
+    - ["34"] = blue, ["35"] = magenta, ["36"] = cyan, ["37"] = white
+
+    {b Bright foreground colors:}
+    - ["90"] = bright black (gray), ["91"] = bright red, ["92"] = bright green
+    - ["93"] = bright yellow, ["94"] = bright blue, ["95"] = bright magenta
+    - ["96"] = bright cyan, ["97"] = bright white
+
+    {b Note:} These are {e not} terminal palette indices (0-255).
+    Use ANSI escape code numbers as strings (e.g., ["32"] for green).
+
+    {b Color Precedence:}
+
+    When rendering points, colors are applied in the following priority order:
+    1. Point-level [color] (highest priority) - overrides all other colors
+    2. Series-level [color] - applies to all points in the series without their own color
+    3. Threshold-based [color] - applies when both point and series colors are [None]
+
+    {b Example with colors:}
+    {[
+      (* Green point on a red line *)
+      let points = [
+        { x = 1.0; y = 2.0; color = Some "32" };  (* This point is green *)
+        { x = 2.0; y = 3.0; color = None };       (* This point uses series color (red) *)
+      ] in
+      let series = { label = "Temperature"; points; color = Some "31" } in
+      Line_chart_widget.create ~width:40 ~height:10 ~series:[series] ()
+      |> Line_chart_widget.render ~show_axes:true ~show_grid:false ()
+    ]}
 *)
 
 (** A 2D data point with an optional override color. *)
