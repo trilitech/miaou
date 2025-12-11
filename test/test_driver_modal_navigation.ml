@@ -55,13 +55,15 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
           Miaou_core.Modal_manager.set_consume_next_key () ;
           Miaou_core.Modal_manager.close_top `Cancel
       | _ -> ()) ;
-    let keymap _ = []
-    let handled_keys () = []
       s
 
     let next_page _ = None
 
     let has_modal _ = false
+
+    let keymap _ = []
+
+    let handled_keys () = []
   end
 
   let push_modal () =
