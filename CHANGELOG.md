@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (2025-12-11)
 
+#### Input Buffer Draining for Navigation Keys
+- **Navigation key coalescing** to prevent scroll lag in list widgets
+- When arrow keys are held down and released, consecutive identical navigation events are automatically drained from the input buffer
+- Only the final navigation event is processed, making the UI feel more responsive
+- Debug logging available with `MIAOU_DEBUG=1` to track drain operations
+- Fixes issue where selection continues scrolling for ~0.5s after releasing arrow keys
+
 #### Braille Rendering Mode
 - **Unicode Braille patterns** for high-resolution chart rendering (2×4 dots per character cell)
 - Braille mode support for `Line_chart_widget`, `Bar_chart_widget`, and `Sparkline_widget`

@@ -225,3 +225,8 @@
 (test
  (name test_registry_validation)
  (libraries miaou alcotest str))
+
+(test
+ (name test_input_draining)
+ (modules test_input_draining)
+ (libraries alcotest))
