@@ -33,3 +33,11 @@ val tick_positions : count:int -> max:int -> int list
 (** Round to nice numbers for axis labels (1, 2, 5, 10, 20, 50, 100, etc.).
     - [round_up]: if true, round up; otherwise round to nearest. *)
 val nice_number : float -> round_up:bool -> float
+
+(** Render a braille canvas with ANSI color styling from a 2D style matrix.
+    Common pattern used by sparkline, line_chart, and bar_chart widgets.
+    
+    [styles] is a 2D array where styles.(y).(x) contains an optional color string.
+    If a color is present, the braille character at (x, y) will be wrapped in ANSI codes. *)
+val render_braille_with_colors :
+  Braille_canvas.t -> string option array array -> string

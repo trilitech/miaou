@@ -213,9 +213,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
 
         (* Chart *)
         lines :=
-          Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
-              match styles.(y).(x) with Some c -> W.ansi c ch | None -> ch)
-          :: !lines ;
+          Chart_utils.render_braille_with_colors canvas styles :: !lines ;
 
         (* X-axis labels *)
         let labels_line = Buffer.create t.width in

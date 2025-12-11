@@ -52,3 +52,11 @@ let nice_number value ~round_up =
       else 10.
     in
     nice_frac *. (10. ** exp)
+
+(** Render braille canvas with color styling from a 2D style array.
+    This is the common pattern used by sparkline, line_chart, and bar_chart. *)
+let render_braille_with_colors canvas styles =
+  Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
+      match styles.(y).(x) with
+      | Some color -> Widgets.ansi color ch
+      | None -> ch)

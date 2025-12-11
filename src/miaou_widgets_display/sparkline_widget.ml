@@ -168,8 +168,7 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
           samples ;
 
         let sparkline =
-          Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
-              match styles.(y).(x) with Some c -> W.ansi c ch | None -> ch)
+          Chart_utils.render_braille_with_colors canvas styles
         in
         let sparkline = if focus then W.bold sparkline else sparkline in
 

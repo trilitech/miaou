@@ -343,10 +343,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
             series.points)
         t.series ;
 
-      let chart_output =
-        Braille_canvas.render_with canvas ~f:(fun ~x ~y ch ->
-            match styles.(y).(x) with Some c -> W.ansi c ch | None -> ch)
-      in
+      let chart_output = Chart_utils.render_braille_with_colors canvas styles in
 
       (* Add title if present *)
       match t.title with
