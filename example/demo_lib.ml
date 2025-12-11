@@ -67,10 +67,11 @@ module Textbox_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = s
-  let keymap _ = []
+
   let has_modal _ = false
 end
 
