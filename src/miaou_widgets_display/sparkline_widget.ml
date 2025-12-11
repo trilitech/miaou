@@ -12,6 +12,8 @@ let blocks = [|" "; " "; "▂"; "▃"; "▄"; "▅"; "▆"; "▇"; "█"|]
 
 type threshold = {value : float; color : string}
 
+type render_mode = ASCII | Braille
+
 type t = {
   width : int;
   max_points : int;
@@ -64,55 +66,106 @@ let get_color ~thresholds ~(default_color : string option) value =
   | Some t -> Some t.color
   | None -> default_color
 
-let render t ~focus ~show_value ?color ?(thresholds = []) () =
+let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
   if Queue.is_empty t.data then
     let empty = String.make t.width ' ' in
     if show_value then empty ^ " 0.0" else empty
   else
-    let values = Queue.to_seq t.data |> List.of_seq in
-    let min_val, max_val, current = stats t in
-    let buf = Buffer.create (t.width * 10) in
-    (* Each Unicode char can be multiple bytes, plus ANSI codes *)
+    match mode with
+    | ASCII ->
+        let values = Queue.to_seq t.data |> List.of_seq in
+        let min_val, max_val, current = stats t in
+        let buf = Buffer.create (t.width * 10) in
+        (* Each Unicode char can be multiple bytes, plus ANSI codes *)
 
-    let render_value value =
-      let block_idx = normalize value min_val max_val in
-      let block = blocks.(block_idx) in
-      let c = get_color ~thresholds ~default_color:color value in
-      match c with Some color -> W.ansi color block | None -> block
-    in
+        let render_value value =
+          let block_idx = normalize value min_val max_val in
+          let block = blocks.(block_idx) in
+          let c = get_color ~thresholds ~default_color:color value in
+          match c with Some color -> W.ansi color block | None -> block
+        in
 
-    (* Render sparkline blocks *)
-    let point_count = List.length values in
-    (if point_count > t.width then
-       (* Sample data to fit width *)
-       let step = float_of_int point_count /. float_of_int t.width in
-       for i = 0 to t.width - 1 do
-         let idx = int_of_float (float_of_int i *. step) in
-         let value = List.nth values idx in
-         Buffer.add_string buf (render_value value)
-       done
-     else if point_count = t.width then
-       (* Perfect fit: render all points *)
-       List.iter
-         (fun value -> Buffer.add_string buf (render_value value))
-         values
-     else
-       (* Pad with spaces if fewer points than width *)
-       let pad_left = (t.width - point_count) / 2 in
-       Buffer.add_string buf (String.make pad_left ' ') ;
-       List.iter
-         (fun value -> Buffer.add_string buf (render_value value))
-         values ;
-       let pad_right = t.width - point_count - pad_left in
-       Buffer.add_string buf (String.make pad_right ' ')) ;
+        (* Render sparkline blocks *)
+        let point_count = List.length values in
+        (if point_count > t.width then
+           (* Sample data to fit width *)
+           let step = float_of_int point_count /. float_of_int t.width in
+           for i = 0 to t.width - 1 do
+             let idx = int_of_float (float_of_int i *. step) in
+             let value = List.nth values idx in
+             Buffer.add_string buf (render_value value)
+           done
+         else if point_count = t.width then
+           (* Perfect fit: render all points *)
+           List.iter
+             (fun value -> Buffer.add_string buf (render_value value))
+             values
+         else
+           (* Pad with spaces if fewer points than width *)
+           let pad_left = (t.width - point_count) / 2 in
+           Buffer.add_string buf (String.make pad_left ' ') ;
+           List.iter
+             (fun value -> Buffer.add_string buf (render_value value))
+             values ;
+           let pad_right = t.width - point_count - pad_left in
+           Buffer.add_string buf (String.make pad_right ' ')) ;
 
-    let sparkline = Buffer.contents buf in
-    let sparkline = if focus then W.bold sparkline else sparkline in
+        let sparkline = Buffer.contents buf in
+        let sparkline = if focus then W.bold sparkline else sparkline in
 
-    if show_value then Printf.sprintf "%s %.1f" sparkline current else sparkline
+        if show_value then Printf.sprintf "%s %.1f" sparkline current
+        else sparkline
+    | Braille ->
+        let values = Queue.to_seq t.data |> List.of_seq in
+        let min_val, max_val, current = stats t in
+        (* Create braille canvas: 1 cell height (4 dots), t.width cells wide *)
+        let canvas = Braille_canvas.create ~width:t.width ~height:1 in
+        let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
 
-let render_with_label t ~label ~focus ?color ?(thresholds = []) () =
-  let spark = render t ~focus ~show_value:false ?color ~thresholds () in
+        (* Sample or interpolate points to match dot_width *)
+        let point_count = List.length values in
+        let samples =
+          if point_count > dot_width then
+            (* Sample data to fit width *)
+            let step = float_of_int point_count /. float_of_int dot_width in
+            List.init dot_width (fun i ->
+                let idx = int_of_float (float_of_int i *. step) in
+                List.nth values idx)
+          else if point_count = dot_width then values
+          else
+            (* Interpolate/pad to fill width *)
+            let pad_left = (dot_width - point_count) / 2 in
+            let pad_right = dot_width - point_count - pad_left in
+            List.init pad_left (fun _ -> min_val)
+            @ values
+            @ List.init pad_right (fun _ -> min_val)
+        in
+
+        (* Plot each value as a vertical line at its height *)
+        List.iteri
+          (fun x value ->
+            let range = max_val -. min_val in
+            let y =
+              if range = 0. then dot_height / 2
+              else
+                let ratio = (value -. min_val) /. range in
+                (* Invert Y because we want higher values at the top *)
+                int_of_float (ratio *. float_of_int (dot_height - 1))
+            in
+            let y = dot_height - 1 - y in
+            (* Set dot at position *)
+            Braille_canvas.set_dot canvas ~x ~y)
+          samples ;
+
+        let sparkline = Braille_canvas.render canvas in
+        let sparkline = if focus then W.bold sparkline else sparkline in
+
+        if show_value then Printf.sprintf "%s %.1f" sparkline current
+        else sparkline
+
+let render_with_label t ~label ~focus ?color ?(thresholds = []) ?(mode = ASCII)
+    () =
+  let spark = render t ~focus ~show_value:false ?color ~thresholds ~mode () in
   let _, _, current = stats t in
   Printf.sprintf "%s: [%s] %.1f" label spark current
 

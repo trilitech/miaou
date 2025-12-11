@@ -13,6 +13,7 @@
   line_chart_widget_sdl
   bar_chart_widget
   chart_utils
+  braille_canvas
   sdl_chart_context
   qr_code_widget
   qr_code_widget_sdl

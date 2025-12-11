@@ -216,3 +216,8 @@
  (name test_bar_chart)
  (modules test_bar_chart)
  (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_braille_canvas)
+ (modules test_braille_canvas)
+ (libraries alcotest miaou.widgets.display))

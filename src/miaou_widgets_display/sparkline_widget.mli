@@ -26,6 +26,11 @@
 (** A threshold for coloring sparkline segments with a value above it. *)
 type threshold = {value : float; color : string}
 
+(** Rendering mode for sparklines. *)
+type render_mode =
+  | ASCII  (** Use block characters ( ▂▃▄▅▆▇█) - one character per data point *)
+  | Braille  (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+
 (** The sparkline widget type. *)
 type t
 
@@ -46,31 +51,36 @@ val create :
     [max_points] is exceeded. *)
 val push : t -> float -> unit
 
-(** Render the sparkline using block characters ( ▂▃▄▅▆▇█).
+(** Render the sparkline.
     - [focus] Whether to highlight (bold/color).
     - [show_value] If true, append current value as text.
     - [color] Optional default ANSI color code for the sparkline.
     - [thresholds] Optional list of thresholds for coloring segments.
       Segments with a value greater than a threshold's [value] will be
       colored with the threshold's [color]. If multiple thresholds are
-      exceeded, the one with the highest value is used. *)
+      exceeded, the one with the highest value is used.
+    - [mode] Rendering mode (default: ASCII). Use [Braille] for higher
+      resolution with smoother curves. *)
 val render :
   t ->
   focus:bool ->
   show_value:bool ->
   ?color:string ->
   ?thresholds:threshold list ->
+  ?mode:render_mode ->
   unit ->
   string
 
 (** Render with a label prefix.
-    Example: "CPU: [ ▂▃▄▅▆▇█] 78%" *)
+    Example: "CPU: [ ▂▃▄▅▆▇█] 78%"
+    - [mode] Rendering mode (default: ASCII). *)
 val render_with_label :
   t ->
   label:string ->
   focus:bool ->
   ?color:string ->
   ?thresholds:threshold list ->
+  ?mode:render_mode ->
   unit ->
   string
 
