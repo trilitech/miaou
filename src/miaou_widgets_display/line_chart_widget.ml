@@ -256,21 +256,29 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       let styles = Array.make_matrix height_cells width_cells None in
       let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
       let x_min, x_max, y_min, y_max = calculate_bounds t.series in
+      let x_range = x_max -. x_min in
+      let y_range = y_max -. y_min in
+      let inv_x =
+        if x_range = 0. then 0. else 1. /. x_range
+      and inv_y =
+        if y_range = 0. then 0. else 1. /. y_range
+      in
 
       (* Map coordinate to dot position *)
       let map_x x =
-        let range = x_max -. x_min in
-        if range = 0. then dot_width / 2
-        else int_of_float ((x -. x_min) /. range *. float_of_int (dot_width - 1))
+        if x_range = 0. then dot_width / 2
+        else
+          int_of_float
+            ((x -. x_min) *. inv_x *. float_of_int (dot_width - 1))
       in
 
       let map_y y =
-        let range = y_max -. y_min in
-        if range = 0. then dot_height / 2
+        if y_range = 0. then dot_height / 2
         else
           (* Invert Y because terminal coordinates go top-down *)
           dot_height - 1
-          - int_of_float ((y -. y_min) /. range *. float_of_int (dot_height - 1))
+          - int_of_float
+              ((y -. y_min) *. inv_y *. float_of_int (dot_height - 1))
       in
 
       (* Plot each series *)
@@ -307,16 +315,22 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
 
       List.iter
         (fun series ->
+          let sorted_thresholds =
+            List.sort (fun a b -> Float.compare b.value a.value) thresholds
+          in
+          let get_color_cached (point : point) : string option =
+            match point.color with
+            | Some c -> Some c
+            | None -> (
+                match List.find_opt (fun t -> point.y > t.value) sorted_thresholds with
+                | Some t -> Some t.color
+                | None -> (series : series).color)
+          in
           List.iteri
             (fun idx point ->
               let x = map_x point.x in
               let y = map_y point.y in
-              let color =
-                get_color
-                  ~thresholds
-                  ~series_color:((series : series).color)
-                  point
-              in
+              let color = get_color_cached point in
               set_styled_dot x y color ;
               (* Draw line to next point *)
               match List.nth_opt series.points (idx + 1) with

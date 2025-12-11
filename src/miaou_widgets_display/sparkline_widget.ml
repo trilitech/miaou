@@ -123,6 +123,8 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
         let styles = Array.make_matrix height_cells width_cells None in
         let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
+        let range = max_val -. min_val in
+        let inv_range = if range = 0. then 0. else 1. /. range in
 
         (* Sample or interpolate points to match dot_width *)
         let point_count = List.length values in
@@ -146,11 +148,10 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         (* Plot each value as a vertical line at its height *)
         List.iteri
           (fun x value ->
-            let range = max_val -. min_val in
             let y =
               if range = 0. then dot_height / 2
               else
-                let ratio = (value -. min_val) /. range in
+                let ratio = (value -. min_val) *. inv_range in
                 (* Invert Y because we want higher values at the top *)
                 int_of_float (ratio *. float_of_int (dot_height - 1))
             in

@@ -31,6 +31,31 @@ type t = {
 
 let braille_base = 0x2800
 
+(* Precompute UTF-8 encoded braille glyphs for all 256 patterns to avoid
+   per-call encoding overhead in render_with. *)
+let braille_glyphs : string array =
+  Array.init 256 (fun pattern ->
+      let unicode_point = braille_base + pattern in
+      if unicode_point <= 0x7F then String.make 1 (Char.chr unicode_point)
+      else if unicode_point <= 0x7FF then
+        String.init 2 (fun i ->
+            match i with
+            | 0 -> Char.chr (0xC0 lor (unicode_point lsr 6))
+            | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
+      else if unicode_point <= 0xFFFF then
+        String.init 3 (fun i ->
+            match i with
+            | 0 -> Char.chr (0xE0 lor (unicode_point lsr 12))
+            | 1 -> Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))
+            | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
+      else
+        String.init 4 (fun i ->
+            match i with
+            | 0 -> Char.chr (0xF0 lor (unicode_point lsr 18))
+            | 1 -> Char.chr (0x80 lor ((unicode_point lsr 12) land 0x3F))
+            | 2 -> Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))
+            | _ -> Char.chr (0x80 lor (unicode_point land 0x3F))))
+
 (* Map dot position within a cell to bit offset *)
 let dot_to_bit ~dot_x ~dot_y =
   match (dot_y, dot_x) with
@@ -143,29 +168,7 @@ let render_with t ~f =
   for y = 0 to t.height - 1 do
     if y > 0 then Buffer.add_char buf '\n' ;
     for x = 0 to t.width - 1 do
-      let pattern = t.cells.(y).(x) in
-      let unicode_point = braille_base + pattern in
-      let raw =
-        if unicode_point <= 0x7F then String.make 1 (Char.chr unicode_point)
-        else if unicode_point <= 0x7FF then
-          String.init 2 (fun i ->
-              match i with
-              | 0 -> Char.chr (0xC0 lor (unicode_point lsr 6))
-              | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
-        else if unicode_point <= 0xFFFF then
-          String.init 3 (fun i ->
-              match i with
-              | 0 -> Char.chr (0xE0 lor (unicode_point lsr 12))
-              | 1 -> Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))
-              | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
-        else
-          String.init 4 (fun i ->
-              match i with
-              | 0 -> Char.chr (0xF0 lor (unicode_point lsr 18))
-              | 1 -> Char.chr (0x80 lor ((unicode_point lsr 12) land 0x3F))
-              | 2 -> Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))
-              | _ -> Char.chr (0x80 lor (unicode_point land 0x3F)))
-      in
+      let raw = braille_glyphs.(t.cells.(y).(x)) in
       Buffer.add_string buf (f ~x ~y raw)
     done
   done ;

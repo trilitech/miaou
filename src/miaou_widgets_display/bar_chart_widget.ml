@@ -166,6 +166,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
         (* Use braille canvas for higher resolution bars *)
         let min_val, max_val = calculate_bounds t in
         let range = max_val -. min_val in
+        let inv_range = if range = 0. then 0. else 1. /. range in
         let num_bars = List.length t.data in
         let bar_width_cells = max 1 (t.width / num_bars) in
 
@@ -185,7 +186,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
               if range = 0. then dot_height
               else
                 int_of_float
-                  ((value -. min_val) /. range *. float_of_int dot_height)
+                  ((value -. min_val) *. inv_range *. float_of_int dot_height)
             in
             let x_start = idx * bar_width_dots in
             let x_end = min dot_width ((idx + 1) * bar_width_dots) in
