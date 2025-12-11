@@ -58,8 +58,8 @@ let handle_event ?(bubble_unhandled = false) t ~key =
   match Miaou_core.Keys.of_string key with
   | Some Miaou_core.Keys.Left -> (move t `Left, `Handled)
   | Some Miaou_core.Keys.Right -> (move t `Right, `Handled)
-  | Some (Miaou_core.Keys.Char "Home") -> (move t `First, `Handled)
-  | Some (Miaou_core.Keys.Char "End") -> (move t `Last, `Handled)
+  | Some Miaou_core.Keys.Home -> (move t `First, `Handled)
+  | Some Miaou_core.Keys.End -> (move t `Last, `Handled)
   | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
 
 let handle_key t ~key =

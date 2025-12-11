@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (2025-12-11)
 
+#### Braille Rendering Mode
+- **Unicode Braille patterns** for high-resolution chart rendering (2×4 dots per character cell)
+- Braille mode support for `Line_chart_widget`, `Bar_chart_widget`, and `Sparkline_widget`
+- `Braille_canvas` module for efficient braille dot manipulation
+- 8x higher resolution compared to ASCII mode with only 2x performance cost
+- Colored braille output with ANSI styling support
+- Performance: 9,259 renders/second for line charts in braille mode
+
 #### Global Keys API
 - **Type-safe keyboard handling system** with variant-based key definitions
 - Extended `Keys.t` with new key types: `PageUp`, `PageDown`, `Home`, `End`, `Escape`, `Delete`, `Function of int`
