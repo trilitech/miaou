@@ -6,13 +6,7 @@
 (*****************************************************************************)
 
 let detect_size () =
-  let try_lterm () =
-    try
-      let term = Lwt_main.run (Lazy.force LTerm.stdout) in
-      let sz = LTerm.size term in
-      Some {LTerm_geom.rows = sz.LTerm_geom.rows; cols = sz.LTerm_geom.cols}
-    with _ -> None
-  in
+  (* Skip LTerm-based detection (requires Lwt) - use fallback methods *)
   let try_env_override () =
     match
       (Sys.getenv_opt "MIAOU_TUI_ROWS", Sys.getenv_opt "MIAOU_TUI_COLS")
@@ -118,15 +112,12 @@ let detect_size () =
   match try_env_override () with
   | Some s -> s
   | None -> (
-      match try_lterm () with
+      match try_stty () with
       | Some s -> s
       | None -> (
-          match try_stty () with
+          match try_tput () with
           | Some s -> s
           | None -> (
-              match try_tput () with
+              match try_stty_a () with
               | Some s -> s
-              | None -> (
-                  match try_stty_a () with
-                  | Some s -> s
-                  | None -> {LTerm_geom.rows = 24; cols = 80}))))
+              | None -> {LTerm_geom.rows = 24; cols = 80})))

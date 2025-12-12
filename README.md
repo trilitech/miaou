@@ -111,9 +111,10 @@ Dependencies
 The core runtime dependencies used by MIAOU (also declared in `miaou.opam`):
 
 - cohttp
-- cohttp-lwt-unix
+- cohttp-eio
+- eio
+- eio_main
 - lambda-term
-- lwt
 - rresult
 - str
 - uri
@@ -250,7 +251,7 @@ Miaou relies on a capability system so the driver (or host application) can deci
 - `Miaou_interfaces.System` — file-system and process helpers (required by file browsers, log viewers, etc.).
 - `Miaou_interfaces.Logger` — sink for structured log output from widgets and the driver (optional but recommended).
 - `Miaou_interfaces.Service_lifecycle` — used by the service manager widgets; provide stubs if your app does not manage OS services.
-- `Miaou.Net` — HTTP capability used by network-aware widgets; the repo ships a simple `cohttp_lwt_unix` provider (`src/cohttp_net.ml`).
+- `Miaou.Net` — HTTP capability used by network-aware widgets; the repo ships a `cohttp-eio` provider (`src/cohttp_net.ml`).
 
 Register your implementations via `Miaou_interfaces.Capability.set` (or the helper `register` functions exposed by each interface) before calling `Miaou.Core.Tui_driver.start`. Tests use the mock implementations in `example/` for reference.
 

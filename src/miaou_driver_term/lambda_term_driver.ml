@@ -17,6 +17,7 @@ module Narrow_modal = Miaou_core.Narrow_modal
 module Quit_flag = Miaou_core.Quit_flag
 module Help_hint = Miaou_core.Help_hint
 module Driver_common = Miaou_driver_common.Driver_common
+module Fibers = Miaou_helpers.Fiber_runtime
 module Helpers = Miaou_helpers.Helpers
 
 (* Persistent session flags *)
@@ -135,14 +136,11 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
         (* Auto-dismiss after 5s. We only close the modal if it's still the
            same top modal title to avoid racing with other modals. *)
         let my_title = "Narrow terminal" in
-        ignore
-          (Thread.create
-             (fun () ->
-               Thread.delay 5.0 ;
-               match Modal_manager.top_title_opt () with
-               | Some t when t = my_title -> Modal_manager.close_top `Cancel
-               | _ -> ())
-             ())) ;
+        Fibers.spawn (fun env ->
+            Eio.Time.sleep env#clock 5.0 ;
+            match Modal_manager.top_title_opt () with
+            | Some t when t = my_title -> Modal_manager.close_top `Cancel
+            | _ -> ())) ;
       (* If terminal geometry changed since last render, force a redraw and
       update the modal snapshot size so overlays render correctly. *)
       (* Log size changes for diagnostics and force a redraw when geometry changes. *)
@@ -275,20 +273,41 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
       | _ -> false
     in
 
+    (* Eio-aware input refill: uses Unix.select but yields to scheduler periodically.
+       This allows background fibers (like File_pager tail watcher) to run. *)
     let refill timeout =
+      let _ = Fibers.require_runtime () in
+      (* Yield to let other fibers run before blocking *)
+      Eio.Fiber.yield () ;
       try
-        let r, _, _ = Unix.select [fd] [] [] timeout in
-        if r = [] then 0
-        else
-          let b = Bytes.create 256 in
-          try
-            let n = Unix.read fd b 0 256 in
-            if n <= 0 then 0
-            else (
-              pending := !pending ^ Bytes.sub_string b 0 n ;
-              n)
-          with Unix.Unix_error (Unix.EINTR, _, _) -> 0
-      with Unix.Unix_error (Unix.EINTR, _, _) -> 0
+        (* Use short polling intervals to stay responsive *)
+        let poll_interval = min timeout 0.05 in
+        let deadline = Unix.gettimeofday () +. timeout in
+        let rec poll_loop () =
+          let remaining = deadline -. Unix.gettimeofday () in
+          if remaining <= 0.0 then 0
+          else
+            let wait_time = min poll_interval remaining in
+            let r, _, _ = Unix.select [fd] [] [] wait_time in
+            if r = [] then (
+              (* Yield between polls to let fibers run *)
+              Eio.Fiber.yield () ;
+              (* Check for signal exit *)
+              if Atomic.get signal_exit_flag then 0 else poll_loop ())
+            else
+              let b = Bytes.create 256 in
+              try
+                let n = Unix.read fd b 0 256 in
+                if n <= 0 then 0
+                else (
+                  pending := !pending ^ Bytes.sub_string b 0 n ;
+                  n)
+              with Unix.Unix_error (Unix.EINTR, _, _) -> poll_loop ()
+        in
+        poll_loop ()
+      with
+      | Unix.Unix_error (Unix.EINTR, _, _) -> 0
+      | Eio.Cancel.Cancelled _ -> 0
     in
 
     (* ASCII keycodes as named constants for clarity *)
@@ -433,8 +452,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     (* Read next key or emit a periodic refresh tick when idle. *)
     let read_key_blocking () =
       try
-        (* Prioritize a pending resize event to redraw immediately. *)
-        if Atomic.get resize_pending then (
+        (* Check if signal handler requested exit *)
+        if Atomic.get signal_exit_flag then `Quit
+        else if
+          (* Prioritize a pending resize event to redraw immediately. *)
+          Atomic.get resize_pending
+        then (
           Atomic.set resize_pending false ;
           `Refresh)
         else if
@@ -683,12 +706,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           footer_ref := Some (Miaou_widgets_display.Widgets.footer_hints pairs)
         in
         match read_key_blocking () with
-        | `Quit ->
-            Printf.eprintf
-              "lambda_term_driver: read_key_blocking -> Quit (ignoring)\n" ;
-            Stdlib.flush stderr ;
-            clear_and_render st key_stack ;
-            loop st key_stack
+        | `Quit -> `Quit
         | `Refresh -> (
             (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
             if Quit_flag.is_pending () then Quit_flag.clear_pending () ;

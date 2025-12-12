@@ -79,8 +79,10 @@ let setup_and_cleanup () =
        with _ -> ()) ;
       (* Method 3: Write to stderr as last resort *)
       (try Printf.eprintf "%s%!" disable_seq with _ -> ()) ;
-      (* Give terminal time to process all escape sequences *)
-      Unix.sleepf 0.2
+      (* Give terminal time to process all escape sequences - use Eio sleep if available *)
+      match Miaou_helpers.Fiber_runtime.env_opt () with
+      | Some env -> Eio.Time.sleep env#clock 0.2
+      | None -> Unix.sleepf 0.2
     with _ -> ()
   in
   let cleanup () =
