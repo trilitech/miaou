@@ -12,7 +12,9 @@ type t
 		operations. Each function receives the [rpc_addr] and [app_bin_dir]
 		of the target service as passed-through context; implementations may
 		use them to prefer local IPC (e.g., call a bundled client binary) or
-		to construct requests.
+		to construct requests. Calls are expected to run inside a shared
+		[Eio_main.run] loop; the global fiber runtime must be initialized via
+		[Miaou_helpers.Fiber_runtime.init].
 
 		Conventions
 		- Both functions return [(Ok body) | Error msg]. The [Error] text is
@@ -37,9 +39,17 @@ type t
 
 val create :
   http_get_string:
-    (rpc_addr:string -> app_bin_dir:string -> string -> (string, string) result) ->
+    (env:Eio_unix.Stdenv.base ->
+    rpc_addr:string ->
+    app_bin_dir:string ->
+    string ->
+    (string, string) result) ->
   http_get_url:
-    (rpc_addr:string -> app_bin_dir:string -> string -> (string, string) result) ->
+    (env:Eio_unix.Stdenv.base ->
+    rpc_addr:string ->
+    app_bin_dir:string ->
+    string ->
+    (string, string) result) ->
   t
 
 val register : t -> unit

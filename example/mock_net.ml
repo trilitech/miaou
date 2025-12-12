@@ -16,7 +16,7 @@ let slurp_file path =
     Ok (Bytes.to_string buf)
   with _ -> Error (Printf.sprintf "Failed to read %s" path)
 
-let http_get_url ~rpc_addr:_ ~app_bin_dir:_ url =
+let http_get_url ~env:_ ~rpc_addr:_ ~app_bin_dir:_ url =
   (* Very small, sync stub: try to read from local file when url starts with file://,
      otherwise return an error indicating network not available. *)
   if String.length url >= 7 && String.sub url 0 7 = "file://" then

@@ -29,7 +29,7 @@
  (instrumentation
   (backend bisect_ppx))
  (package miaou-runner)
- (libraries miaou_runner_tui miaou_runner_common))
+ (libraries miaou_runner_tui miaou_runner_common miaou.helpers eio_main))
 
 (executable
  (name miaou_runner_native_main)
@@ -38,4 +38,4 @@
  (instrumentation
   (backend bisect_ppx))
  (package miaou-runner)
- (libraries miaou_runner_native miaou_runner_common))
+ (libraries miaou_runner_native miaou_runner_common miaou.helpers eio_main))

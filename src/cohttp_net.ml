@@ -6,19 +6,21 @@
 (*****************************************************************************)
 open Rresult
 
-let http_get_string ~rpc_addr:_ ~app_bin_dir:_ path : (string, string) result =
+let http_get_string ~env ~rpc_addr:_ ~app_bin_dir:_ path :
+    (string, string) result =
   try
-    let open Lwt.Infix in
-    let fetch uri =
-      Cohttp_lwt_unix.Client.get (Uri.of_string uri) >>= fun (_resp, body) ->
-      Cohttp_lwt.Body.to_string body
-    in
-    Ok (Lwt_main.run (fetch path))
+    Eio.Switch.run @@ fun sw ->
+    let client = Cohttp_eio.Client.make ~https:None env#net in
+    let uri = Uri.of_string path in
+    let resp, body = Cohttp_eio.Client.get client ~sw uri in
+    let status = resp |> Cohttp.Response.status |> Cohttp.Code.code_of_status in
+    let body_str = Eio.Flow.read_all body in
+    if Cohttp.Code.is_success status then Ok body_str
+    else Error (Printf.sprintf "HTTP %d: %s" status body_str)
   with exn -> Error (Printexc.to_string exn)
 
-let http_get_url ~rpc_addr:_ ~app_bin_dir:_ url : (string, string) result =
-  (* Same implementation as http_get_string; kept separate for clarity. *)
-  http_get_string ~rpc_addr:"" ~app_bin_dir:"" url
+let http_get_url ~env ~rpc_addr:_ ~app_bin_dir:_ url : (string, string) result =
+  http_get_string ~env ~rpc_addr:"" ~app_bin_dir:"" url
 
 let try_register () =
   try

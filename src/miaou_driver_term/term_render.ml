@@ -13,6 +13,7 @@ module Capture = Miaou_core.Tui_capture
 module Khs = Miaou_internals.Key_handler_stack
 module Modal_manager = Miaou_core.Modal_manager
 module Narrow_modal = Miaou_core.Narrow_modal
+module Fibers = Miaou_helpers.Fiber_runtime
 module Helpers = Miaou_helpers.Helpers
 
 let narrow_warned = ref false
@@ -66,14 +67,11 @@ let clear_and_render (type page_state)
       ~on_close:(fun (_ : Narrow_modal.Page.state) _ -> ()) ;
     Modal_manager.set_consume_next_key () ;
     let my_title = "Narrow terminal" in
-    ignore
-      (Thread.create
-         (fun () ->
-           Thread.delay 5.0 ;
-           match Modal_manager.top_title_opt () with
-           | Some t when t = my_title -> Modal_manager.close_top `Cancel
-           | _ -> ())
-         ())) ;
+    Fibers.spawn (fun env ->
+        Eio.Time.sleep env#clock 5.0 ;
+        match Modal_manager.top_title_opt () with
+        | Some t when t = my_title -> Modal_manager.close_top `Cancel
+        | _ -> ())) ;
   if
     size.LTerm_geom.rows <> !last_size.LTerm_geom.rows
     || size.LTerm_geom.cols <> !last_size.LTerm_geom.cols

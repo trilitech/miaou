@@ -13,9 +13,10 @@
  (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
  (depends
   cohttp
-  cohttp-lwt-unix
+  cohttp-eio
+  eio
+  eio_main
   lambda-term
-  lwt
   tsdl
   tsdl-ttf
   rresult

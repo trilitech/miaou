@@ -26,6 +26,9 @@ let args =
   ]
 
 let () =
+  Eio_main.run @@ fun env ->
+  Eio.Switch.run @@ fun sw ->
+  Miaou_helpers.Fiber_runtime.init ~env ~sw ;
   Arg.parse args (fun _ -> ()) usage ;
   Demo_lib.register_all () ;
   Demo_lib.ensure_system_capability () ;

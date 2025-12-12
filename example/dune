@@ -13,7 +13,7 @@
  (name miaou_demo_lib)
  (modules demo_lib tutorial_modal system_monitor_sdl)
  (wrapped false)
- (libraries miaou miaou_example miaou.lib_miaou_internal tsdl tsdl-ttf))
+ (libraries miaou miaou_example miaou.lib_miaou_internal tsdl tsdl-ttf eio))
 
 (include_subdirs no)
 
@@ -22,14 +22,14 @@
  (public_name miaou.demo)
  (package miaou)
  (modules demo_tui)
- (libraries miaou_demo_lib miaou miaou.runner.tui))
+ (libraries miaou_demo_lib miaou miaou.runner.tui miaou.helpers eio_main))
 
 (executable
  (name demo_sdl)
  (public_name miaou.demo-sdl)
  (package miaou)
  (modules demo_sdl)
- (libraries miaou_demo_lib miaou.runner.native))
+ (libraries miaou_demo_lib miaou.runner.native miaou.helpers eio_main))
 
 (executable
  (name braille_demo)
