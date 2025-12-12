@@ -27,8 +27,6 @@
   yojson
   str
   unix
-  lwt
-  lwt.unix
   miaou.widgets.input
   miaou.widgets.layout
   miaou.widgets.display

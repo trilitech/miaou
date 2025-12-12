@@ -21,4 +21,7 @@
   miaou.widgets.display
   miaou.widgets.input
   miaou.widgets.layout
+  eio
+  eio_main
+  eio.unix
   lambda-term))
