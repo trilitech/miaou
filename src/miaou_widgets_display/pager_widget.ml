@@ -75,6 +75,9 @@ let split_lines s = String.split_on_char '\n' s
 
 let clamp lo hi x = max lo (min hi x)
 
+(* Calculate maximum offset given total lines and window size *)
+let max_offset_for ~total ~win = max 0 (total - win)
+
 let build_body_buffer ~wrap ~cols lines =
   let buf =
     let est =
@@ -467,11 +470,10 @@ let find_prev lines ~start ~q ~is_regex =
 
 let visible_slice ~win t =
   let total = List.length t.lines in
-  if t.follow then
-    let start = max 0 (total - win) in
-    (start, total)
+  let max_off = max_offset_for ~total ~win in
+  if t.follow then (max_off, total)
   else
-    let start = clamp 0 (max 0 (total - win)) t.offset in
+    let start = clamp 0 max_off t.offset in
     let stop = min total (start + win) in
     (start, stop)
 
@@ -647,7 +649,7 @@ let handle_search_input t ~key =
 
 (* Handle navigation keys; returns (t, consumed) *)
 let handle_nav_key t ~key ~win ~total ~page =
-  let max_offset = max 0 (total - win) in
+  let max_offset = max_offset_for ~total ~win in
   (* Helper: if we land at max_offset (bottom), auto-resume follow if it was on *)
   let with_auto_follow t new_offset =
     let clamped_offset = clamp 0 max_offset new_offset in
