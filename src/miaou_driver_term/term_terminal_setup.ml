@@ -60,21 +60,25 @@ let setup_and_cleanup () =
       in
       (* Method 1: Write to /dev/tty *)
       (try
-        for _i = 1 to 2 do
-          let _ = Unix.write tty_out_fd (Bytes.of_string disable_seq) 0 (String.length disable_seq) in
-          ()
-        done ;
-        Unix.tcdrain tty_out_fd
-      with _ -> ()) ;
+         for _i = 1 to 2 do
+           let _ =
+             Unix.write
+               tty_out_fd
+               (Bytes.of_string disable_seq)
+               0
+               (String.length disable_seq)
+           in
+           ()
+         done ;
+         Unix.tcdrain tty_out_fd
+       with _ -> ()) ;
       (* Method 2: Write to stdout using same mechanism as enable *)
       (try
-        print_string disable_seq ;
-        Stdlib.flush stdout
-      with _ -> ()) ;
+         print_string disable_seq ;
+         Stdlib.flush stdout
+       with _ -> ()) ;
       (* Method 3: Write to stderr as last resort *)
-      (try
-        Printf.eprintf "%s%!" disable_seq
-      with _ -> ()) ;
+      (try Printf.eprintf "%s%!" disable_seq with _ -> ()) ;
       (* Give terminal time to process all escape sequences *)
       Unix.sleepf 0.2
     with _ -> ()
@@ -84,7 +88,7 @@ let setup_and_cleanup () =
        to properly process escape sequences during cleanup *)
     if not !cleanup_done then (
       cleanup_done := true ;
-      (try restore () with _ -> ())) ;
+      try restore () with _ -> ()) ;
     (* THEN disable mouse tracking - terminal is now in normal mode *)
     disable_mouse ()
   in

@@ -123,7 +123,8 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
         let needs_color = thresholds <> [] || color <> None in
         let styles =
-          if needs_color then Some (Array.make_matrix height_cells width_cells None)
+          if needs_color then
+            Some (Array.make_matrix height_cells width_cells None)
           else None
         in
         let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
@@ -133,7 +134,7 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         (* Sample or interpolate points to match dot_width *)
         let point_count = Array.length values in
         let samples =
-          if point_count > dot_width then (
+          if point_count > dot_width then
             (* Downsample by averaging chunks *)
             let step = float_of_int point_count /. float_of_int dot_width in
             Array.init dot_width (fun i ->
@@ -147,14 +148,14 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
                   sum := !sum +. values.(idx) ;
                   incr count
                 done ;
-                if !count = 0 then min_val else !sum /. float_of_int !count))
+                if !count = 0 then min_val else !sum /. float_of_int !count)
           else if point_count = dot_width then Array.copy values
-          else (
+          else
             (* Interpolate/pad to fill width *)
             let pad_left = (dot_width - point_count) / 2 in
             let arr = Array.make dot_width min_val in
             Array.blit values 0 arr pad_left point_count ;
-            arr)
+            arr
         in
 
         (* Plot each value as a vertical line at its height *)

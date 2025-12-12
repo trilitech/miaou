@@ -72,8 +72,7 @@ val render : t -> string
 (** Render the canvas with a per-cell transformation, allowing styling.
     The callback [f] receives the cell coordinates (in cells, not dots) and
     the rendered braille character, and must return the string to emit. *)
-val render_with :
-  t -> f:(x:int -> y:int -> string -> string) -> string
+val render_with : t -> f:(x:int -> y:int -> string -> string) -> string
 
 (** Add a bitmask directly to a cell (OR assignment). Intended for optimized
     rendering paths that precompute braille patterns. *)

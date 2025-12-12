@@ -5,7 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 module Helpers = Miaou_helpers.Helpers
-
 module W = Widgets
 module Palette = Palette
 
@@ -61,8 +60,7 @@ let add_repeat buf s n =
 
 let pad s w =
   let vis = visible_chars_count s in
-  if vis <= w then
-    s ^ String.make (w - vis) ' '
+  if vis <= w then s ^ String.make (w - vis) ' '
   else
     let byte_idx = visible_byte_index_of_pos s (max 0 (w - 1)) in
     String.sub s 0 byte_idx ^ "…"
@@ -91,8 +89,7 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
   let inner_w = max 10 (total_w - 4) in
   let pad_cell s w =
     let vis = visible_chars_count s in
-    if vis <= w then
-      s ^ String.make (max 0 (w - vis)) ' '
+    if vis <= w then s ^ String.make (max 0 (w - vis)) ' '
     else
       let idx = visible_byte_index_of_pos s (max 0 (w - 1)) in
       String.sub s 0 idx ^ "…"
@@ -256,8 +253,12 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
       col_widths ;
     Buffer.contents buf
   in
-  let top_border = build_border glyphs.corner_tl glyphs.top_sep glyphs.corner_tr in
-  let mid_border = build_border glyphs.mid_left glyphs.mid_sep glyphs.mid_right in
+  let top_border =
+    build_border glyphs.corner_tl glyphs.top_sep glyphs.corner_tr
+  in
+  let mid_border =
+    build_border glyphs.mid_left glyphs.mid_sep glyphs.mid_right
+  in
   let bottom_border =
     build_border glyphs.corner_bl glyphs.bottom_sep glyphs.corner_br
   in
@@ -340,9 +341,7 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
                   | None -> ""))
             padded_lines
         in
-        let line_core =
-          assemble_columns cols_for_idx
-        in
+        let line_core = assemble_columns cols_for_idx in
         let line =
           match opts.selection_mode with
           | Row when i = cursor ->

@@ -183,7 +183,7 @@ let calculate_bounds series_list =
 
 let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
   match mode with
-  | ASCII ->
+  | ASCII -> (
       let grid = make_grid t.width t.height in
       let x_min, x_max, y_min, y_max = calculate_bounds t.series in
 
@@ -228,7 +228,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       in
 
       (* Add title if present *)
-      (match t.title with
+      match t.title with
       | Some title ->
           let buf =
             Buffer.create
@@ -250,7 +250,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
               Buffer.add_string buf line)
             lines ;
           Buffer.contents buf)
-  | Braille ->
+  | Braille -> (
       (* Use braille canvas for higher resolution *)
       let canvas = Braille_canvas.create ~width:t.width ~height:t.height in
       let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
@@ -263,25 +263,21 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
              t.series
       in
       let styles =
-        if has_colors then Some (Array.make_matrix height_cells width_cells None)
+        if has_colors then
+          Some (Array.make_matrix height_cells width_cells None)
         else None
       in
       let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
       let x_min, x_max, y_min, y_max = calculate_bounds t.series in
       let x_range = x_max -. x_min in
       let y_range = y_max -. y_min in
-      let inv_x =
-        if x_range = 0. then 0. else 1. /. x_range
-      and inv_y =
-        if y_range = 0. then 0. else 1. /. y_range
-      in
+      let inv_x = if x_range = 0. then 0. else 1. /. x_range
+      and inv_y = if y_range = 0. then 0. else 1. /. y_range in
 
       (* Map coordinate to dot position *)
       let map_x x =
         if x_range = 0. then dot_width / 2
-        else
-          int_of_float
-            ((x -. x_min) *. inv_x *. float_of_int (dot_width - 1))
+        else int_of_float ((x -. x_min) *. inv_x *. float_of_int (dot_width - 1))
       in
 
       let map_y y =
@@ -289,8 +285,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
         else
           (* Invert Y because terminal coordinates go top-down *)
           dot_height - 1
-          - int_of_float
-              ((y -. y_min) *. inv_y *. float_of_int (dot_height - 1))
+          - int_of_float ((y -. y_min) *. inv_y *. float_of_int (dot_height - 1))
       in
 
       (* Plot each series *)
@@ -366,7 +361,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       (* Add title if present *)
       match t.title with
       | Some title -> W.bold title ^ "\n" ^ chart_output
-      | None -> chart_output
+      | None -> chart_output)
 
 (* Accessor functions for SDL rendering *)
 let get_series t = t.series

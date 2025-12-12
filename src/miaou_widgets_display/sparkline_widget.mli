@@ -29,7 +29,8 @@ type threshold = {value : float; color : string}
 (** Rendering mode for sparklines. *)
 type render_mode =
   | ASCII  (** Use block characters ( ▂▃▄▅▆▇█) - one character per data point *)
-  | Braille  (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+  | Braille
+      (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
 
 (** The sparkline widget type. *)
 type t

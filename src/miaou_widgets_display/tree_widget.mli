@@ -65,7 +65,8 @@ type node = {
 (** Tree widget state with cursor position *)
 type t = {
   root : node;  (** Root node of the tree *)
-  cursor_path : int list;  (** Path to current cursor position (unused currently) *)
+  cursor_path : int list;
+      (** Path to current cursor position (unused currently) *)
 }
 
 (** {1 Construction} *)

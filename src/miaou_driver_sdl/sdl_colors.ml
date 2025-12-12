@@ -130,5 +130,5 @@ let parse_ansi_segments ~(default : ansi_state) (s : string) =
 let strip_ansi_to_text ~default s =
   let segments = parse_ansi_segments ~default s in
   let buf = Buffer.create (String.length s) in
-  List.iter (fun (_, text) -> Buffer.add_string buf text) segments;
+  List.iter (fun (_, text) -> Buffer.add_string buf text) segments ;
   Buffer.contents buf

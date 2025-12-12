@@ -8,6 +8,7 @@
 (*****************************************************************************)
 
 let bench_target = ref None
+
 let bench_count = ref 10
 
 let usage = "demo_tui [--bench=name|all] [--count=N]"
@@ -17,7 +18,8 @@ let args =
     ("--bench", Arg.String (fun s -> bench_target := Some s), "Run a benchmark");
     ("--count", Arg.Int (fun n -> bench_count := n), "Iterations per bench");
     ( "--list-benches",
-      Arg.Unit (fun () ->
+      Arg.Unit
+        (fun () ->
           Demo_lib.bench_names () |> String.concat ", " |> print_endline ;
           exit 0),
       "List bench names" );

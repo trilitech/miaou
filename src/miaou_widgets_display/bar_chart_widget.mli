@@ -50,7 +50,8 @@ type threshold = {value : float; color : string}
 (** Rendering mode for bar charts. *)
 type render_mode =
   | ASCII  (** Use block characters (█▀) - standard resolution *)
-  | Braille  (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+  | Braille
+      (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
 
 (** The bar chart widget type. *)
 type t

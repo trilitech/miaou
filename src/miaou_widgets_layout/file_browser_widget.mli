@@ -66,7 +66,8 @@ type t = {
   path_buffer : string;  (** Buffer for path editing *)
   path_error : string option;  (** Error message from invalid path *)
   pending_selection : string option;  (** Path pending selection *)
-  textbox : Miaou_widgets_input.Textbox_widget.t option;  (** Textbox for path editing *)
+  textbox : Miaou_widgets_input.Textbox_widget.t option;
+      (** Textbox for path editing *)
   history : string list;  (** Path history (most recent first) *)
   history_idx : int option;  (** Current position in history *)
 }
@@ -80,11 +81,7 @@ type t = {
     @param require_writable Filter to writable directories only (default: true)
 *)
 val open_centered :
-  ?path:string ->
-  ?dirs_only:bool ->
-  ?require_writable:bool ->
-  unit ->
-  t
+  ?path:string -> ?dirs_only:bool -> ?require_writable:bool -> unit -> t
 
 (** {1 State Queries} *)
 
@@ -125,10 +122,7 @@ val current_input : t -> string
     @param initial Initial text (default: "")
 *)
 val textbox_create :
-  ?width:int ->
-  ?initial:string ->
-  unit ->
-  Miaou_widgets_input.Textbox_widget.t
+  ?width:int -> ?initial:string -> unit -> Miaou_widgets_input.Textbox_widget.t
 
 (** Get text from textbox (wrapper around Textbox_widget.get_text). *)
 val textbox_get_text : Miaou_widgets_input.Textbox_widget.t -> string

@@ -52,7 +52,8 @@ type threshold = {value : float; color : string}
 (** Rendering mode for line charts. *)
 type render_mode =
   | ASCII  (** Use standard Unicode symbols (●■▲◆★) - one character per cell *)
-  | Braille  (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+  | Braille
+      (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
 
 (** Axis configuration for labels and tick marks. *)
 type axis_config = {

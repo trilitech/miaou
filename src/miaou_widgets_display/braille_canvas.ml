@@ -137,7 +137,7 @@ let draw_line t ~x0 ~y0 ~x1 ~y1 =
   loop x0 y0 (dx - dy)
 
 let render t =
-  let buf = Buffer.create (t.height * (t.width * 3 + 1)) in
+  let buf = Buffer.create (t.height * ((t.width * 3) + 1)) in
   (* Each braille char is 3 bytes in UTF-8, plus newlines *)
   for y = 0 to t.height - 1 do
     if y > 0 then Buffer.add_char buf '\n' ;
@@ -149,7 +149,7 @@ let render t =
   Buffer.contents buf
 
 let render_with t ~f =
-  let buf = Buffer.create (t.height * (t.width * 3 + 1)) in
+  let buf = Buffer.create (t.height * ((t.width * 3) + 1)) in
   for y = 0 to t.height - 1 do
     if y > 0 then Buffer.add_char buf '\n' ;
     for x = 0 to t.width - 1 do

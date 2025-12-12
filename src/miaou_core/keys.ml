@@ -62,9 +62,9 @@ let of_string s =
   | "End" -> Some End
   | "Escape" -> Some Escape
   | "Delete" -> Some Delete
-  | _ when String.length s > 1 && String.get s 0 = 'F' ->
-      (try Some (Function (int_of_string (String.sub s 1 (String.length s - 1))))
-       with _ -> Some (Char s))
+  | _ when String.length s > 1 && String.get s 0 = 'F' -> (
+      try Some (Function (int_of_string (String.sub s 1 (String.length s - 1))))
+      with _ -> Some (Char s))
   | _ when String.length s >= 2 && String.get s 0 = 'C' && String.get s 1 = '-'
     ->
       Some (Control (String.sub s 2 (String.length s - 2)))
@@ -92,24 +92,29 @@ let to_label = function
   | Function n -> "F" ^ string_of_int n
 
 (* Global key mappings - reserved for application-wide functionality *)
-let global_key_bindings = [
-  (Control "s", Settings);
-  (Char "?", Help);
-  (Control "m", Menu);
-  (Control "q", Quit);
-]
+let global_key_bindings =
+  [
+    (Control "s", Settings);
+    (Char "?", Help);
+    (Control "m", Menu);
+    (Control "q", Quit);
+  ]
 
 let is_global_key key =
   List.exists (fun (k, _) -> equal k key) global_key_bindings
 
 let get_global_action key =
-  List.assoc_opt key (List.map (fun (k, a) -> (to_string k, a)) global_key_bindings)
+  List.assoc_opt
+    key
+    (List.map (fun (k, a) -> (to_string k, a)) global_key_bindings)
 
 let show_global_keys () =
-  List.map (fun (key, action) ->
-    (to_label key, match action with
-     | Settings -> "Settings"
-     | Help -> "Help"
-     | Menu -> "Menu"
-     | Quit -> "Quit"))
+  List.map
+    (fun (key, action) ->
+      ( to_label key,
+        match action with
+        | Settings -> "Settings"
+        | Help -> "Help"
+        | Menu -> "Menu"
+        | Quit -> "Quit" ))
     global_key_bindings

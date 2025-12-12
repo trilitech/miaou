@@ -15,9 +15,7 @@ let validate_page_keys name (module P : Tui_page.PAGE_SIG) =
   let handled = P.handled_keys () in
   let conflicts = List.filter Keys.is_global_key handled in
   if conflicts <> [] then
-    let conflict_str =
-      String.concat ", " (List.map Keys.to_label conflicts)
-    in
+    let conflict_str = String.concat ", " (List.map Keys.to_label conflicts) in
     failwith
       (Printf.sprintf
          "Page '%s' attempts to handle reserved global keys: %s. Global keys \
@@ -79,8 +77,7 @@ let check_all_conflicts () =
   Hashtbl.iter
     (fun key pages ->
       if List.length pages > 1 then
-        conflicts :=
-          (key, List.sort String.compare pages) :: !conflicts)
+        conflicts := (key, List.sort String.compare pages) :: !conflicts)
     key_map ;
   !conflicts
 
@@ -92,13 +89,14 @@ let conflict_report () =
     let lines =
       List.map
         (fun (key, pages) ->
-          Printf.sprintf "  Key '%s' handled by: %s" key
+          Printf.sprintf
+            "  Key '%s' handled by: %s"
+            key
             (String.concat ", " pages))
         (List.sort (fun (a, _) (b, _) -> String.compare a b) conflicts)
     in
     Some
-      (Printf.sprintf "Key conflicts detected:\n%s"
-         (String.concat "\n" lines))
+      (Printf.sprintf "Key conflicts detected:\n%s" (String.concat "\n" lines))
 
 (* Resolve lazily on demand: if not in table, try lazy_table and populate table *)
 let find name =

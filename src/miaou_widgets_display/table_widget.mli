@@ -41,15 +41,15 @@ type selection_mode =
 (** Column rendering options *)
 type column_opts = {
   max_width : int option;  (** Maximum width for column (truncated with …) *)
-  pad_left : int;           (** Left padding spaces *)
-  pad_right : int;          (** Right padding spaces *)
+  pad_left : int;  (** Left padding spaces *)
+  pad_right : int;  (** Right padding spaces *)
 }
 
 (** Table rendering options *)
 type render_opts = {
   selection_mode : selection_mode;  (** How to highlight selection *)
-  highlight_header : bool;           (** Bold/style the header row *)
-  sort : (int * bool) option;        (** Sort indicator: (column_index, ascending) *)
+  highlight_header : bool;  (** Bold/style the header row *)
+  sort : (int * bool) option;  (** Sort indicator: (column_index, ascending) *)
 }
 
 (** Default rendering options: Row selection, no header highlight, no sort indicator *)

@@ -110,8 +110,7 @@ let clear_and_render (type a)
             (Khs.top_bindings key_stack)
         in
         let buf =
-          Buffer.create
-            (String.length body + String.length wrapped_footer + 64)
+          Buffer.create (String.length body + String.length wrapped_footer + 64)
         in
         (match header_lines with
         | [] -> ()

@@ -33,9 +33,7 @@ let concat_rev parts =
   | [] -> ""
   | _ ->
       let buf =
-        let est =
-          List.fold_left (fun acc l -> acc + String.length l) 0 parts
-        in
+        let est = List.fold_left (fun acc l -> acc + String.length l) 0 parts in
         Buffer.create est
       in
       List.iter (Buffer.add_string buf) parts ;

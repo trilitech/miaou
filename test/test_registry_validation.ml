@@ -163,11 +163,7 @@ let test_no_conflicts_when_clean () =
   (* Should have no conflicts *)
   let conflicts = Reg.check_all_conflicts () in
   check int "no conflicts" 0 (List.length conflicts) ;
-  check
-    (option string)
-    "no conflict report"
-    None
-    (Reg.conflict_report ())
+  check (option string) "no conflict report" None (Reg.conflict_report ())
 
 let () =
   run
@@ -190,9 +186,6 @@ let () =
             "inter-page conflicts detected"
             `Quick
             test_inter_page_conflict_detection;
-          test_case
-            "no false positives"
-            `Quick
-            test_no_conflicts_when_clean;
+          test_case "no false positives" `Quick test_no_conflicts_when_clean;
         ] );
     ]

@@ -78,9 +78,17 @@ let test_diagonal_line () =
 let test_out_of_bounds () =
   let canvas = Braille.create ~width:2 ~height:2 in
   Braille.set_dot canvas ~x:100 ~y:100 ;
-  check bool "out of bounds ignored" false (Braille.get_dot canvas ~x:100 ~y:100) ;
+  check
+    bool
+    "out of bounds ignored"
+    false
+    (Braille.get_dot canvas ~x:100 ~y:100) ;
   Braille.set_dot canvas ~x:(-1) ~y:(-1) ;
-  check bool "negative bounds ignored" false (Braille.get_dot canvas ~x:(-1) ~y:(-1))
+  check
+    bool
+    "negative bounds ignored"
+    false
+    (Braille.get_dot canvas ~x:(-1) ~y:(-1))
 
 let test_add_cell_bits () =
   let canvas = Braille.create ~width:1 ~height:1 in

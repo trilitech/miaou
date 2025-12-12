@@ -50,6 +50,7 @@ module Adaptive_page : Miaou_core.Tui_page.PAGE_SIG = struct
   let back s = s
 
   let keymap _ = []
+
   let handled_keys () = []
 
   let handle_modal_key s _ ~size:_ = s

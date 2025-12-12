@@ -129,9 +129,12 @@ let strip_ansi_to_text ~default s =
   | _ ->
       let buf =
         let est =
-          List.fold_left (fun acc seg -> acc + String.length seg.text) 0 segments
+          List.fold_left
+            (fun acc seg -> acc + String.length seg.text)
+            0
+            segments
         in
         Buffer.create est
       in
-      List.iter (fun seg -> Buffer.add_string buf seg.text) segments;
+      List.iter (fun seg -> Buffer.add_string buf seg.text) segments ;
       Buffer.contents buf

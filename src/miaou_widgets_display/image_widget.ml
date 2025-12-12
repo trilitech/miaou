@@ -162,7 +162,7 @@ let render ?(crop_center = 1.0) t ~focus:_ =
       let buf = Buffer.create (placeholder_lines * 2) in
       for i = 0 to placeholder_lines - 1 do
         if i > 0 then Buffer.add_char buf '\n'
-      done;
+      done ;
       Buffer.contents buf
   | None ->
       (* Terminal mode: use colored half-blocks *)
@@ -176,10 +176,10 @@ let render ?(crop_center = 1.0) t ~focus:_ =
 
       let char_height = (crop_height + 1) / 2 in
       (* 2 pixels per char row *)
-      let result_buf = Buffer.create (char_height * (crop_width * 20 + 1)) in
+      let result_buf = Buffer.create (char_height * ((crop_width * 20) + 1)) in
 
       for char_y = 0 to char_height - 1 do
-        if char_y > 0 then Buffer.add_char result_buf '\n';
+        if char_y > 0 then Buffer.add_char result_buf '\n' ;
 
         for x = 0 to crop_width - 1 do
           let pixel_y_upper = crop_y + (char_y * 2) in

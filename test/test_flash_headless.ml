@@ -35,6 +35,7 @@ module Dummy_page = struct
   let back st = st
 
   let keymap _ = []
+
   let handled_keys () = []
 
   let handle_modal_key st _ ~size:_ = st

@@ -6,7 +6,6 @@
 (*****************************************************************************)
 
 module Helpers = Miaou_helpers.Helpers
-
 module W = Widgets
 
 type bar = string * float * string option
@@ -116,7 +115,9 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
               in
               let styled_segment =
                 if row <= bar_height && value > y_val_at_row then
-                  match color with Some c -> W.ansi c segment | None -> segment
+                  match color with
+                  | Some c -> W.ansi c segment
+                  | None -> segment
                 else segment
               in
               Buffer.add_string line_buf styled_segment)
@@ -207,11 +208,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
                     else mask_right.(dots_in_cell)
                   in
                   styles.(cell_y).(cell_x) <- color ;
-                  Braille_canvas.add_cell_bits
-                    canvas
-                    ~cell_x
-                    ~cell_y
-                    mask ;
+                  Braille_canvas.add_cell_bits canvas ~cell_x ~cell_y mask ;
                   fill (cell_y - 1) (remaining - 4)
               in
               fill max_cell_y bar_height_dots
@@ -226,8 +223,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
         | None -> ()) ;
 
         (* Chart *)
-        lines :=
-          Chart_utils.render_braille_with_colors canvas styles :: !lines ;
+        lines := Chart_utils.render_braille_with_colors canvas styles :: !lines ;
 
         (* X-axis labels *)
         let labels_line = Buffer.create t.width in

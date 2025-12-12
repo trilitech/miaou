@@ -75,20 +75,20 @@ let pad_to_width s target_width pad_char =
   else
     let needed = target_width - v in
     let l = String.length s in
-    if has_trailing_reset s then
+    if has_trailing_reset s then (
       let buf = Buffer.create (l + needed + 4) in
-      Buffer.add_substring buf s 0 (l - 4);
+      Buffer.add_substring buf s 0 (l - 4) ;
       for _ = 1 to needed do
         Buffer.add_char buf pad_char
-      done;
-      Buffer.add_string buf "\027[0m";
-      Buffer.contents buf
+      done ;
+      Buffer.add_string buf "\027[0m" ;
+      Buffer.contents buf)
     else
       let buf = Buffer.create (l + needed) in
-      Buffer.add_string buf s;
+      Buffer.add_string buf s ;
       for _ = 1 to needed do
         Buffer.add_char buf pad_char
-      done;
+      done ;
       Buffer.contents buf
 
 let concat_lines lines =
@@ -96,13 +96,17 @@ let concat_lines lines =
   | [] -> ""
   | hd :: tl ->
       let buf =
-        let est = List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines in
+        let est =
+          List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
+        in
         Buffer.create est
       in
-      Buffer.add_string buf hd;
-      List.iter (fun l ->
-        Buffer.add_char buf '\n';
-        Buffer.add_string buf l) tl;
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun l ->
+          Buffer.add_char buf '\n' ;
+          Buffer.add_string buf l)
+        tl ;
       Buffer.contents buf
 
 let concat_with_sep sep parts =
@@ -116,8 +120,10 @@ let concat_with_sep sep parts =
         in
         Buffer.create est
       in
-      Buffer.add_string buf hd;
-      List.iter (fun p ->
-        Buffer.add_string buf sep;
-        Buffer.add_string buf p) tl;
+      Buffer.add_string buf hd ;
+      List.iter
+        (fun p ->
+          Buffer.add_string buf sep ;
+          Buffer.add_string buf p)
+        tl ;
       Buffer.contents buf

@@ -96,6 +96,7 @@ module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page _ = None
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = s

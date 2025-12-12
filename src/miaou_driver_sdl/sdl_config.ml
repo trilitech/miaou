@@ -96,9 +96,11 @@ let pick_font_path (cfg : config) =
           | p :: _ -> Ok p
           | [] ->
               let buf = Buffer.create 256 in
-              List.iteri (fun i p ->
-                if i > 0 then Buffer.add_string buf ", ";
-                Buffer.add_string buf p) font_candidates;
+              List.iteri
+                (fun i p ->
+                  if i > 0 then Buffer.add_string buf ", " ;
+                  Buffer.add_string buf p)
+                font_candidates ;
               Error
                 (Printf.sprintf
                    "Could not find any monospaced font. Provide \

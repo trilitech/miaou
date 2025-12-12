@@ -76,4 +76,6 @@ let render t ~focus =
         else W.dim (pad tab.label))
       t.tabs
   in
-  match rendered with [] -> "" | _ -> Helpers.concat_with_sep (W.dim "|") rendered
+  match rendered with
+  | [] -> ""
+  | _ -> Helpers.concat_with_sep (W.dim "|") rendered

@@ -166,7 +166,8 @@ let render_inner
            down);
     ]
   in
-  Helpers.concat_lines (header @ top_indicator @ body_core @ bottom_indicator @ range_hint)
+  Helpers.concat_lines
+    (header @ top_indicator @ body_core @ bottom_indicator @ range_hint)
 
 (* Polymorphic-by-default API *)
 

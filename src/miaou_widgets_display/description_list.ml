@@ -5,7 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 module Helpers = Miaou_helpers.Helpers
-
 open Widgets
 
 type t = {

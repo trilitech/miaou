@@ -33,8 +33,6 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
     let back s = s
 
-
-
     let handle_modal_key s key ~size:_ =
       (match key with
       | "Enter" ->
@@ -58,7 +56,9 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
       s
 
     let keymap _ = []
+
     let handled_keys () = []
+
     let next_page _ = None
 
     let has_modal _ = false
@@ -96,8 +96,6 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let back s = s
 
-
-
   let handle_modal_key s key ~size:_ =
     Miaou_core.Modal_manager.handle_key key ;
     s
@@ -105,7 +103,9 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
   let handle_key s _ ~size:_ = s
 
   let keymap _ = []
+
   let handled_keys () = []
+
   let next_page _ = !nav
 
   let has_modal _ = Miaou_core.Modal_manager.has_active ()

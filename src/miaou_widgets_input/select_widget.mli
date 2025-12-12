@@ -107,10 +107,7 @@ val render_with_size :
     @param focus Whether the widget has focus
 *)
 val render :
-  ?backend:Miaou_widgets_display.Widgets.backend ->
-  'a t ->
-  focus:bool ->
-  string
+  ?backend:Miaou_widgets_display.Widgets.backend -> 'a t -> focus:bool -> string
 
 (** Render for a specific backend (advanced).
 
