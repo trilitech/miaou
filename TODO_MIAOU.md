@@ -7,6 +7,9 @@ Source prompts (octez_setup/prompts/wip_plan):
 - M5_90: prompts/wip_plan/M5_ui_toolkit/90_gardening_round_1.md
 - M6_01: prompts/wip_plan/M6_ux_overhaul/01_refactor_pages_to_table_widget.md
 
+## Session 2025-12-15
+- [x] 2025-12-15: Fix File_pager cleanup hang by scoping tail fibers to page lifecycle and updating docs/tests as needed.
+
 ## Tasks
 - [ ] Gardening (M5_90)
   - [x] Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
