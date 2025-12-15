@@ -5,6 +5,7 @@
 
 module Tui_page = Miaou_core.Tui_page
 module Capture = Miaou_core.Tui_capture
+module Fibers = Miaou_helpers.Fiber_runtime
 open LTerm_geom
 
 module Key_queue = struct
@@ -86,76 +87,84 @@ let set_limits ?iterations ?seconds () =
   Option.iter (fun i -> max_iterations_ref := i) iterations ;
   Option.iter (fun s -> max_seconds_ref := s) seconds
 
+let with_page_scope f =
+  match Fibers.env_opt () with
+  | Some _ -> Fibers.with_page_switch (fun _env _sw -> f ())
+  | None -> f ()
+
 let run (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `SwitchTo of string] =
-  let module P : Tui_page.PAGE_SIG = (val initial_page) in
-  let start_time = Unix.gettimeofday () in
-  let exceed_guard iteration =
-    let elapsed = Unix.gettimeofday () -. start_time in
-    if iteration >= !max_iterations_ref || elapsed >= !max_seconds_ref then
-      failwith
-        (Printf.sprintf
-           "Headless_driver timeout: iteration=%d elapsed=%.3fs (limits: %d \
-            iter / %.1fs)"
-           iteration
-           elapsed
-           !max_iterations_ref
-           !max_seconds_ref)
-  in
-  let rec loop iteration (st : P.state) : [`Quit | `SwitchTo of string] =
-    exceed_guard iteration ;
-    render_page_with (module P) st ;
-    match Key_queue.take () with
-    | None -> (
-        (try
-           Printf.eprintf "[driver][debug] No key in queue, refreshing page\n%!"
-         with _ -> ()) ;
-        let st' = P.refresh st in
-        match P.next_page st' with
-        | Some "__QUIT__" -> `Quit
-        | Some name -> `SwitchTo name
-        | None -> loop (iteration + 1) st')
-    | Some k -> (
-        (try
-           Printf.eprintf
-             "[driver][debug] Key event: '%s' modal_active=%b\n%!"
-             k
-             (Miaou_core.Modal_manager.has_active ())
-         with _ -> ()) ;
-        let forced_switch =
-          String.length k > 11
-          && String.sub k 0 11 = "__SWITCH__:"
-          && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
-        in
-        if not forced_switch then Capture.record_keystroke k ;
-        if forced_switch then `SwitchTo (String.sub k 11 (String.length k - 11))
-        else
-          let st' =
-            if Miaou_core.Modal_manager.has_active () then (
-              (try
-                 Printf.eprintf
-                   "[driver][debug] Modal manager handling key: '%s'\n%!"
-                   k
-               with _ -> ()) ;
-              Miaou_core.Modal_manager.handle_key k ;
-              st)
-            else
-              match k with
-              | "Up" -> P.move st (-1)
-              | "Down" -> P.move st 1
-              | "Enter" -> P.enter st
-              | "q" | "Q" -> st
-              | _ -> P.handle_key st k ~size:(get_size ())
-          in
-          render_page_with (module P) st' ;
-          if k = "q" || k = "Q" then `Quit
-          else
+  with_page_scope (fun () ->
+      let module P : Tui_page.PAGE_SIG = (val initial_page) in
+      let start_time = Unix.gettimeofday () in
+      let exceed_guard iteration =
+        let elapsed = Unix.gettimeofday () -. start_time in
+        if iteration >= !max_iterations_ref || elapsed >= !max_seconds_ref then
+          failwith
+            (Printf.sprintf
+               "Headless_driver timeout: iteration=%d elapsed=%.3fs (limits: \
+                %d iter / %.1fs)"
+               iteration
+               elapsed
+               !max_iterations_ref
+               !max_seconds_ref)
+      in
+      let rec loop iteration (st : P.state) : [`Quit | `SwitchTo of string] =
+        exceed_guard iteration ;
+        render_page_with (module P) st ;
+        match Key_queue.take () with
+        | None -> (
+            (try
+               Printf.eprintf
+                 "[driver][debug] No key in queue, refreshing page\n%!"
+             with _ -> ()) ;
+            let st' = P.refresh st in
             match P.next_page st' with
+            | Some "__QUIT__" -> `Quit
             | Some name -> `SwitchTo name
             | None -> loop (iteration + 1) st')
-  in
-  set_page initial_page ;
-  loop 0 (P.init ())
+        | Some k -> (
+            (try
+               Printf.eprintf
+                 "[driver][debug] Key event: '%s' modal_active=%b\n%!"
+                 k
+                 (Miaou_core.Modal_manager.has_active ())
+             with _ -> ()) ;
+            let forced_switch =
+              String.length k > 11
+              && String.sub k 0 11 = "__SWITCH__:"
+              && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
+            in
+            if not forced_switch then Capture.record_keystroke k ;
+            if forced_switch then
+              `SwitchTo (String.sub k 11 (String.length k - 11))
+            else
+              let st' =
+                if Miaou_core.Modal_manager.has_active () then (
+                  (try
+                     Printf.eprintf
+                       "[driver][debug] Modal manager handling key: '%s'\n%!"
+                       k
+                   with _ -> ()) ;
+                  Miaou_core.Modal_manager.handle_key k ;
+                  st)
+                else
+                  match k with
+                  | "Up" -> P.move st (-1)
+                  | "Down" -> P.move st 1
+                  | "Enter" -> P.enter st
+                  | "q" | "Q" -> st
+                  | _ -> P.handle_key st k ~size:(get_size ())
+              in
+              render_page_with (module P) st' ;
+              if k = "q" || k = "Q" then `Quit
+              else
+                match P.next_page st' with
+                | Some name -> `SwitchTo name
+                | None -> loop (iteration + 1) st')
+      in
+      set_page initial_page ;
+      loop 0 (P.init ()))
 
 module Stateful = struct
   let initialized = ref false
@@ -167,36 +176,37 @@ module Stateful = struct
   let next_page_impl : (unit -> string option) ref = ref (fun () -> None)
 
   let init (type s) (module P : Tui_page.PAGE_SIG with type state = s) : unit =
-    let st = ref (P.init ()) in
-    let render () = render_page_with (module P) !st in
-    let handle_modal_key k =
-      if Miaou_core.Modal_manager.has_active () then
-        Miaou_core.Modal_manager.handle_key k
-    in
-    let handle_key (k : string) =
-      if Miaou_core.Modal_manager.has_active () then (
-        handle_modal_key k ;
-        render ())
-      else
-        let new_st =
-          match k with
-          | "Up" -> P.move !st (-1)
-          | "Down" -> P.move !st 1
-          | "Enter" -> P.enter !st
-          | "q" | "Q" -> !st
-          | _ -> P.handle_key !st k ~size:(get_size ())
+    with_page_scope (fun () ->
+        let st = ref (P.init ()) in
+        let render () = render_page_with (module P) !st in
+        let handle_modal_key k =
+          if Miaou_core.Modal_manager.has_active () then
+            Miaou_core.Modal_manager.handle_key k
         in
-        st := new_st ;
-        render ()
-    in
-    send_key_impl := handle_key ;
-    (refresh_impl :=
-       fun () ->
-         st := P.refresh !st ;
-         render ()) ;
-    (next_page_impl := fun () -> P.next_page !st) ;
-    initialized := true ;
-    render ()
+        let handle_key (k : string) =
+          if Miaou_core.Modal_manager.has_active () then (
+            handle_modal_key k ;
+            render ())
+          else
+            let new_st =
+              match k with
+              | "Up" -> P.move !st (-1)
+              | "Down" -> P.move !st 1
+              | "Enter" -> P.enter !st
+              | "q" | "Q" -> !st
+              | _ -> P.handle_key !st k ~size:(get_size ())
+            in
+            st := new_st ;
+            render ()
+        in
+        send_key_impl := handle_key ;
+        (refresh_impl :=
+           fun () ->
+             st := P.refresh !st ;
+             render ()) ;
+        (next_page_impl := fun () -> P.next_page !st) ;
+        initialized := true ;
+        render ())
 
   let ensure () =
     if not !initialized then invalid_arg "Stateful driver not initialised"
