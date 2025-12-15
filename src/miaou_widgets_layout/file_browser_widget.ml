@@ -58,7 +58,10 @@ let schedule_path_update path = pending_path_update := Some path
 let rec normalize_start p =
   let sys = Miaou_interfaces.System.require () in
   try
-    if sys.file_exists p && sys.is_directory p then p
+    if sys.file_exists p && sys.is_directory p then
+      (* Prefer an absolute, canonical path when available so that navigating
+         up keeps working (e.g. avoid getting stuck at "./"). *)
+      try Unix.realpath p with _ -> p
     else
       let parent = Filename.dirname p in
       if parent = p then "/" else normalize_start parent
@@ -113,6 +116,11 @@ let list_entries_safe path ~dirs_only =
   | Ok entries -> entries
   | Error _ -> []
 
+let list_entries_with_parent path ~dirs_only =
+  let entries = list_entries_safe path ~dirs_only in
+  let parent = Filename.dirname path in
+  if parent = path then entries else {name = ".."; is_dir = true} :: entries
+
 let is_cancelled w = w.cancelled
 
 let reset_cancelled w = {w with cancelled = false}
@@ -153,7 +161,9 @@ let current_input w =
 let handle_key w ~key =
   (* Apply any pending path updates first *)
   let w = apply_pending_updates w in
-  let entries = list_entries_safe w.current_path ~dirs_only:w.dirs_only in
+  let entries =
+    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only
+  in
   let total = List.length entries in
   match w.mode with
   | Browsing -> (
@@ -196,9 +206,13 @@ let handle_key w ~key =
       | "Enter" -> (
           (* Navigate into selected directory *)
           match List.nth_opt entries w.cursor with
+          | Some entry when entry.name = ".." ->
+              let parent = Filename.dirname w.current_path in
+              {w with current_path = parent; cursor = 0}
           | Some entry when entry.is_dir ->
               let new_path = Filename.concat w.current_path entry.name in
-              {w with current_path = new_path; cursor = 0}
+              let new_path = normalize_start new_path in
+              {w with current_path = new_path; cursor = 0; path_error = None}
           | _ -> w)
       | "Left" | "Backspace" ->
           let parent = Filename.dirname w.current_path in
@@ -356,29 +370,13 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     in
     loop n 0
   in
-  let entries = list_entries_safe w.current_path ~dirs_only:w.dirs_only in
+  let entries =
+    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only
+  in
   let total = List.length entries in
-  (* Vertical sizing: reserve a few lines for header/footer around the body. *)
+  let cursor = clamp 0 (if total = 0 then 0 else total - 1) w.cursor in
+  let w = {w with cursor} in
   let rows_total = size.LTerm_geom.rows in
-  let vertical_space =
-    let v = rows_total - 6 in
-    if v < 3 then 3 else if v > 30 then 30 else v
-  in
-  let max_shown = if total <= vertical_space then total else vertical_space in
-  let start =
-    if total <= max_shown then 0
-    else
-      let half = max_shown / 2 in
-      let s = w.cursor - half in
-      let s = if s < 0 then 0 else s in
-      let s = if s + max_shown > total then total - max_shown else s in
-      s
-  in
-  let slice =
-    entries
-    |> List.mapi (fun i v -> (i, v))
-    |> List.filter (fun (i, _) -> i >= start && i < start + max_shown)
-  in
   (* Width sizing: compute maximum content width and helpers. *)
   let max_width = max 10 (size.LTerm_geom.cols - 2) in
   let truncate s =
@@ -394,26 +392,6 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     if v >= max_width then s else s ^ String.make (max_width - v) ' '
   in
   let module Palette = Miaou_widgets_display.Palette in
-  let body =
-    let sys = Miaou_interfaces.System.require () in
-    List.map
-      (fun (i, e) ->
-        let full = Filename.concat w.current_path e.name in
-        let size_suffix =
-          if e.is_dir then "/"
-          else
-            match sys.get_disk_usage ~path:full with
-            | Ok bytes -> "  (" ^ human_bytes bytes ^ ")"
-            | Error _ -> ""
-        in
-        let plain = if e.is_dir then e.name ^ "/" else e.name ^ size_suffix in
-        let clipped = plain |> truncate in
-        let colored = if e.is_dir then W.fg 12 clipped else clipped in
-        let label = if w.mode = EditingPath then W.dim colored else colored in
-        if i = w.cursor then Palette.selection_bg (Palette.selection_fg label)
-        else label)
-      slice
-  in
   let shorten_path_to p max_len =
     if max_len <= 5 then
       if String.length p <= max_len then p
@@ -463,6 +441,55 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
       |> pad_to_width)
   in
   let header = path_bar @ [header_controls] in
+  (* Vertical sizing: render exactly [rows_total] lines so parent frames don't
+     crop in a way that desynchronizes cursor and viewport. *)
+  let header_lines = List.length header in
+  let footer_lines =
+    3
+    (* blank + status + footer_controls *)
+  in
+  let body_capacity = max 0 (rows_total - header_lines - footer_lines) in
+  let max_shown = min total body_capacity in
+  let start =
+    if total <= max_shown || max_shown <= 0 then 0
+    else
+      let max_start = max 0 (total - max_shown) in
+      let desired = w.cursor - (max_shown - 1) in
+      max 0 (min desired max_start)
+  in
+  let slice =
+    entries
+    |> List.mapi (fun i v -> (i, v))
+    |> List.filter (fun (i, _) -> i >= start && i < start + max_shown)
+  in
+  let body =
+    let sys = Miaou_interfaces.System.require () in
+    List.map
+      (fun (i, e) ->
+        let full =
+          if e.name = ".." then Filename.dirname w.current_path
+          else Filename.concat w.current_path e.name
+        in
+        let size_suffix =
+          if e.name = ".." then ""
+          else if e.is_dir then "/"
+          else
+            match sys.get_disk_usage ~path:full with
+            | Ok bytes -> "  (" ^ human_bytes bytes ^ ")"
+            | Error _ -> ""
+        in
+        let plain = if e.is_dir then e.name ^ "/" else e.name ^ size_suffix in
+        let clipped = plain |> truncate in
+        let colored = if e.is_dir then W.fg 12 clipped else clipped in
+        let label = if w.mode = EditingPath then W.dim colored else colored in
+        if i = w.cursor then Palette.selection_bg (Palette.selection_fg label)
+        else label)
+      slice
+  in
+  let body =
+    if List.length body >= body_capacity then body
+    else body @ List.init (body_capacity - List.length body) (fun _ -> "")
+  in
   (* Show selectable status near the bottom; footer shows action keys like Enter and n. *)
   let selectable =
     match List.nth_opt entries w.cursor with

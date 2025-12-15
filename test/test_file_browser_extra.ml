@@ -49,10 +49,16 @@ let test_autocomplete_and_history () =
 let test_enter_enters_directory () =
   Miaou_interfaces.System.set (make_stub ~writable:true) ;
   let w = FB.open_centered ~path:"/root" ~dirs_only:false () in
-  (* Cursor defaults to first entry, which is a directory in the stub. *)
+  (* Cursor defaults to parent entry; ensure it appears and works. *)
+  let first =
+    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 6; cols = 40}
+  in
+  check bool "parent entry present" true (String.contains first '.') ;
   let w' = FB.handle_key w ~key:"Enter" in
-  check string "navigated into dir" "/root/dir1" w'.FB.current_path ;
-  check int "cursor reset" 0 w'.FB.cursor
+  check string "navigated to parent" "/" w'.FB.current_path ;
+  check int "cursor reset" 0 w'.FB.cursor ;
+  let w_dir = {w with FB.cursor = 1} |> FB.handle_key ~key:"Enter" in
+  check string "navigated into dir" "/root/dir1" w_dir.FB.current_path
 
 let test_not_writable_error () =
   Miaou_interfaces.System.set (make_stub ~writable:false) ;
@@ -72,6 +78,41 @@ let test_read_only_mode () =
   let w = FB.handle_key w ~key:"Enter" in
   check bool "no error in read mode" true (Option.is_none w.FB.path_error)
 
+let test_viewport_scrolls () =
+  let open Miaou_interfaces in
+  let has_sub s sub =
+    try
+      let _ = Str.search_forward (Str.regexp_string sub) s 0 in
+      true
+    with Not_found -> false
+  in
+  let entries =
+    List.init 12 (fun i -> Printf.sprintf "dir%02d" i)
+    @ ["file.txt"; "other.log"]
+  in
+  let sys =
+    {
+      (make_stub ~writable:true) with
+      System.list_dir = (fun _ -> Ok entries);
+      is_directory = (fun p -> not (String.ends_with ~suffix:".txt" p));
+    }
+  in
+  System.set sys ;
+  let w = FB.open_centered ~path:"/tmp" ~dirs_only:false () in
+  (* Move cursor near the end to force scrolling. *)
+  let w = {w with FB.cursor = 14} in
+  let rendered =
+    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 12; cols = 40}
+  in
+  check bool "shows last entry" true (has_sub rendered "dir11") ;
+  (* With the cursor around the end of the first viewport, the first entries
+     should already be scrolled away. *)
+  let w = {w with FB.cursor = 8} in
+  let rendered2 =
+    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 12; cols = 40}
+  in
+  check bool "first entry scrolled" true (not (has_sub rendered2 "dir00"))
+
 let () =
   run
     "file_browser_extra"
@@ -82,5 +123,6 @@ let () =
           test_case "enter navigates dir" `Quick test_enter_enters_directory;
           test_case "not writable" `Quick test_not_writable_error;
           test_case "read only mode" `Quick test_read_only_mode;
+          test_case "viewport scrolls to end" `Quick test_viewport_scrolls;
         ] );
     ]

@@ -156,7 +156,8 @@
   alcotest
   miaou.widgets.layout
   miaou.widgets.input
-  miaou.interfaces))
+  miaou.interfaces
+  str))
 
 (test
  (name test_table_sdl)
