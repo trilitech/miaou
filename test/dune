@@ -38,6 +38,11 @@
  (libraries alcotest eio_main miaou.helpers miaou.widgets.display))
 
 (test
+ (name test_file_pager_double_close)
+ (modules test_file_pager_double_close)
+ (libraries alcotest eio_main miaou.helpers miaou.widgets.display))
+
+(test
  (name test_adaptive_layout)
  (modules test_adaptive_layout)
  (libraries
