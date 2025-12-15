@@ -17,6 +17,7 @@ type tail_state = {
   mutable strategy : tail_strategy;
   mutable last_check : float;
   poll_interval_s : float;
+  mutable closed : bool;
 }
 
 type t = {
@@ -60,10 +61,15 @@ let make_tail env path poll_interval_s =
         strategy;
         last_check = Eio.Time.now env#clock;
         poll_interval_s;
+        closed = false;
       }
   with _ -> None
 
-let close_tail tail = match tail.strategy with Inotify _ -> () | Polling -> ()
+let close_tail (tail : tail_state) =
+  if tail.closed then ()
+  else (
+    tail.closed <- true ;
+    match tail.strategy with Inotify _ -> () | Polling -> ())
 
 let check_inotify tail _env =
   match tail.strategy with
