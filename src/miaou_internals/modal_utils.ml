@@ -271,7 +271,6 @@ let markdown_to_ansi (s : string) : string =
       else if l.[i] = '`' then (
         let chunk = String.sub l last (i - last) in
         Buffer.add_string buf (apply ~in_bold ~in_italic ~in_code chunk) ;
-        Buffer.add_string buf (dim (fg 240 "`")) ;
         loop (i + 1) (i + 1) ~in_bold ~in_italic ~in_code:(not in_code))
       else if (not in_code) && l.[i] = '[' then
         match String.index_from_opt l (i + 1) ']' with
