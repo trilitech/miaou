@@ -41,9 +41,9 @@ let write_file path contents =
   Hashtbl.replace json_store path contents ;
   Ok ()
 
-let file_exists _ = true
+let file_exists path = Sys.file_exists path || Hashtbl.mem json_store path
 
-let is_directory _ = false
+let is_directory path = try Sys.is_directory path with _ -> false
 
 let mkdir _ = Ok ()
 

@@ -209,10 +209,16 @@ let handle_key w ~key =
           | Some entry when entry.name = ".." ->
               let parent = Filename.dirname w.current_path in
               {w with current_path = parent; cursor = 0}
-          | Some entry when entry.is_dir ->
-              let new_path = Filename.concat w.current_path entry.name in
-              let new_path = normalize_start new_path in
-              {w with current_path = new_path; cursor = 0; path_error = None}
+          | Some entry ->
+              let target = Filename.concat w.current_path entry.name in
+              let sys = Miaou_interfaces.System.require () in
+              let is_dir =
+                entry.is_dir || try sys.is_directory target with _ -> false
+              in
+              if is_dir then
+                let new_path = normalize_start target in
+                {w with current_path = new_path; cursor = 0; path_error = None}
+              else w
           | _ -> w)
       | "Left" | "Backspace" ->
           let parent = Filename.dirname w.current_path in
