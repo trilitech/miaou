@@ -121,27 +121,6 @@ let rec tail_loop env t tail =
       Eio.Time.sleep env#clock tail.poll_interval_s ;
       tail_loop env t tail)
 
-let start_tail_watcher t tail =
-  let _, sw = Fibers.require_runtime () in
-  let cancel_promise, cancel_resolver = Eio.Promise.create () in
-  let resolved = ref false in
-  t.cancel <-
-    Some
-      (fun () ->
-        if not !resolved then (
-          resolved := true ;
-          Eio.Promise.resolve cancel_resolver ())) ;
-  Eio.Fiber.fork ~sw (fun () ->
-      Fibers.with_env (fun env ->
-          Eio.Fiber.first
-            (fun () -> tail_loop env t tail)
-            (fun () ->
-              Eio.Promise.await cancel_promise ;
-              t.closed <- true ;
-              close_tail tail)))
-
-let pager t = t.pager
-
 let close t =
   t.closed <- true ;
   (* Trigger cancellation of the tail fiber *)
@@ -153,6 +132,35 @@ let close t =
       t.tail <- None ;
       Pager.stop_streaming t.pager)
     t.tail
+
+let start_tail_watcher t tail =
+  let env, sw = Fibers.require_env_and_switch () in
+  let cancel_promise, cancel_resolver = Eio.Promise.create () in
+  let resolved = ref false in
+  t.cancel <-
+    Some
+      (fun () ->
+        if not !resolved then (
+          resolved := true ;
+          Eio.Promise.resolve cancel_resolver ())) ;
+  (* Ensure the pager shuts down when the enclosing page switch closes even if
+     callers forget to invoke [close]. *)
+  Eio.Switch.on_release sw (fun () -> close t) ;
+  let tail_worker () =
+    Fun.protect
+      ~finally:(fun () ->
+        t.closed <- true ;
+        close_tail tail ;
+        t.tail <- None ;
+        Pager.stop_streaming t.pager)
+      (fun () ->
+        Eio.Fiber.first
+          (fun () -> tail_loop env t tail)
+          (fun () -> Eio.Promise.await cancel_promise))
+  in
+  Eio.Fiber.fork ~sw tail_worker
+
+let pager t = t.pager
 
 let open_file ?(follow = false) ?notify_render ?(poll_interval = 0.25) path =
   match Fibers.env_opt () with
