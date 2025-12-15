@@ -24,6 +24,11 @@ val require_env_and_switch : unit -> Eio_unix.Stdenv.base * Eio.Switch.t
 
 val require_current_switch : unit -> Eio.Switch.t
 
+(** Run [f] inside [with_page_switch] when a runtime is active; otherwise run
+    [f] directly. Useful for drivers that may be constructed before the runtime
+    is initialized but should still scope fibers when possible. *)
+val with_page_scope : (unit -> 'a) -> 'a
+
 (** Run [f] inside a fresh page-scoped switch.
     All fibers spawned via {!spawn} (or other helpers using {!require_current_switch})
     while [f] executes are attached to that switch and are cancelled when it closes.

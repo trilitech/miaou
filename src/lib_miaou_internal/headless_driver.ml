@@ -87,10 +87,7 @@ let set_limits ?iterations ?seconds () =
   Option.iter (fun i -> max_iterations_ref := i) iterations ;
   Option.iter (fun s -> max_seconds_ref := s) seconds
 
-let with_page_scope f =
-  match Fibers.env_opt () with
-  | Some _ -> Fibers.with_page_switch (fun _env _sw -> f ())
-  | None -> f ()
+let with_page_scope f = Fibers.with_page_scope f
 
 let run (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `SwitchTo of string] =

@@ -493,7 +493,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
     [`Quit | `SwitchTo of string] =
   let available = true in
   ignore available ;
-  Fibers.with_page_switch (fun _env _page_sw ->
+  Fibers.with_page_scope (fun () ->
       with_sdl @@ fun () ->
       Miaou_widgets_display.Widgets.set_backend `Sdl ;
       let font_path =

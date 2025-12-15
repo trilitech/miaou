@@ -81,6 +81,11 @@ let with_page_switch f =
       invalid_arg
         "with_page_switch: page callback raised before producing a result"
 
+let with_page_scope f =
+  match env_opt () with
+  | Some _ -> with_page_switch (fun _env _sw -> f ())
+  | None -> f ()
+
 let with_env f =
   match env_opt () with
   | Some env -> f env
