@@ -12,6 +12,7 @@ module Capture = Miaou_core.Tui_capture
 module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
 module Driver_common = Miaou_driver_common.Driver_common
+module Fibers = Miaou_helpers.Fiber_runtime
 
 module Page_transition = Miaou_driver_common.Driver_common.Page_transition_utils
 
@@ -492,183 +493,99 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
     [`Quit | `SwitchTo of string] =
   let available = true in
   ignore available ;
-  with_sdl @@ fun () ->
-  Miaou_widgets_display.Widgets.set_backend `Sdl ;
-  let font_path =
-    match pick_font_path cfg with Ok p -> p | Error msg -> failwith msg
-  in
-  let font =
-    match Ttf.open_font font_path cfg.font_size with
-    | Error (`Msg e) ->
-        sdl_fail "open_font" (Printf.sprintf "font=%s: %s" font_path e)
-    | Ok f -> f
-  in
-  let char_w, char_h =
-    match Ttf.size_utf8 font "M" with
-    | Error (`Msg e) -> sdl_fail "size_utf8" e
-    | Ok (w, h) -> (max 8 w, max 12 h)
-  in
-  let win =
-    Sdl_window.create_window cfg.window_title ~w:(80 * char_w) ~h:(30 * char_h)
-  in
-  let renderer = create_renderer win in
-  ignore (Sdl.render_set_scale renderer cfg.scale cfg.scale) ;
-  ignore (Sdl.start_text_input ()) ;
-  let size_ref =
-    ref (Sdl_window.size_from_window ~char_w ~char_h ~scale:cfg.scale win)
-  in
-  let update_size () =
-    let s = Sdl_window.size_from_window ~char_w ~char_h ~scale:cfg.scale win in
-    size_ref := s ;
-    Modal_manager.set_current_size s.rows s.cols
-  in
-  update_size () ;
-
-  let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
-      (st : s) =
-    let size = !size_ref in
-
-    (* Draw background FIRST, before any SDL chart rendering *)
-    draw_background renderer cfg char_w char_h ;
-
-    (* Set up SDL rendering context for enhanced chart widgets *)
-    Miaou_widgets_display.Sdl_chart_context.set_context_obj
-      ~renderer
-      ~font
-      ~char_w
-      ~char_h
-      ~y_offset:(char_h * 4)
-        (* Start at line 4 - SDL charts stay at original position *)
-      ~cols:size.cols
-      ~enabled:true
-      () ;
-
-    (* Render page (may use SDL context for charts) *)
-    let text = render_page (module P) st size in
-
-    (* Clear SDL context *)
-    Miaou_widgets_display.Sdl_chart_context.clear_context () ;
-
-    let default_state : ansi_state = {fg = cfg.fg; bg = cfg.bg} in
-    let clean_text = Colors.strip_ansi_to_text ~default:default_state text in
-    Capture.record_frame ~rows:size.rows ~cols:size.cols clean_text ;
-
-    (* Render text (without clearing background) *)
-    render_lines
-      renderer
-      font
-      ~fg:cfg.fg
-      ~bg:cfg.bg
-      ~char_w
-      ~char_h
-      ~clear:false (* Already cleared by draw_background above *)
-      ~present:false
-      (String.split_on_char '\n' text) ;
-    ignore (Sdl.render_present renderer)
-  in
-
-  let rec loop : type s.
-      (module PAGE_SIG with type state = s) -> s -> [`Quit | `SwitchTo of string]
-      =
-   fun (module P : PAGE_SIG with type state = s) (st : s) ->
-    render_and_draw (module P) st ;
-    match poll_event ~timeout_ms:120 ~on_resize:update_size with
-    | Quit -> `Quit
-    | Refresh ->
-        let st' = P.refresh st in
-        Page_transition.handle_next_page
-          (module P)
-          st'
-          {
-            on_quit = (fun () -> `Quit);
-            on_same_page = (fun () -> loop (module P) st');
-            on_new_page =
-              (fun (type a)
-                   (module Next : PAGE_SIG with type state = a)
-                   (st_to : a)
-                 ->
-                let size = !size_ref in
-                (* Disable SDL chart rendering during transition text capture *)
-                Miaou_widgets_display.Sdl_chart_context.set_context_obj
-                  ~renderer
-                  ~font
-                  ~char_w
-                  ~char_h
-                  ~y_offset:0
-                  ~cols:size.cols
-                  ~enabled:false
-                  () ;
-                let from_text = render_page (module P) st size in
-                let to_text = render_page (module Next) st_to size in
-                Miaou_widgets_display.Sdl_chart_context.clear_context () ;
-                perform_transition
-                  renderer
-                  font
-                  cfg
-                  char_w
-                  char_h
-                  ~from_lines:(String.split_on_char '\n' from_text)
-                  ~to_lines:(String.split_on_char '\n' to_text)
-                  ~size ;
-                loop (module Next) st_to);
-          }
-    | Key k ->
-        (match Logger_capability.get () with
-        | Some logger ->
-            logger.logf Debug (Printf.sprintf "SDL driver key=%s" k)
-        | None -> ()) ;
-        let forced_switch =
-          String.length k > 11
-          && String.sub k 0 11 = "__SWITCH__:"
-          && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
+  Fibers.with_page_switch (fun _env _page_sw ->
+      with_sdl @@ fun () ->
+      Miaou_widgets_display.Widgets.set_backend `Sdl ;
+      let font_path =
+        match pick_font_path cfg with Ok p -> p | Error msg -> failwith msg
+      in
+      let font =
+        match Ttf.open_font font_path cfg.font_size with
+        | Error (`Msg e) ->
+            sdl_fail "open_font" (Printf.sprintf "font=%s: %s" font_path e)
+        | Ok f -> f
+      in
+      let char_w, char_h =
+        match Ttf.size_utf8 font "M" with
+        | Error (`Msg e) -> sdl_fail "size_utf8" e
+        | Ok (w, h) -> (max 8 w, max 12 h)
+      in
+      let win =
+        Sdl_window.create_window
+          cfg.window_title
+          ~w:(80 * char_w)
+          ~h:(30 * char_h)
+      in
+      let renderer = create_renderer win in
+      ignore (Sdl.render_set_scale renderer cfg.scale cfg.scale) ;
+      ignore (Sdl.start_text_input ()) ;
+      let size_ref =
+        ref (Sdl_window.size_from_window ~char_w ~char_h ~scale:cfg.scale win)
+      in
+      let update_size () =
+        let s =
+          Sdl_window.size_from_window ~char_w ~char_h ~scale:cfg.scale win
         in
-        if not forced_switch then Capture.record_keystroke k ;
-        if forced_switch then
-          let name = String.sub k 11 (String.length k - 11) in
-          match Registry.find name with
-          | Some (module Next : PAGE_SIG) ->
-              let st_to = Next.init () in
-              let size = !size_ref in
-              (* Disable SDL chart rendering during transition text capture *)
-              Miaou_widgets_display.Sdl_chart_context.set_context_obj
-                ~renderer
-                ~font
-                ~char_w
-                ~char_h
-                ~y_offset:0
-                ~cols:size.cols
-                ~enabled:false
-                () ;
-              let from_text = render_page (module P) st size in
-              let to_text = render_page (module Next) st_to size in
-              Miaou_widgets_display.Sdl_chart_context.clear_context () ;
-              perform_transition
-                renderer
-                font
-                cfg
-                char_w
-                char_h
-                ~from_lines:(String.split_on_char '\n' from_text)
-                ~to_lines:(String.split_on_char '\n' to_text)
-                ~size ;
-              loop (module Next) st_to
-          | None -> `Quit
-        else
-          let st' =
-            if Modal_manager.has_active () then (
-              Modal_manager.handle_key k ;
-              st)
-            else
-              match k with
-              | "Up" -> P.move st (-1)
-              | "Down" -> P.move st 1
-              | "Enter" -> P.enter st
-              | "q" | "Q" -> st
-              | _ -> P.handle_key st k ~size:!size_ref
-          in
-          render_and_draw (module P) st' ;
-          if k = "q" || k = "Q" then `Quit
-          else
+        size_ref := s ;
+        Modal_manager.set_current_size s.rows s.cols
+      in
+      update_size () ;
+
+      let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
+          (st : s) =
+        let size = !size_ref in
+
+        (* Draw background FIRST, before any SDL chart rendering *)
+        draw_background renderer cfg char_w char_h ;
+
+        (* Set up SDL rendering context for enhanced chart widgets *)
+        Miaou_widgets_display.Sdl_chart_context.set_context_obj
+          ~renderer
+          ~font
+          ~char_w
+          ~char_h
+          ~y_offset:(char_h * 4)
+            (* Start at line 4 - SDL charts stay at original position *)
+          ~cols:size.cols
+          ~enabled:true
+          () ;
+
+        (* Render page (may use SDL context for charts) *)
+        let text = render_page (module P) st size in
+
+        (* Clear SDL context *)
+        Miaou_widgets_display.Sdl_chart_context.clear_context () ;
+
+        let default_state : ansi_state = {fg = cfg.fg; bg = cfg.bg} in
+        let clean_text =
+          Colors.strip_ansi_to_text ~default:default_state text
+        in
+        Capture.record_frame ~rows:size.rows ~cols:size.cols clean_text ;
+
+        (* Render text (without clearing background) *)
+        render_lines
+          renderer
+          font
+          ~fg:cfg.fg
+          ~bg:cfg.bg
+          ~char_w
+          ~char_h
+          ~clear:false (* Already cleared by draw_background above *)
+          ~present:false
+          (String.split_on_char '\n' text) ;
+        ignore (Sdl.render_present renderer)
+      in
+
+      let rec loop : type s.
+          (module PAGE_SIG with type state = s) ->
+          s ->
+          [`Quit | `SwitchTo of string] =
+       fun (module P : PAGE_SIG with type state = s) (st : s) ->
+        render_and_draw (module P) st ;
+        match poll_event ~timeout_ms:120 ~on_resize:update_size with
+        | Quit -> `Quit
+        | Refresh ->
+            let st' = P.refresh st in
             Page_transition.handle_next_page
               (module P)
               st'
@@ -691,7 +608,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                       ~cols:size.cols
                       ~enabled:false
                       () ;
-                    let from_text = render_page (module P) st' size in
+                    let from_text = render_page (module P) st size in
                     let to_text = render_page (module Next) st_to size in
                     Miaou_widgets_display.Sdl_chart_context.clear_context () ;
                     perform_transition
@@ -705,16 +622,109 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                       ~size ;
                     loop (module Next) st_to);
               }
-  in
-  Fun.protect
-    ~finally:(fun () ->
-      Miaou_widgets_display.Widgets.set_backend `Terminal ;
-      Ttf.close_font font ;
-      Sdl.destroy_renderer renderer ;
-      Sdl.destroy_window win)
-    (fun () ->
-      let module P0 : PAGE_SIG = (val initial_page) in
-      loop (module P0) (P0.init ()))
+        | Key k ->
+            (match Logger_capability.get () with
+            | Some logger ->
+                logger.logf Debug (Printf.sprintf "SDL driver key=%s" k)
+            | None -> ()) ;
+            let forced_switch =
+              String.length k > 11
+              && String.sub k 0 11 = "__SWITCH__:"
+              && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
+            in
+            if not forced_switch then Capture.record_keystroke k ;
+            if forced_switch then
+              let name = String.sub k 11 (String.length k - 11) in
+              match Registry.find name with
+              | Some (module Next : PAGE_SIG) ->
+                  let st_to = Next.init () in
+                  let size = !size_ref in
+                  (* Disable SDL chart rendering during transition text capture *)
+                  Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                    ~renderer
+                    ~font
+                    ~char_w
+                    ~char_h
+                    ~y_offset:0
+                    ~cols:size.cols
+                    ~enabled:false
+                    () ;
+                  let from_text = render_page (module P) st size in
+                  let to_text = render_page (module Next) st_to size in
+                  Miaou_widgets_display.Sdl_chart_context.clear_context () ;
+                  perform_transition
+                    renderer
+                    font
+                    cfg
+                    char_w
+                    char_h
+                    ~from_lines:(String.split_on_char '\n' from_text)
+                    ~to_lines:(String.split_on_char '\n' to_text)
+                    ~size ;
+                  loop (module Next) st_to
+              | None -> `Quit
+            else
+              let st' =
+                if Modal_manager.has_active () then (
+                  Modal_manager.handle_key k ;
+                  st)
+                else
+                  match k with
+                  | "Up" -> P.move st (-1)
+                  | "Down" -> P.move st 1
+                  | "Enter" -> P.enter st
+                  | "q" | "Q" -> st
+                  | _ -> P.handle_key st k ~size:!size_ref
+              in
+              render_and_draw (module P) st' ;
+              if k = "q" || k = "Q" then `Quit
+              else
+                Page_transition.handle_next_page
+                  (module P)
+                  st'
+                  {
+                    on_quit = (fun () -> `Quit);
+                    on_same_page = (fun () -> loop (module P) st');
+                    on_new_page =
+                      (fun (type a)
+                           (module Next : PAGE_SIG with type state = a)
+                           (st_to : a)
+                         ->
+                        let size = !size_ref in
+                        (* Disable SDL chart rendering during transition text capture *)
+                        Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                          ~renderer
+                          ~font
+                          ~char_w
+                          ~char_h
+                          ~y_offset:0
+                          ~cols:size.cols
+                          ~enabled:false
+                          () ;
+                        let from_text = render_page (module P) st' size in
+                        let to_text = render_page (module Next) st_to size in
+                        Miaou_widgets_display.Sdl_chart_context.clear_context () ;
+                        perform_transition
+                          renderer
+                          font
+                          cfg
+                          char_w
+                          char_h
+                          ~from_lines:(String.split_on_char '\n' from_text)
+                          ~to_lines:(String.split_on_char '\n' to_text)
+                          ~size ;
+                        loop (module Next) st_to);
+                  }
+      in
+      Fun.protect
+        ~finally:(fun () ->
+          Miaou_widgets_display.Widgets.set_backend `Terminal ;
+          Ttf.close_font font ;
+          Sdl.destroy_renderer renderer ;
+          Sdl.destroy_window win)
+        (fun () ->
+          let module P0 : PAGE_SIG = (val initial_page) in
+          loop (module P0) (P0.init ())))
 
 let run ?config initial_page =
   let cfg = Option.value ~default:default_config config in
