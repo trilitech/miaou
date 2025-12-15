@@ -24,7 +24,7 @@ let enable ~role:_ ~inst:_ = Ok ()
 
 let disable ~role:_ ~inst:_ = Ok ()
 
-let remove_instance_files ~role:_ ~inst:_ ~remove_data:_ = Ok ()
+let remove_instance_files ~inst:_ ~remove_data:_ = Ok ()
 
 let register () =
   let module SL = Miaou_interfaces.Service_lifecycle in

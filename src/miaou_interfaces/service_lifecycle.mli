@@ -27,7 +27,7 @@ val create :
   enable:(role:string -> inst:string -> (unit, string) result) ->
   disable:(role:string -> inst:string -> (unit, string) result) ->
   remove_instance_files:
-    (role:string -> inst:string -> remove_data:bool -> (unit, string) result) ->
+    (inst:string -> remove_data:bool -> (unit, string) result) ->
   t
 
 val key : t Capability.key
@@ -68,4 +68,4 @@ val enable : t -> role:string -> inst:string -> (unit, string) result
 val disable : t -> role:string -> inst:string -> (unit, string) result
 
 val remove_instance_files :
-  t -> role:string -> inst:string -> remove_data:bool -> (unit, string) result
+  t -> inst:string -> remove_data:bool -> (unit, string) result
