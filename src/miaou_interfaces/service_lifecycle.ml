@@ -25,7 +25,7 @@ type t = {
   enable : role:string -> inst:string -> (unit, string) result;
   disable : role:string -> inst:string -> (unit, string) result;
   remove_instance_files :
-    role:string -> inst:string -> remove_data:bool -> (unit, string) result;
+    inst:string -> remove_data:bool -> (unit, string) result;
 }
 
 module Capability = Capability
@@ -73,5 +73,5 @@ let enable t ~role ~inst = t.enable ~role ~inst
 
 let disable t ~role ~inst = t.disable ~role ~inst
 
-let remove_instance_files t ~role ~inst ~remove_data =
-  t.remove_instance_files ~role ~inst ~remove_data
+let remove_instance_files t ~inst ~remove_data =
+  t.remove_instance_files ~inst ~remove_data
