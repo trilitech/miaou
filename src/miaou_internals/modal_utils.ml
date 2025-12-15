@@ -305,8 +305,8 @@ let markdown_to_ansi (s : string) : string =
     | [] -> List.rev acc
     | l :: tl ->
         if String.length l >= 3 && String.sub l 0 3 = "```" then
-          let fence = dim (fg 240 l) in
-          loop (fence :: acc) (not in_code) tl
+          (* Toggle fenced code blocks but omit the fence markers themselves. *)
+          loop acc (not in_code) tl
         else if in_code then loop (fg 114 l :: acc) in_code tl
         else if is_hr l then
           loop
@@ -328,13 +328,23 @@ let markdown_to_ansi (s : string) : string =
             let start = min (n + 1) (String.length l) in
             String.sub l start (String.length l - start) |> String.trim
           in
-          let styled =
-            match n with
-            | 1 -> title_highlight rest
-            | 2 -> bold (fg 81 rest)
-            | _ -> bold (fg 75 rest)
-          in
-          loop (styled :: acc) in_code tl
+          if n = 1 then
+            let title = bold (fg 81 rest) in
+            let underline_len =
+              Miaou_widgets_display.Widgets.visible_chars_count rest
+            in
+            let underline =
+              if underline_len = 0 then None
+              else Some (fg 75 (String.make underline_len '~'))
+            in
+            match underline with
+            | Some u -> loop (u :: title :: acc) in_code tl
+            | None -> loop (title :: acc) in_code tl
+          else
+            let styled =
+              match n with 2 -> bold (fg 81 rest) | _ -> bold (fg 75 rest)
+            in
+            loop (styled :: acc) in_code tl
         else if String.length l > 2 && String.sub l 0 2 = "- " then
           let body =
             inline_style (String.sub l 2 (String.length l - 2))
