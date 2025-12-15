@@ -52,6 +52,26 @@ Milestone tracking for pager widget improvements and tail-follow functionality.
 - Helper functions are well-contained
 - Could benefit from organizing into sub-modules (Styling, Layout, Text) if it grows
 
+### `File_pager` (src/miaou_widgets_display/file_pager.ml[i])
+
+**Purpose:** File-backed pager with follow-mode (inotify/polling) that streams file changes into `Pager_widget`.
+
+**Key types/functions:**
+- `tail_state` - Tracks file position, polling interval, strategy (`Inotify` | `Polling`), and closed flag for idempotent cleanup.
+- `open_file ~follow ~poll_interval` - Load file into a pager and start tailing when requested.
+- `close` - Idempotent stop; cancels tail fiber, closes inotify/polling resources, stops streaming.
+- Internal: `start_tail_watcher`, `tail_loop`, `read_new_lines` for background file watching.
+
+**Recent changes:**
+- Tail cleanup made idempotent to avoid EBADF when both the tail fiber and caller close inotify FDs.
+- Tail fibers are scoped to per-page switches (see drivers) for automatic cancellation on navigation.
+- Regression tests cover page-switch cancellation and double-close safety.
+
+**Gardening notes:**
+- `start_inotify` is currently a stub; reintroduce inotify carefully with consistent resource ownership.
+- Keep tail closure captures minimal to avoid stale references when cancelling; prefer idempotent cleanup guards.
+- Consider exposing per-page switch utilities in a helper to reduce driver duplication.
+
 ## Demo/Test Modules
 
 ### `Pager_demo_page` (example/demo_lib.ml)
