@@ -138,16 +138,21 @@ end = struct
   type msg = unit
 
   let init () =
-    Miaou_widgets_layout.File_browser_widget.open_centered
-      ~path:"./"
-      ~dirs_only:false
-      ()
+    FB.open_centered ~path:"./" ~dirs_only:false ~select_dirs:true ()
 
   let update s _ = s
 
   let view s ~focus ~size = FB.render_with_size s ~focus ~size
 
-  let handle_key s key_str ~size:_ = FB.handle_key s ~key:key_str
+  let handle_key s key_str ~size:_ =
+    let s' = FB.handle_key s ~key:key_str in
+    if key_str = "Enter" then
+      match FB.get_selected_entry s' with
+      | Some e when (not e.is_dir) || e.name = "." ->
+          Miaou.Core.Modal_manager.close_top `Commit ;
+          s'
+      | _ -> s'
+    else s'
 
   let move s _ = s
 

@@ -57,7 +57,7 @@ let test_enter_enters_directory () =
   let w' = FB.handle_key w ~key:"Enter" in
   check string "navigated to parent" "/" w'.FB.current_path ;
   check int "cursor reset" 0 w'.FB.cursor ;
-  let w_dir = {w with FB.cursor = 1} |> FB.handle_key ~key:"Enter" in
+  let w_dir = {w with FB.cursor = 2} |> FB.handle_key ~key:"Enter" in
   check string "navigated into dir" "/root/dir1" w_dir.FB.current_path
 
 let test_not_writable_error () =
@@ -99,19 +99,70 @@ let test_viewport_scrolls () =
   in
   System.set sys ;
   let w = FB.open_centered ~path:"/tmp" ~dirs_only:false () in
-  (* Move cursor near the end to force scrolling. *)
-  let w = {w with FB.cursor = 14} in
+  (* Move cursor to the end to force scrolling. *)
+  let w = {w with FB.cursor = 15} in
   let rendered =
     FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 12; cols = 40}
   in
-  check bool "shows last entry" true (has_sub rendered "dir11") ;
+  check bool "shows last entry" true (has_sub rendered "other.log") ;
   (* With the cursor around the end of the first viewport, the first entries
      should already be scrolled away. *)
-  let w = {w with FB.cursor = 8} in
+  let w = {w with FB.cursor = 10} in
   let rendered2 =
     FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 12; cols = 40}
   in
   check bool "first entry scrolled" true (not (has_sub rendered2 "dir00"))
+
+let test_selection_matches_cursor () =
+  Miaou_interfaces.System.set (make_stub ~writable:true) ;
+  let w =
+    FB.open_centered ~path:"/root" ~dirs_only:false ~select_dirs:true ()
+  in
+  (* Parent entry index 0, dot entry index 1, first real entry index 2. *)
+  let w = {w with FB.cursor = 2} in
+  check
+    string
+    "cursor aligned with selection"
+    "/root/dir1"
+    (Option.value ~default:"" (FB.get_selection w)) ;
+  (* Dot entry selects the current directory. *)
+  let w_dot = {w with FB.cursor = 1} in
+  check
+    string
+    "dot selects current"
+    "/root"
+    (Option.value ~default:"" (FB.get_selection w_dot)) ;
+  (* Enter on dot should keep selection and not navigate. *)
+  let w_dot_enter = FB.handle_key w_dot ~key:"Enter" in
+  check
+    string
+    "dot enter selects current"
+    "/root"
+    (Option.value ~default:"" (FB.get_selection w_dot_enter)) ;
+  check string "dot enter stays put" "/root" w_dot_enter.FB.current_path
+
+let test_browse_dirs_when_not_selectable () =
+  Miaou_interfaces.System.set (make_stub ~writable:true) ;
+  let w =
+    FB.open_centered ~path:"/root" ~dirs_only:false ~select_dirs:false ()
+  in
+  (* Move to dir1 (index 2 because of .. and .). *)
+  let w_dir = {w with FB.cursor = 2} |> FB.handle_key ~key:"Enter" in
+  check string "navigated into dir" "/root/dir1" w_dir.FB.current_path ;
+  (* Selection on directories should be None when select_dirs=false. *)
+  let sel_dir = FB.get_selection {w with FB.cursor = 2} in
+  check bool "dir not selectable" true (Option.is_none sel_dir) ;
+  (* Files remain selectable. *)
+  let w_file = {w with FB.cursor = 5} in
+  match FB.get_selected_entry w_file with
+  | Some e ->
+      check string "file entry is file.txt" "file.txt" e.FB.name ;
+      check
+        bool
+        "file selectable"
+        true
+        (Option.is_some (FB.get_selection w_file))
+  | None -> fail "expected a selected entry"
 
 let () =
   run
@@ -124,5 +175,13 @@ let () =
           test_case "not writable" `Quick test_not_writable_error;
           test_case "read only mode" `Quick test_read_only_mode;
           test_case "viewport scrolls to end" `Quick test_viewport_scrolls;
+          test_case
+            "selection matches cursor"
+            `Quick
+            test_selection_matches_cursor;
+          test_case
+            "browse dirs when not selectable"
+            `Quick
+            test_browse_dirs_when_not_selectable;
         ] );
     ]

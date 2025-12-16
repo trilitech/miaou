@@ -62,6 +62,7 @@ type t = {
   cancelled : bool;  (** Whether user pressed Esc *)
   dirs_only : bool;  (** Show only directories *)
   require_writable : bool;  (** Filter to writable directories only *)
+  select_dirs : bool;  (** Allow selecting directories (including "."). *)
   mode : mode;  (** Current interaction mode *)
   path_buffer : string;  (** Buffer for path editing *)
   path_error : string option;  (** Error message from invalid path *)
@@ -79,9 +80,15 @@ type t = {
     @param path Initial directory path (default: "/")
     @param dirs_only Show only directories, hide files (default: true)
     @param require_writable Filter to writable directories only (default: true)
+    @param select_dirs Allow selecting directories (default: true)
 *)
 val open_centered :
-  ?path:string -> ?dirs_only:bool -> ?require_writable:bool -> unit -> t
+  ?path:string ->
+  ?dirs_only:bool ->
+  ?require_writable:bool ->
+  ?select_dirs:bool ->
+  unit ->
+  t
 
 (** {1 State Queries} *)
 
@@ -100,6 +107,9 @@ val get_current_path : t -> string
     (writable check, etc.). Returns [None] if no valid selection.
 *)
 val get_selection : t -> string option
+
+(** Get the entry currently under the cursor (including [".."] and ["."]). *)
+val get_selected_entry : t -> entry option
 
 (** Check if browser is in path editing mode. *)
 val is_editing : t -> bool

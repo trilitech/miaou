@@ -14,6 +14,7 @@ type t = {
   cancelled : bool;
   dirs_only : bool;
   require_writable : bool;
+  select_dirs : bool;
   (* New: direct path editing *)
   mode : mode;
   path_buffer : string;
@@ -68,7 +69,7 @@ let rec normalize_start p =
   with _ -> "/"
 
 let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
-    () =
+    ?(select_dirs = true) () =
   let start = normalize_start path in
   {
     current_path = start;
@@ -76,6 +77,7 @@ let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
     cancelled = false;
     dirs_only;
     require_writable;
+    select_dirs;
     mode = Browsing;
     path_buffer = "";
     path_error = None;
@@ -119,7 +121,14 @@ let list_entries_safe path ~dirs_only =
 let list_entries_with_parent path ~dirs_only =
   let entries = list_entries_safe path ~dirs_only in
   let parent = Filename.dirname path in
-  if parent = path then entries else {name = ".."; is_dir = true} :: entries
+  let with_parent =
+    if parent = path then entries else {name = ".."; is_dir = true} :: entries
+  in
+  (* Add a dot entry to allow explicitly selecting the current directory,
+     directly below the parent entry when present. *)
+  match with_parent with
+  | p :: rest when p.name = ".." -> p :: {name = "."; is_dir = true} :: rest
+  | lst -> {name = "."; is_dir = true} :: lst
 
 let is_cancelled w = w.cancelled
 
@@ -127,20 +136,28 @@ let reset_cancelled w = {w with cancelled = false}
 
 let get_current_path w = w.current_path
 
+let get_selected_entry w =
+  let entries =
+    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only
+  in
+  if entries = [] then None
+  else
+    let idx = clamp 0 (max 0 (List.length entries - 1)) w.cursor in
+    List.nth_opt entries idx
+
 let get_selection w =
   match w.pending_selection with
   | Some p -> Some p
-  | None ->
-      let entries = list_entries_safe w.current_path ~dirs_only:w.dirs_only in
-      if entries = [] then Some w.current_path
-      else
-        Some
-          (Filename.concat
-             w.current_path
-             (List.nth
-                entries
-                (clamp 0 (max 0 (List.length entries - 1)) w.cursor))
-               .name)
+  | None -> (
+      match get_selected_entry w with
+      | None -> Some w.current_path
+      | Some e ->
+          let target =
+            if e.name = ".." then Filename.dirname w.current_path
+            else if e.name = "." then w.current_path
+            else Filename.concat w.current_path e.name
+          in
+          if e.is_dir && not w.select_dirs then None else Some target)
 
 let is_editing w = match w.mode with EditingPath -> true | Browsing -> false
 
@@ -209,6 +226,9 @@ let handle_key w ~key =
           | Some entry when entry.name = ".." ->
               let parent = Filename.dirname w.current_path in
               {w with current_path = parent; cursor = 0}
+          | Some entry when entry.name = "." ->
+              (* Treat dot as an explicit selection of the current directory. *)
+              {w with pending_selection = Some w.current_path}
           | Some entry ->
               let target = Filename.concat w.current_path entry.name in
               let sys = Miaou_interfaces.System.require () in
