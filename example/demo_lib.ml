@@ -3418,7 +3418,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
                   max_width = Some 80;
                   dim_background = true;
                 }
-              ~commit_on:["s"]
+              ~commit_on:["Space"; " "]
               ~cancel_on:["Esc"]
               ~on_close:(fun (st : File_browser_modal.state) -> function
                 | `Commit ->
