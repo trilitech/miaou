@@ -124,8 +124,16 @@ module Select_modal : SELECT_MODAL_SIG = struct
   let has_modal _ = false
 end
 
-module File_browser_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
-  type state = Miaou_widgets_layout.File_browser_widget.t
+module File_browser_modal : sig
+  include
+    Miaou.Core.Tui_page.PAGE_SIG
+      with type state = Miaou_widgets_layout.File_browser_widget.t
+
+  val selection_summary : state -> string
+end = struct
+  module FB = Miaou_widgets_layout.File_browser_widget
+
+  type state = FB.t
 
   type msg = unit
 
@@ -137,11 +145,9 @@ module File_browser_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let update s _ = s
 
-  let view s ~focus ~size =
-    Miaou_widgets_layout.File_browser_widget.render_with_size s ~focus ~size
+  let view s ~focus ~size = FB.render_with_size s ~focus ~size
 
-  let handle_key s key_str ~size:_ =
-    Miaou_widgets_layout.File_browser_widget.handle_key s ~key:key_str
+  let handle_key s key_str ~size:_ = FB.handle_key s ~key:key_str
 
   let move s _ = s
 
@@ -154,6 +160,9 @@ module File_browser_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
   let service_cycle s _ = s
 
   let handle_modal_key s _ ~size:_ = s
+
+  let selection_summary (s : state) =
+    match FB.get_selection s with Some path -> path | None -> "<none>"
 
   let next_page _ = None
 
@@ -3393,6 +3402,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
         title = "File Browser";
         open_demo =
           (fun s ->
+            let module FB = Miaou_widgets_layout.File_browser_widget in
             Miaou.Core.Modal_manager.push
               (module File_browser_modal)
               ~init:(File_browser_modal.init ())
@@ -3403,11 +3413,26 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
                   max_width = Some 80;
                   dim_background = true;
                 }
-              ~commit_on:["Commit"]
+              ~commit_on:["s"]
               ~cancel_on:["Esc"]
-              ~on_close:(fun _ -> function
-                | `Commit -> Logs.info (fun m -> m "File browser committed")
-                | `Cancel -> Logs.info (fun m -> m "File browser cancelled")) ;
+              ~on_close:(fun (st : File_browser_modal.state) -> function
+                | `Commit ->
+                    let sel =
+                      match FB.get_selection st with
+                      | Some path -> path
+                      | None -> "<none>"
+                    in
+                    Logs.info (fun m -> m "File browser committed: %s" sel) ;
+                    show_tutorial_modal
+                      ~title:"Selected path"
+                      ~markdown:(Printf.sprintf "You selected:\\n\\n`%s`" sel)
+                | `Cancel ->
+                    Logs.info (fun m ->
+                        m
+                          "File browser cancelled (was on %s)"
+                          (match FB.get_selection st with
+                          | Some path -> path
+                          | None -> "<none>"))) ;
             s);
       };
       {
