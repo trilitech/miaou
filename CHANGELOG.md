@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2025-12-17)
+
+- Modal sizing supports dynamic width specs (`Fixed`, `Ratio`, `Clamped`) resolved at render time, including fallback terminal size detection via `/dev/tty` so modals resize with the terminal even when `System` is mocked.
+
+### Breaking Changes (2025-12-17)
+
+- `Modal_manager.ui.max_width` (and related helpers) now expects `max_width_spec option` instead of `int option`; wrap existing fixed widths with `Fixed n` or switch to ratio/clamped specs.
+
 ### Changed (2025-12-15)
 
 - File pager tail fibers are now scoped to per-page switches and auto-cancel on navigation; terminal, SDL, and headless drivers wrap pages in `Fiber_runtime.with_page_switch` for structured cleanup; `Fiber_runtime` exposes page switch helpers. Adds regression coverage for pager cleanup.
