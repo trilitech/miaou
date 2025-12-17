@@ -21,3 +21,6 @@ perf-*.data
 perf-*.data.old
 bench-output.txt
 final-bench.txt
+
+# Internal docs
+docs/gardening/

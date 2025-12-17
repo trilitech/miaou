@@ -41,7 +41,7 @@ The SDL2 backend (`miaou-driver-sdl` package) requires Tsdl + Tsdl_ttf + Tsdl_im
 
 **SDL-Enhanced Widgets**: Chart widgets (sparkline, line chart), image viewer, and QR code widgets automatically use native SDL rendering when the SDL backend is active, providing smooth anti-aliased graphics instead of text approximation. See [`src/miaou_widgets_display/SDL_CHARTS_README.md`](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details.
 
-**Braille Charts**: Terminal chart widgets support Unicode Braille patterns for higher resolution. Each terminal cell becomes a 2×4 dot grid, providing smoother curves and denser plots. See [`docs/BRAILLE_CANVAS.md`](./docs/BRAILLE_CANVAS.md) for details and examples.
+**Braille Charts**: Terminal chart widgets support Unicode Braille patterns for higher resolution. Each terminal cell becomes a 2×4 dot grid, providing smoother curves and denser plots. See the braille demo (`example/demos/braille/`) for usage examples.
 
 Quick start — build & depend
 ----------------------------
@@ -215,7 +215,7 @@ let chart_output =
     ~show_axes:false ~show_grid:false ~mode:Braille () in
 ```
 
-See [`docs/BRAILLE_CANVAS.md`](./docs/BRAILLE_CANVAS.md) for more details on braille rendering.
+See the braille demo (`example/demos/braille/`) for more examples of braille rendering.
 
 Examples
 --------
