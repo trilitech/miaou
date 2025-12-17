@@ -1,0 +1,12 @@
+(library
+ (name demo_shared)
+ (modules
+  demo_config
+  mock_system
+  mock_service_lifecycle
+  mock_logger
+  mock_net
+  mock_palette
+  system_metrics
+  tutorial_modal)
+ (libraries miaou miaou.lib_miaou_internal))

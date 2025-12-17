@@ -24,6 +24,7 @@
  yojson
  imagelib
  qrc
+ ppx_blob
  (alcotest :with-test)
  (bisect_ppx :with-test)))
 

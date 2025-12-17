@@ -196,6 +196,7 @@
   alcotest
   miaou.widgets.input
   miaou.widgets.display
+  demo_shared
   miaou_demo_lib))
 
 (test

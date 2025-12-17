@@ -1,21 +1,9 @@
-(library
- (name miaou_example)
- (modules
-  mock_system
-  mock_service_lifecycle
-  mock_logger
-  mock_net
-  mock_palette
-  system_metrics)
- (libraries miaou unix))
-
+; Legacy demo library - will be replaced by gallery/
 (library
  (name miaou_demo_lib)
- (modules demo_lib tutorial_modal system_monitor_sdl)
+ (modules demo_lib system_monitor_sdl)
  (wrapped false)
- (libraries miaou miaou_example miaou.lib_miaou_internal tsdl tsdl-ttf eio))
-
-(include_subdirs no)
+ (libraries demo_shared miaou miaou.lib_miaou_internal tsdl tsdl-ttf eio))
 
 (executable
  (name demo_tui)

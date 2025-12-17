@@ -1,0 +1,13 @@
+(library
+ (name sparkline_demo)
+ (modules page)
+ (preprocess (pps ppx_blob))
+ (preprocessor_deps (file README.md))
+ (libraries demo_shared miaou miaou.lib_miaou_internal))
+
+(executable
+ (name main)
+ (public_name miaou.sparkline-demo)
+ (package miaou)
+ (modules main)
+ (libraries sparkline_demo miaou.runner.tui miaou.helpers eio_main))

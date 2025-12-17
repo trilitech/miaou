@@ -5,10 +5,10 @@
 (*                                                                           *)
 (*****************************************************************************)
 let register_all () =
-  let () = Miaou_example.Mock_system.register () in
-  let () = Miaou_example.Mock_service_lifecycle.register () in
-  let () = Miaou_example.Mock_logger.register () in
-  let () = Miaou_example.Mock_palette.register () in
+  let () = Demo_shared.Mock_system.register () in
+  let () = Demo_shared.Mock_service_lifecycle.register () in
+  let () = Demo_shared.Mock_logger.register () in
+  let () = Demo_shared.Mock_palette.register () in
   if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
     Printf.printf "miaou example: registered mocks\n"
 
@@ -24,7 +24,7 @@ module Fibers = Miaou_helpers.Fiber_runtime
 let launcher_page_name = "miaou.demo.launcher"
 
 let show_tutorial_modal ~title ~markdown =
-  Tutorial_modal.show ~title ~markdown ()
+  Demo_shared.Tutorial_modal.show ~title ~markdown ()
 
 module type SELECT_MODAL_SIG = sig
   include Miaou.Core.Tui_page.PAGE_SIG
@@ -2219,10 +2219,10 @@ This demo reads real system metrics from `/proc` (Linux) and auto-updates the di
   let simulate_tick s =
     (* Use real system metrics if available, otherwise simulate *)
     let cpu, mem, net =
-      if Miaou_example.System_metrics.is_supported () then
-        ( Miaou_example.System_metrics.get_cpu_usage (),
-          Miaou_example.System_metrics.get_memory_usage (),
-          Miaou_example.System_metrics.get_network_usage () )
+      if Demo_shared.System_metrics.is_supported () then
+        ( Demo_shared.System_metrics.get_cpu_usage (),
+          Demo_shared.System_metrics.get_memory_usage (),
+          Demo_shared.System_metrics.get_network_usage () )
       else
         (* Fallback to simulation on non-Linux systems *)
         (30. +. Random.float 40., 60. +. Random.float 30., Random.float 100.)
@@ -2237,7 +2237,7 @@ This demo reads real system metrics from `/proc` (Linux) and auto-updates the di
     let header = W.titleize "Sparkline Charts Demo" in
     let sep = String.make 60 '-' in
     let source =
-      if Miaou_example.System_metrics.is_supported () then "Real system metrics"
+      if Demo_shared.System_metrics.is_supported () then "Real system metrics"
       else "Simulated data (Linux /proc not available)"
     in
     let cpu_thresholds =
@@ -2548,10 +2548,10 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let update_metrics s =
     let cpu, mem, net =
-      if Miaou_example.System_metrics.is_supported () then
-        ( Miaou_example.System_metrics.get_cpu_usage (),
-          Miaou_example.System_metrics.get_memory_usage (),
-          Miaou_example.System_metrics.get_network_usage () )
+      if Demo_shared.System_metrics.is_supported () then
+        ( Demo_shared.System_metrics.get_cpu_usage (),
+          Demo_shared.System_metrics.get_memory_usage (),
+          Demo_shared.System_metrics.get_network_usage () )
       else (30. +. Random.float 40., 60. +. Random.float 30., Random.float 100.)
     in
     Sparkline.push s.cpu_spark cpu ;
@@ -2572,9 +2572,9 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let width = size.LTerm_geom.cols in
 
     (* System info section *)
-    let uptime = Miaou_example.System_metrics.get_uptime () in
+    let uptime = Demo_shared.System_metrics.get_uptime () in
     let load1, load5, load15 =
-      Miaou_example.System_metrics.get_load_average ()
+      Demo_shared.System_metrics.get_load_average ()
     in
     let sys_info =
       Desc_list.create
