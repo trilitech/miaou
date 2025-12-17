@@ -82,7 +82,13 @@ let render_overlay ~(cols : int option) ~base ?rows () =
 
     let rendered =
       List.fold_left
-        (fun acc (title, left_opt, max_width_opt, dim_background, view_thunk) ->
+        (fun acc (title, left_opt, max_width_spec_opt, dim_background, view_thunk) ->
+          let cols_val = match cols with Some c -> c | None -> 80 in
+          let max_width_opt =
+            match max_width_spec_opt with
+            | None -> None
+            | Some spec -> Modal_snapshot.resolve_max_width spec ~cols:cols_val
+          in
           (try
              append_log
                (Printf.sprintf
@@ -97,7 +103,6 @@ let render_overlay ~(cols : int option) ~base ?rows () =
                   dim_background)
            with _ -> ()) ;
           (* Determine effective left and max_width based on available cols. *)
-          let cols_val = match cols with Some c -> c | None -> 80 in
           let rows_val =
             match rows with
             | Some r -> r

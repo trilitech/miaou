@@ -104,10 +104,17 @@ module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
-let show ?(max_width = 96) ~title ~markdown () =
+let show ?max_width ~title ~markdown () =
   set_payload ~title ~markdown ;
+  (* Use dynamic sizing: 80% of terminal width, clamped between 60 and 140 columns.
+     The spec is resolved at render time, so the modal resizes with the terminal. *)
+  let max_width_spec : Modal_manager.max_width_spec option =
+    match max_width with
+    | Some w -> Some (Fixed w)
+    | None -> Some (Clamped {ratio = 0.8; min = 60; max = 140})
+  in
   let ui : Modal_manager.ui =
-    {title; left = Some 4; max_width = Some max_width; dim_background = true}
+    {title; left = Some 4; max_width = max_width_spec; dim_background = true}
   in
   Modal_manager.push_default
     (module Page)

@@ -11,12 +11,19 @@ module Logger_capability = Miaou_interfaces.Logger_capability
 
 type outcome = [`Commit | `Cancel]
 
+type max_width_spec = Miaou_internals.Modal_snapshot.max_width_spec =
+  | Fixed of int
+  | Ratio of float
+  | Clamped of {ratio : float; min : int; max : int}
+
 type ui = {
   title : string;
   left : int option;
-  max_width : int option;
+  max_width : max_width_spec option;
   dim_background : bool;
 }
+
+let resolve_max_width = Miaou_internals.Modal_snapshot.resolve_max_width
 
 type frame =
   | Frame : {
@@ -103,12 +110,17 @@ let handle_key key =
   | Frame ({commit_on; cancel_on; on_close; _} as r) :: _ ->
       let module P = (val r.p : Tui_page.PAGE_SIG with type state = _) in
       let term_size = !current_size in
+      let max_width_opt =
+        match r.ui.max_width with
+        | None -> None
+        | Some spec -> resolve_max_width spec ~cols:term_size.LTerm_geom.cols
+      in
       let geom =
         Miaou_internals.Modal_utils.compute_modal_geometry
           ~cols:term_size.LTerm_geom.cols
           ~rows:term_size.LTerm_geom.rows
           ~left_opt:r.ui.left
-          ~max_width_opt:r.ui.max_width
+          ~max_width_opt
       in
       let size =
         {LTerm_geom.rows = geom.max_content_h; cols = geom.content_width}

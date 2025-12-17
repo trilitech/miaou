@@ -9,10 +9,19 @@
 
 type outcome = [`Commit | `Cancel]
 
+(** Specification for modal width sizing.
+    - [Fixed n] uses exactly n columns (clamped to terminal width)
+    - [Ratio r] uses r percent of terminal width (e.g., 0.8 for 80%)
+    - [Clamped {ratio; min; max}] uses ratio of terminal, clamped to [min, max] *)
+type max_width_spec =
+  | Fixed of int
+  | Ratio of float
+  | Clamped of {ratio : float; min : int; max : int}
+
 type ui = {
   title : string;
   left : int option;
-  max_width : int option;
+  max_width : max_width_spec option;
   dim_background : bool;
 }
 
@@ -154,7 +163,7 @@ val alert :
   init:'s ->
   ?title:string ->
   ?left:int ->
-  ?max_width:int ->
+  ?max_width:max_width_spec ->
   ?dim_background:bool ->
   unit ->
   unit
@@ -164,7 +173,7 @@ val confirm :
   init:'s ->
   ?title:string ->
   ?left:int ->
-  ?max_width:int ->
+  ?max_width:max_width_spec ->
   ?dim_background:bool ->
   on_result:(bool -> unit) ->
   unit ->
@@ -175,7 +184,7 @@ val confirm_with_extract :
   init:'s ->
   ?title:string ->
   ?left:int ->
-  ?max_width:int ->
+  ?max_width:max_width_spec ->
   ?dim_background:bool ->
   extract:('s -> 'a option) ->
   on_result:('a option -> unit) ->
@@ -187,7 +196,7 @@ val prompt :
   init:'s ->
   ?title:string ->
   ?left:int ->
-  ?max_width:int ->
+  ?max_width:max_width_spec ->
   ?dim_background:bool ->
   extract:('s -> 'a option) ->
   on_result:('a option -> unit) ->

@@ -1009,7 +1009,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                       {
                         title = "hints";
                         left = None;
-                        max_width = Some (content_width + 4);
+                        max_width = Some (Fixed (content_width + 4));
                         dim_background = true;
                       }
                     ~on_close:(fun (_ : Help_modal.Page.state) _ -> ()) ;

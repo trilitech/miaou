@@ -38,7 +38,7 @@ let demos =
               {
                 title = "Textbox Demo";
                 left = Some 20;
-                max_width = Some 60;
+                max_width = Some (Fixed 60);
                 dim_background = true;
               }
             ~commit_on:["Enter"; "Tab"]
@@ -57,7 +57,7 @@ let demos =
             ~init:(Demo_modals.Select_modal.init ())
             ~title:"Select Demo"
             ~left:20
-            ~max_width:60
+            ~max_width:(Fixed 60)
             ~dim_background:true
             ~extract:Demo_modals.Select_modal.extract_selection
             ~on_result:(fun res ->
@@ -78,7 +78,7 @@ let demos =
               {
                 title = "File Browser Demo";
                 left = Some 10;
-                max_width = Some 80;
+                max_width = Some (Fixed 80);
                 dim_background = true;
               }
             ~commit_on:["Space"; " "]
@@ -113,7 +113,7 @@ let demos =
             ~init:(Demo_modals.Poly_select_modal.init ())
             ~title:"Select Demo (poly)"
             ~left:20
-            ~max_width:60
+            ~max_width:(Fixed 60)
             ~dim_background:true
             ~extract:Demo_modals.Poly_select_modal.extract_selection
             ~on_result:(fun res ->

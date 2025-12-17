@@ -7,6 +7,43 @@
 
 let detect_size () =
   (* Skip LTerm-based detection (requires Lwt) - use fallback methods *)
+
+  (* Direct terminal size detection using stty, bypassing System capability.
+     This ensures we get the actual terminal size even when System is mocked. *)
+  let try_direct_stty () =
+    try
+      (* Run stty directly with /dev/tty to get actual terminal size *)
+      let (pipe_read, pipe_write) = Unix.pipe () in
+      let tty_fd = Unix.openfile "/dev/tty" [Unix.O_RDONLY] 0 in
+      let pid = Unix.create_process
+        "stty"
+        [|"stty"; "size"|]
+        tty_fd      (* stdin from /dev/tty so stty can query it *)
+        pipe_write  (* capture stdout *)
+        Unix.stderr
+      in
+      Unix.close tty_fd ;
+      Unix.close pipe_write ;
+      let buf = Buffer.create 32 in
+      let tmp = Bytes.create 64 in
+      let rec read_all () =
+        match Unix.read pipe_read tmp 0 64 with
+        | 0 -> ()
+        | n -> Buffer.add_subbytes buf tmp 0 n ; read_all ()
+      in
+      read_all () ;
+      Unix.close pipe_read ;
+      let _ = Unix.waitpid [] pid in
+      let output = String.trim (Buffer.contents buf) in
+      match String.split_on_char ' ' output with
+      | [r; c] ->
+          let rows = int_of_string r in
+          let cols = int_of_string c in
+          Some {LTerm_geom.rows; cols}
+      | _ -> None
+    with _ -> None
+  in
+
   let try_env_override () =
     match
       (Sys.getenv_opt "MIAOU_TUI_ROWS", Sys.getenv_opt "MIAOU_TUI_COLS")
@@ -112,12 +149,17 @@ let detect_size () =
   match try_env_override () with
   | Some s -> s
   | None -> (
-      match try_stty () with
+      (* Try direct stty first - this bypasses System capability and works
+         even when System is mocked (e.g., in demo apps) *)
+      match try_direct_stty () with
       | Some s -> s
       | None -> (
-          match try_tput () with
+          match try_stty () with
           | Some s -> s
           | None -> (
-              match try_stty_a () with
+              match try_tput () with
               | Some s -> s
-              | None -> {LTerm_geom.rows = 24; cols = 80})))
+              | None -> (
+                  match try_stty_a () with
+                  | Some s -> s
+                  | None -> {LTerm_geom.rows = 24; cols = 80}))))
