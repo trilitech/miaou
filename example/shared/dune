@@ -2,6 +2,7 @@
  (name demo_shared)
  (modules
   demo_config
+  demo_page
   mock_system
   mock_service_lifecycle
   mock_logger
