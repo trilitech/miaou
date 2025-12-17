@@ -604,6 +604,14 @@ Versioning & releases
 
 Miaou follows semantic versioning (MAJOR.MINOR.PATCH). Cut releases by tagging (`git tag vX.Y.Z && git push origin vX.Y.Z`), then use `dune-release tag && dune-release distrib && dune-release opam submit` to publish tarballs and submit the opam package update. Always run `opam install --deps-only --with-test .`, `dune build @all`, `dune runtest`, and `dune build @install` before tagging to ensure the release is reproducible.
 
+Documentation
+-------------
+
+- **[Getting Started](./docs/getting-started.md)** — Build your first MIAOU application
+- **[Architecture Overview](./docs/architecture.md)** — Core components, pages, modals, widgets
+- **[Capabilities Guide](./docs/capabilities.md)** — Dependency injection system
+- **[Examples](./example/README.md)** — Demo applications and widget showcases
+
 Further reading
 ---------------
 
