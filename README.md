@@ -13,13 +13,12 @@ And like a cat, it’s light, curious, and perfectly at home on your terminal. �
 ## Project status & ownership
 
 - **Owner / maintainer:** Nomadic Labs (<contact@nomadic-labs.com>)
-- **Temporary home:** https://gitlab.com/mbourgoin/miaou (private at first, to be opened later)
-- **License:** MIT (SPDX: MIT) with Nomadic Labs copyright notices in every source file
+- **Repository:** https://github.com/mathiasbourgoin/miaou
+- **License:** MIT (SPDX: MIT)
 
-MIAOU started as an experiment in “cat-herded” development: code is authored by LLM/agent assistants under human direction. The two immediate goals are:
+MIAOU is a high-quality, easy-to-use TUI foundation for OCaml applications (installers, dashboards, service consoles, etc.).
 
-1. Explore what happens when assistants build an entire real-world library.
-2. Ship a high-quality, easy-to-use TUI foundation for OCaml applications (installers, dashboards, service consoles, etc.).
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines and [SECURITY.md](./SECURITY.md) for security policy.
 
 Features at a glance
 --------------------
@@ -74,30 +73,64 @@ dune runtest
 Using from another project
 --------------------------
 
-This repository exposes an umbrella library plus split sub-libraries with the following dune public names and module namespaces:
+### Package Structure
 
-- Umbrella library: `miaou` exposing `Miaou.Core`, `Miaou.Widgets.{Display,Layout,Input}`, `Miaou.Internal`, and `Miaou.Net`.
-- Direct sub-libraries (optional if you don't want the umbrella):
-	- `miaou.core`       → module namespace `Miaou_core`
-	- `miaou.widgets.display` → `Miaou_widgets_display`
-	- `miaou.widgets.layout`  → `Miaou_widgets_layout`
-	- `miaou.widgets.input`   → `Miaou_widgets_input`
-	- `miaou.internals`  → `Miaou_internals`
+MIAOU is split into multiple opam packages to allow flexible installation:
 
-Example dune stanza (consumer project):
+| Package | Description | SDL Required |
+|---------|-------------|--------------|
+| `miaou-tui` | Terminal-only (recommended for most users) | No |
+| `miaou` | Full install with SDL support | Yes |
+| `miaou-core` | Core library and widgets | No |
+| `miaou-driver-term` | Terminal driver | No |
+| `miaou-driver-sdl` | SDL2 driver | Yes |
+| `miaou-runner` | Runner with backend selection | No (SDL optional) |
+
+**For terminal-only applications** (no SDL2 dependency):
+```bash
+opam install miaou-tui
+```
+
+**For full SDL2 support**:
+```bash
+opam install miaou
+```
+
+### Library Names
+
+The libraries use package-prefixed public names:
+
+- `miaou-core.lib` → `Miaou` module (umbrella re-exporting Core, Widgets, Net)
+- `miaou-core.core` → `Miaou_core`
+- `miaou-core.widgets.display` → `Miaou_widgets_display`
+- `miaou-core.widgets.layout` → `Miaou_widgets_layout`
+- `miaou-core.widgets.input` → `Miaou_widgets_input`
+- `miaou-core.internals` → `Miaou_internals`
+- `miaou-driver-term.driver` → `Miaou_driver_term`
+- `miaou-driver-sdl.driver` → `Miaou_driver_sdl`
+
+### Example dune stanza
 
 ```lisp
 (library
  (name my_app)
- ;; simplest: depend on umbrella and use Miaou.* namespaces
- (libraries miaou)
-)
+ ;; For terminal-only: use miaou-core.lib
+ (libraries miaou-core.lib miaou-driver-term.driver))
+```
+
+Or with the full package:
+
+```lisp
+(library
+ (name my_app)
+ ;; Full install: the miaou package brings everything
+ (libraries miaou-core.lib miaou-driver-term.driver miaou-driver-sdl.driver))
 ```
 
 Then in OCaml:
 
 ```ocaml
-(* Prefer the umbrella to keep imports tidy *)
+(* Use the umbrella module for clean imports *)
 open Miaou
 
 (* Example: use the layout Pane splitter and the display Widgets helpers *)
@@ -108,29 +141,36 @@ module W    = Miaou.Widgets.Display.Widgets
 Dependencies
 ------------
 
-The core runtime dependencies used by MIAOU (also declared in `miaou.opam`):
+### Core (`miaou-core`)
 
-- cohttp
-- cohttp-eio
-- eio
-- eio_main
-- lambda-term
-- rresult
-- str
-- uri
-- yojson
-- imagelib (for image loading)
-- qrc (for QR code generation)
-- alcotest (test dependency)
+Runtime dependencies (no SDL required):
 
-Additional dependencies for SDL2 backend (`miaou-driver-sdl`):
+- cohttp, cohttp-eio (HTTP client)
+- eio, eio_main (effects-based I/O)
+- lambda-term (terminal handling)
+- rresult, uri, yojson
+- imagelib (image loading)
+- qrc (QR code generation)
+- alcotest, bisect_ppx (test dependencies)
+
+### SDL Backend (`miaou-driver-sdl`)
+
+Additional dependencies for SDL2 support:
+
 - tsdl (SDL2 bindings)
-- tsdl_ttf (TrueType font rendering)
-- tsdl_image (image loading for SDL)
+- tsdl-ttf (TrueType font rendering)
+- tsdl-image (image loading for SDL)
 
-Install via opam (example):
+### Install via opam
 
 ```sh
+# Terminal-only (no SDL)
+opam install miaou-tui
+
+# Full install with SDL
+opam install miaou
+
+# Development (install from source)
 opam install --deps-only -y .
 ```
 
@@ -581,7 +621,11 @@ Further reading
 
 ## Project home
 
-The temporary public home for MIAOU is https://gitlab.com/mbourgoin/miaou, maintained by Nomadic Labs (<contact@nomadic-labs.com>). Please open issues and feature requests there.
+MIAOU is maintained by Nomadic Labs (<contact@nomadic-labs.com>).
+
+- **Repository:** https://github.com/mathiasbourgoin/miaou
+- **Issues:** https://github.com/mathiasbourgoin/miaou/issues
+- **Contributing:** See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Global Keys API
 
