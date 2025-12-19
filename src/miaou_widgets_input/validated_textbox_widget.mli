@@ -11,11 +11,17 @@ type 'a validator = string -> 'a validation_result
 
 type 'a t
 
+(** [create ?debounce_ms ~validator ()] creates a validated textbox.
+
+    @param debounce_ms Delay in milliseconds before running validation after
+    the last keystroke. Default is 250ms. Set to 0 to disable debouncing and
+    validate immediately on every keystroke (legacy behavior). *)
 val create :
   ?title:string ->
   ?width:int ->
   ?initial:string ->
   ?placeholder:string option ->
+  ?debounce_ms:int ->
   validator:'a validator ->
   unit ->
   'a t
@@ -25,6 +31,7 @@ val open_centered :
   ?width:int ->
   ?initial:string ->
   ?placeholder:string option ->
+  ?debounce_ms:int ->
   validator:'a validator ->
   unit ->
   'a t
@@ -50,6 +57,14 @@ val get_error_message : 'a t -> string option
 val width : 'a t -> int
 
 val with_width : 'a t -> int -> 'a t
+
+(** Force immediate validation, bypassing debounce. Useful before form
+    submission to ensure validation reflects the current text value. *)
+val flush_validation : 'a t -> 'a t
+
+(** Returns [true] if there's a pending validation that hasn't run yet
+    due to debouncing. *)
+val has_pending_validation : 'a t -> bool
 
 (** Usage:
     {[

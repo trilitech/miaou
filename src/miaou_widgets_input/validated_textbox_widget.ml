@@ -14,24 +14,47 @@ type 'a t = {
   textbox : Textbox_widget.t;
   validator : 'a validator;
   validation_state : 'a validation_result;
+  (* Debounce support *)
+  debounce_ms : int;
+  last_input_time : float;
+  pending_validation : bool;
 }
 
-let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None) ~validator
-    () =
+let default_debounce_ms = 250
+
+let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
+    ?(debounce_ms = default_debounce_ms) ~validator () =
   let textbox = Textbox_widget.create ?title ~width ~initial ~placeholder () in
   let validation_state = validator initial in
-  {textbox; validator; validation_state}
+  {
+    textbox;
+    validator;
+    validation_state;
+    debounce_ms;
+    last_input_time = 0.;
+    pending_validation = false;
+  }
 
 let open_centered ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
-    ~validator () =
-  create ?title ~width ~initial ~placeholder ~validator ()
+    ?(debounce_ms = default_debounce_ms) ~validator () =
+  create ?title ~width ~initial ~placeholder ~debounce_ms ~validator ()
 
-let update_validation t =
+let run_validation t =
   let current_value = Textbox_widget.value t.textbox in
   let validation_state = t.validator current_value in
-  {t with validation_state}
+  {t with validation_state; pending_validation = false}
+
+(* Check if debounce period has elapsed and run validation if needed *)
+let maybe_run_pending_validation t =
+  if not t.pending_validation then t
+  else
+    let now = Unix.gettimeofday () in
+    let elapsed_ms = (now -. t.last_input_time) *. 1000. in
+    if elapsed_ms >= float_of_int t.debounce_ms then run_validation t else t
 
 let render t ~focus =
+  (* Check for pending validation on each render *)
+  let t = maybe_run_pending_validation t in
   let base_render = Textbox_widget.render t.textbox ~focus in
   match t.validation_state with
   | Valid _ -> base_render
@@ -48,8 +71,19 @@ let render t ~focus =
 
 let handle_key t ~key =
   let updated_textbox = Textbox_widget.handle_key t.textbox ~key in
-  let updated_t = {t with textbox = updated_textbox} in
-  update_validation updated_t
+  let text_changed = Textbox_widget.value updated_textbox <> Textbox_widget.value t.textbox in
+  if text_changed then
+    (* Text changed: mark validation as pending, record timestamp *)
+    let now = Unix.gettimeofday () in
+    if t.debounce_ms <= 0 then
+      (* No debounce: validate immediately *)
+      run_validation {t with textbox = updated_textbox}
+    else
+      (* Debounce enabled: defer validation *)
+      {t with textbox = updated_textbox; last_input_time = now; pending_validation = true}
+  else
+    (* No text change (e.g., cursor movement): no validation needed *)
+    {t with textbox = updated_textbox}
 
 let is_cancelled t = Textbox_widget.is_cancelled t.textbox
 
@@ -75,3 +109,10 @@ let width t = Textbox_widget.width t.textbox
 let with_width t width =
   let textbox = Textbox_widget.with_width t.textbox width in
   {t with textbox}
+
+(* Force immediate validation, useful before form submission *)
+let flush_validation t =
+  if t.pending_validation then run_validation t else t
+
+(* Check if there's a pending validation that hasn't run yet *)
+let has_pending_validation t = t.pending_validation
