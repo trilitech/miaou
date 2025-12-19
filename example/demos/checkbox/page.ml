@@ -10,6 +10,7 @@ module Focus_chain = Miaou_internals.Focus_chain
 
 module Inner = struct
   let tutorial_title = "Checkboxes"
+
   let tutorial_markdown = [%blob "README.md"]
 
   type state = {
@@ -73,11 +74,13 @@ module Inner = struct
         {s with boxes}
     | None -> s
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back s
     | Some Miaou.Core.Keys.Tab | Some (Miaou.Core.Keys.Char "Tab") ->
         let focus, _ = Focus_chain.handle_key s.focus ~key:"Tab" in
@@ -89,15 +92,25 @@ module Inner = struct
     | _ -> toggle_focused key_str s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = toggle_focused "Enter" s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

@@ -29,30 +29,30 @@
           state
     ]} *)
 
-type t
 (** A debounce timer instance. *)
+type t
 
-val create : ?debounce_ms:int -> unit -> t
 (** Create a new debounce timer.
     @param debounce_ms Minimum time in milliseconds between the last event
                        and when [is_ready] returns true. Default: 250ms. *)
+val create : ?debounce_ms:int -> unit -> t
 
-val mark : t -> unit
 (** Mark that an event occurred. Resets the debounce timer and sets pending. *)
+val mark : t -> unit
 
-val is_ready : t -> bool
 (** Check if the debounce period has elapsed since the last event.
     Returns true if there's a pending event and enough time has passed. *)
+val is_ready : t -> bool
 
-val clear : t -> unit
 (** Clear the pending state after handling the debounced event. *)
+val clear : t -> unit
 
-val has_pending : t -> bool
 (** Check if there's a pending event (regardless of whether debounce elapsed). *)
+val has_pending : t -> bool
 
-val debounce_ms : t -> int
 (** Get the configured debounce period in milliseconds. *)
+val debounce_ms : t -> int
 
-val check_and_clear : t -> bool
 (** Convenience: check if ready and automatically clear if so.
     Returns true if the action should be performed now. *)
+val check_and_clear : t -> bool

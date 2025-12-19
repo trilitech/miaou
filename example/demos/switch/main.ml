@@ -11,5 +11,7 @@ let () =
   Miaou_helpers.Fiber_runtime.init ~env ~sw ;
   Demo_shared.Demo_config.register_mocks () ;
   Demo_shared.Demo_config.ensure_system_capability () ;
-  let page : Miaou.Core.Registry.page = (module Switch_demo.Page : Miaou.Core.Tui_page.PAGE_SIG) in
+  let page : Miaou.Core.Registry.page =
+    (module Switch_demo.Page : Miaou.Core.Tui_page.PAGE_SIG)
+  in
   ignore (Miaou_runner_tui.Runner_tui.run page)

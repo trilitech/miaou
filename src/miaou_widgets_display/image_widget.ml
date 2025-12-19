@@ -14,7 +14,8 @@ type t = {
   height : int;
   pixels : pixel array array;
   file_path : string option;
-  mutable sdl_texture : Obj.t option; (* Cached SDL texture - stored as Obj.t to avoid tsdl dependency *)
+  mutable sdl_texture : Obj.t option;
+      (* Cached SDL texture - stored as Obj.t to avoid tsdl dependency *)
 }
 
 let rgb_to_ansi_256 r g b =
@@ -117,29 +118,37 @@ let render_image_sdl_cached t ctx =
     (* These functions are resolved at runtime when SDL driver is loaded *)
     let create_texture = Sdl_chart_context.Sdl_ops.create_texture in
     let set_render_target = Sdl_chart_context.Sdl_ops.set_render_target in
-    let set_render_draw_color = Sdl_chart_context.Sdl_ops.set_render_draw_color in
+    let set_render_draw_color =
+      Sdl_chart_context.Sdl_ops.set_render_draw_color
+    in
     let render_fill_rect = Sdl_chart_context.Sdl_ops.render_fill_rect in
 
     match create_texture renderer tex_width tex_height with
     | None -> ()
     | Some texture ->
-        set_render_target renderer (Some texture);
+        set_render_target renderer (Some texture) ;
         for py = 0 to t.height - 1 do
           for px = 0 to t.width - 1 do
             let pixel = t.pixels.(py).(px) in
-            set_render_draw_color renderer pixel.r pixel.g pixel.b 255;
+            set_render_draw_color renderer pixel.r pixel.g pixel.b 255 ;
             render_fill_rect renderer (px * scale) (py * scale) scale scale
           done
-        done;
-        set_render_target renderer None;
+        done ;
+        set_render_target renderer None ;
         t.sdl_texture <- Some (Obj.repr texture)
-  end;
+  end ;
 
   (* Render the texture if it exists *)
   match t.sdl_texture with
   | Some texture_obj ->
       let render_copy = Sdl_chart_context.Sdl_ops.render_copy in
-      render_copy renderer (Obj.obj texture_obj) x_pixels y_pixels tex_width tex_height
+      render_copy
+        renderer
+        (Obj.obj texture_obj)
+        x_pixels
+        y_pixels
+        tex_width
+        tex_height
   | None -> ()
 
 let render ?(crop_center = 1.0) t ~focus:_ =

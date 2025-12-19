@@ -1,8 +1,10 @@
 (library
  (name radio_demo)
  (modules page)
- (preprocess (pps ppx_blob))
- (preprocessor_deps (file README.md))
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
  (libraries demo_shared miaou miaou-core.lib_miaou_internal))
 
 (executable

@@ -65,26 +65,42 @@ module Sdl_ops = struct
   (* Function references - set by SDL driver when loaded *)
   let create_texture_ref : (Obj.t -> int -> int -> Obj.t option) ref =
     ref (fun _ _ _ -> None)
+
   let set_render_target_ref : (Obj.t -> Obj.t option -> unit) ref =
     ref (fun _ _ -> ())
-  let set_render_draw_color_ref : (Obj.t -> int -> int -> int -> int -> unit) ref =
+
+  let set_render_draw_color_ref :
+      (Obj.t -> int -> int -> int -> int -> unit) ref =
     ref (fun _ _ _ _ _ -> ())
+
   let render_fill_rect_ref : (Obj.t -> int -> int -> int -> int -> unit) ref =
     ref (fun _ _ _ _ _ -> ())
-  let render_copy_ref : (Obj.t -> Obj.t -> int -> int -> int -> int -> unit) ref =
+
+  let render_copy_ref : (Obj.t -> Obj.t -> int -> int -> int -> int -> unit) ref
+      =
     ref (fun _ _ _ _ _ _ -> ())
 
   (* Public accessors *)
   let create_texture renderer w h = !create_texture_ref renderer w h
+
   let set_render_target renderer target = !set_render_target_ref renderer target
-  let set_render_draw_color renderer r g b a = !set_render_draw_color_ref renderer r g b a
+
+  let set_render_draw_color renderer r g b a =
+    !set_render_draw_color_ref renderer r g b a
+
   let render_fill_rect renderer x y w h = !render_fill_rect_ref renderer x y w h
-  let render_copy renderer texture x y w h = !render_copy_ref renderer texture x y w h
+
+  let render_copy renderer texture x y w h =
+    !render_copy_ref renderer texture x y w h
 
   (* Registration functions - called by SDL driver *)
   let register_create_texture f = create_texture_ref := f
+
   let register_set_render_target f = set_render_target_ref := f
+
   let register_set_render_draw_color f = set_render_draw_color_ref := f
+
   let register_render_fill_rect f = render_fill_rect_ref := f
+
   let register_render_copy f = render_copy_ref := f
 end

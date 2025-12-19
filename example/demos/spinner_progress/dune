@@ -1,8 +1,10 @@
 (library
  (name spinner_progress_demo)
  (modules page)
- (preprocess (pps ppx_blob))
- (preprocessor_deps (file README.md))
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
  (libraries demo_shared miaou miaou-core.lib_miaou_internal))
 
 (executable
@@ -10,4 +12,8 @@
  (public_name miaou.spinner_progress-demo)
  (package miaou)
  (modules main)
- (libraries spinner_progress_demo miaou-runner.tui miaou-core.helpers eio_main))
+ (libraries
+  spinner_progress_demo
+  miaou-runner.tui
+  miaou-core.helpers
+  eio_main))

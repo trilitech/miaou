@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Breadcrumbs"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
@@ -35,7 +36,9 @@ module Inner = struct
     in
     {
       trail;
-      info = "Use ←/→/Home/End to move, Enter to activate, Esc to return, t opens tutorial";
+      info =
+        "Use ←/→/Home/End to move, Enter to activate, Esc to return, t opens \
+         tutorial";
       bubbled = 0;
       next_page = None;
     }
@@ -52,11 +55,13 @@ module Inner = struct
     in
     String.concat "\n\n" [header; trail; W.dim s.info; bubble_info]
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back s
     | _ ->
         let trail, handled =
@@ -86,14 +91,23 @@ module Inner = struct
     {s with trail = Breadcrumbs.move s.trail dir}
 
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

@@ -10,9 +10,11 @@ module Sidebar = Miaou_widgets_layout.Sidebar_widget
 
 module Inner = struct
   let tutorial_title = "Card & Sidebar"
+
   let tutorial_markdown = [%blob "README.md"]
 
   type state = {next_page : string option; sidebar_open : bool}
+
   type msg = unit
 
   let init () = {next_page = None; sidebar_open = true}
@@ -23,7 +25,12 @@ module Inner = struct
     let module W = Miaou_widgets_display.Widgets in
     let cols = max 50 size.LTerm_geom.cols in
     let card =
-      Card.create ~title:"Card title" ~footer:"Footer" ~accent:81 ~body:"Body text" ()
+      Card.create
+        ~title:"Card title"
+        ~footer:"Footer"
+        ~accent:81
+        ~body:"Body text"
+        ()
       |> fun c -> Card.render c ~cols
     in
     let sidebar =
@@ -37,14 +44,18 @@ module Inner = struct
     let hint =
       if s.sidebar_open then "Tab: collapse sidebar" else "Tab: expand sidebar"
     in
-    let hint = W.dim (Printf.sprintf "%s • t opens tutorial • Esc returns" hint) in
+    let hint =
+      W.dim (Printf.sprintf "%s • t opens tutorial • Esc returns" hint)
+    in
     String.concat "\n\n" ["Card & Sidebar demo"; card; sidebar; hint]
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back s
     | Some Miaou.Core.Keys.Tab
     | Some (Miaou.Core.Keys.Char "Tab")
@@ -53,15 +64,25 @@ module Inner = struct
     | _ -> s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

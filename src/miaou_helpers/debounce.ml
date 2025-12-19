@@ -22,15 +22,11 @@ type t = {
 }
 
 let create ?(debounce_ms = 250) () =
-  {
-    last_event_time = Atomic.make 0.0;
-    pending = Atomic.make false;
-    debounce_ms;
-  }
+  {last_event_time = Atomic.make 0.0; pending = Atomic.make false; debounce_ms}
 
 (** Mark that an event occurred. Resets the debounce timer. *)
 let mark t =
-  Atomic.set t.last_event_time (Unix.gettimeofday ());
+  Atomic.set t.last_event_time (Unix.gettimeofday ()) ;
   Atomic.set t.pending true
 
 (** Check if the debounce period has elapsed since the last event.
@@ -56,6 +52,6 @@ let debounce_ms t = t.debounce_ms
     Returns true if the action should be performed now. *)
 let check_and_clear t =
   if is_ready t then (
-    clear t;
+    clear t ;
     true)
   else false

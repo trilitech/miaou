@@ -72,7 +72,9 @@ let handle_key t ~key =
   (* First, check if any pending validation should run now *)
   let t = tick t in
   let updated_textbox = Textbox_widget.handle_key t.textbox ~key in
-  let text_changed = Textbox_widget.value updated_textbox <> Textbox_widget.value t.textbox in
+  let text_changed =
+    Textbox_widget.value updated_textbox <> Textbox_widget.value t.textbox
+  in
   if text_changed then
     (* Text changed: mark validation as pending, record timestamp *)
     let now = Unix.gettimeofday () in
@@ -82,7 +84,12 @@ let handle_key t ~key =
     else (
       (* Debounce enabled: defer validation and request a re-render *)
       Miaou_helpers.Render_notify.request_render () ;
-      {t with textbox = updated_textbox; last_input_time = now; pending_validation = true})
+      {
+        t with
+        textbox = updated_textbox;
+        last_input_time = now;
+        pending_validation = true;
+      })
   else
     (* No text change (e.g., cursor movement): no validation needed *)
     {t with textbox = updated_textbox}
@@ -113,8 +120,7 @@ let with_width t width =
   {t with textbox}
 
 (* Force immediate validation, useful before form submission *)
-let flush_validation t =
-  if t.pending_validation then run_validation t else t
+let flush_validation t = if t.pending_validation then run_validation t else t
 
 (* Check if there's a pending validation that hasn't run yet *)
 let has_pending_validation t = t.pending_validation

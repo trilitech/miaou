@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Tree Viewer"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Tree = Miaou_widgets_display.Tree_widget
@@ -28,28 +29,44 @@ module Inner = struct
   let view s ~focus:_ ~size:_ =
     let module W = Miaou_widgets_display.Widgets in
     let lines =
-      ["Tree widget demo (t opens tutorial, Esc returns)"; ""; Tree.render s.tree ~focus:false]
+      [
+        "Tree widget demo (t opens tutorial, Esc returns)";
+        "";
+        Tree.render s.tree ~focus:false;
+      ]
     in
     String.concat "\n" lines
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back s
     | _ -> s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

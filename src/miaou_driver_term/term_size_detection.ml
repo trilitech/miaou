@@ -13,14 +13,15 @@ let detect_size () =
   let try_direct_stty () =
     try
       (* Run stty directly with /dev/tty to get actual terminal size *)
-      let (pipe_read, pipe_write) = Unix.pipe () in
+      let pipe_read, pipe_write = Unix.pipe () in
       let tty_fd = Unix.openfile "/dev/tty" [Unix.O_RDONLY] 0 in
-      let pid = Unix.create_process
-        "stty"
-        [|"stty"; "size"|]
-        tty_fd      (* stdin from /dev/tty so stty can query it *)
-        pipe_write  (* capture stdout *)
-        Unix.stderr
+      let pid =
+        Unix.create_process
+          "stty"
+          [|"stty"; "size"|]
+          tty_fd (* stdin from /dev/tty so stty can query it *)
+          pipe_write (* capture stdout *)
+          Unix.stderr
       in
       Unix.close tty_fd ;
       Unix.close pipe_write ;
@@ -29,7 +30,9 @@ let detect_size () =
       let rec read_all () =
         match Unix.read pipe_read tmp 0 64 with
         | 0 -> ()
-        | n -> Buffer.add_subbytes buf tmp 0 n ; read_all ()
+        | n ->
+            Buffer.add_subbytes buf tmp 0 n ;
+            read_all ()
       in
       read_all () ;
       Unix.close pipe_read ;

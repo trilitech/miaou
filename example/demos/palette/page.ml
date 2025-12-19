@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Palette Sampler"
+
   let tutorial_markdown = [%blob "README.md"]
 
   type state = {next_page : string option}
@@ -32,7 +33,8 @@ module Inner = struct
       ]
     in
     let header =
-      Miaou_widgets_display.Widgets.titleize "Palette demo (Esc returns, t opens tutorial)"
+      Miaou_widgets_display.Widgets.titleize
+        "Palette demo (Esc returns, t opens tutorial)"
     in
     let body =
       List.map
@@ -56,15 +58,25 @@ module Inner = struct
     | _ -> s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back _ = go_back
+
   let has_modal _ = false
 end
 

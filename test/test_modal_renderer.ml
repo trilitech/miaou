@@ -32,8 +32,10 @@ let test_dynamic_resize () =
   MS.set_provider (fun () ->
       [
         ( "DynamicModal",
-          None, (* no left offset, centered *)
-          Some (MS.Ratio 0.8), (* 80% of terminal width *)
+          None,
+          (* no left offset, centered *)
+          Some (MS.Ratio 0.8),
+          (* 80% of terminal width *)
           true,
           fun size ->
             sizes := size :: !sizes ;
@@ -47,9 +49,19 @@ let test_dynamic_resize () =
   | [size200; size100] ->
       (* At 100 cols with 80% ratio: max_width=80, content_width=76 *)
       (* At 200 cols with 80% ratio: max_width=160, content_width=156 *)
-      Printf.printf "size100: cols=%d rows=%d\n" size100.LTerm_geom.cols size100.LTerm_geom.rows ;
-      Printf.printf "size200: cols=%d rows=%d\n" size200.LTerm_geom.cols size200.LTerm_geom.rows ;
-      check bool "width increases with terminal size" true (size200.LTerm_geom.cols > size100.LTerm_geom.cols)
+      Printf.printf
+        "size100: cols=%d rows=%d\n"
+        size100.LTerm_geom.cols
+        size100.LTerm_geom.rows ;
+      Printf.printf
+        "size200: cols=%d rows=%d\n"
+        size200.LTerm_geom.cols
+        size200.LTerm_geom.rows ;
+      check
+        bool
+        "width increases with terminal size"
+        true
+        (size200.LTerm_geom.cols > size100.LTerm_geom.cols)
   | _ -> fail (Printf.sprintf "expected 2 sizes, got %d" (List.length !sizes))
 
 let test_clamped_resize () =
@@ -79,14 +91,23 @@ let test_clamped_resize () =
       (* size50 should be limited by terminal width (50-4=46 usable), not the min *)
       (* size100 should be 80% = 80, content_width = 76 *)
       (* size200 should be clamped to 140, content_width = 136 *)
-      check bool "medium size is larger than small" true (size100.LTerm_geom.cols > size50.LTerm_geom.cols) ;
-      check bool "large size is larger than medium" true (size200.LTerm_geom.cols > size100.LTerm_geom.cols)
+      check
+        bool
+        "medium size is larger than small"
+        true
+        (size100.LTerm_geom.cols > size50.LTerm_geom.cols) ;
+      check
+        bool
+        "large size is larger than medium"
+        true
+        (size200.LTerm_geom.cols > size100.LTerm_geom.cols)
   | _ -> fail (Printf.sprintf "expected 3 sizes, got %d" (List.length !sizes))
 
-let suite = [
-  test_case "render overlay" `Quick test_overlay;
-  test_case "dynamic resize" `Quick test_dynamic_resize;
-  test_case "clamped resize" `Quick test_clamped_resize;
-]
+let suite =
+  [
+    test_case "render overlay" `Quick test_overlay;
+    test_case "dynamic resize" `Quick test_dynamic_resize;
+    test_case "clamped resize" `Quick test_clamped_resize;
+  ]
 
 let () = run "modal_renderer" [("modal_renderer", suite)]

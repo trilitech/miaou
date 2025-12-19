@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Validated Textbox"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Vtextbox = Miaou_widgets_input.Validated_textbox_widget
@@ -23,7 +24,7 @@ module Inner = struct
   (* Simulate an expensive validator with a small delay *)
   let validate_int_slow s =
     (* In real usage, this might be a filesystem check, DB lookup, etc. *)
-    Unix.sleepf 0.05;
+    Unix.sleepf 0.05 ;
     match int_of_string_opt s with
     | Some v when v >= 0 && v <= 100 -> Vtextbox.Valid v
     | Some _ -> Vtextbox.Invalid "Must be between 0 and 100"
@@ -106,6 +107,7 @@ module Inner = struct
     {s with box_debounced; box_immediate}
 
   let enter s = s
+
   let service_select s _ = s
 
   let service_cycle s _ =
@@ -113,11 +115,17 @@ module Inner = struct
     let box_debounced = Vtextbox.tick s.box_debounced in
     let box_immediate = Vtextbox.tick s.box_immediate in
     {s with box_debounced; box_immediate}
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

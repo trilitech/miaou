@@ -8,6 +8,4 @@
   qr_code_widget_sdl)
  (instrumentation
   (backend bisect_ppx))
- (libraries
-  miaou-core.widgets.display
-  tsdl))
+ (libraries miaou-core.widgets.display tsdl))

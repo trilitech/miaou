@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Pager Widget"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Pager = Miaou_widgets_display.Pager_widget
@@ -56,7 +57,10 @@ module Inner = struct
                     if !stopped then ()
                     else
                       let line =
-                        Printf.sprintf "[demo %04d] %0.3f" n (Eio.Time.now env#clock)
+                        Printf.sprintf
+                          "[demo %04d] %0.3f"
+                          n
+                          (Eio.Time.now env#clock)
                       in
                       (try
                          let oc =
@@ -166,7 +170,8 @@ module Inner = struct
     let header_lines =
       [
         "Pager widget demo - Real system log viewer";
-        "/ search • n/p next/prev • f follow mode • a append • s streaming • t tutorial • Esc back";
+        "/ search • n/p next/prev • f follow mode • a append • s streaming • t \
+         tutorial • Esc back";
         "";
       ]
     in
@@ -199,15 +204,19 @@ module Inner = struct
       match s.pager.Pager.input_mode with `Search_edit -> true | _ -> false
     in
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         if pager_input_mode then
           let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
           {s with pager}
         else go_back s
     | Some (Miaou.Core.Keys.Char "a") when not pager_input_mode ->
-        let line = Printf.sprintf "[%0.3f] new log entry" (Unix.gettimeofday ()) in
+        let line =
+          Printf.sprintf "[%0.3f] new log entry" (Unix.gettimeofday ())
+        in
         append_line s line
-    | Some (Miaou.Core.Keys.Char "s") when not pager_input_mode -> toggle_streaming s
+    | Some (Miaou.Core.Keys.Char "s") when not pager_input_mode ->
+        toggle_streaming s
     | Some (Miaou.Core.Keys.Char "f") when not pager_input_mode ->
         let pager, _ = Pager.handle_key ~win s.pager ~key:"f" in
         {s with pager}
@@ -238,12 +247,16 @@ module Inner = struct
     in
     let ticks = s.ticks + 1 in
     if s.streaming && s.file = None && ticks mod 5 = 0 then (
-      Pager.append_lines_batched s.pager [Printf.sprintf "stream chunk #%d" (ticks / 5)] ;
+      Pager.append_lines_batched
+        s.pager
+        [Printf.sprintf "stream chunk #%d" (ticks / 5)] ;
       Pager.flush_pending_if_needed s.pager) ;
     {s with ticks}
 
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
 
   let handle_modal_key s key ~size =
@@ -259,6 +272,7 @@ module Inner = struct
     | None -> None
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_back s

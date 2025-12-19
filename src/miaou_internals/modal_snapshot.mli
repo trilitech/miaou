@@ -16,9 +16,19 @@ val resolve_max_width : max_width_spec -> cols:int -> int option
 
 val set_provider :
   (unit ->
-  (string * int option * max_width_spec option * bool * (LTerm_geom.size -> string)) list) ->
+  (string
+  * int option
+  * max_width_spec option
+  * bool
+  * (LTerm_geom.size -> string))
+  list) ->
   unit
 
 val get_stack_snapshot :
   unit ->
-  (string * int option * max_width_spec option * bool * (LTerm_geom.size -> string)) list
+  (string
+  * int option
+  * max_width_spec option
+  * bool
+  * (LTerm_geom.size -> string))
+  list

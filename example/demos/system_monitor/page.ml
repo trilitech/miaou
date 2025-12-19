@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "System Monitor"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Sparkline = Miaou_widgets_display.Sparkline_widget
@@ -89,7 +90,8 @@ module Inner = struct
           [
             ("Hostname", try Unix.gethostname () with _ -> "unknown");
             ("Uptime", format_uptime uptime);
-            ("Load (1/5/15)", Printf.sprintf "%.2f / %.2f / %.2f" load1 load5 load15);
+            ( "Load (1/5/15)",
+              Printf.sprintf "%.2f / %.2f / %.2f" load1 load5 load15 );
             ("Updates", Printf.sprintf "%d ticks" s.tick_count);
           ]
         ()
@@ -130,7 +132,9 @@ module Inner = struct
     let _, _, mem_val = Sparkline.get_bounds s_mem_adjusted in
     let _, _, net_val = Sparkline.get_bounds s_net_adjusted in
     let spark_mode =
-      match s.mode with Line_chart.ASCII -> Sparkline.ASCII | Braille -> Braille
+      match s.mode with
+      | Line_chart.ASCII -> Sparkline.ASCII
+      | Braille -> Braille
     in
     let cpu_line_adj =
       Printf.sprintf "CPU: %5.1f " cpu_val
@@ -220,7 +224,9 @@ module Inner = struct
             ()
         in
         let thresholds =
-          [{Line_chart.value = 90.0; color = "31"}; {value = 75.0; color = "33"}]
+          [
+            {Line_chart.value = 90.0; color = "31"}; {value = 75.0; color = "33"};
+          ]
         in
         "\n"
         ^ Line_chart.render
@@ -237,16 +243,21 @@ module Inner = struct
     let hint =
       W.dim
         (Printf.sprintf
-           "Auto-updating every ~150ms • b toggle Braille (%s) • t tutorial • Esc to return"
+           "Auto-updating every ~150ms • b toggle Braille (%s) • t tutorial • \
+            Esc to return"
            mode_label)
     in
-    String.concat "\n" [header; sep; combined_info; ""; cpu_chart; ""; sep; hint]
+    String.concat
+      "\n"
+      [header; sep; combined_info; ""; cpu_chart; ""; sep; hint]
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back s
     | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "b" ->
         let mode =
@@ -258,15 +269,25 @@ module Inner = struct
     | _ -> s
 
   let move s _ = s
+
   let refresh s = update_metrics s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = update_metrics s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

@@ -20,7 +20,12 @@ let resolve_max_width spec ~cols =
 
 let provider :
     (unit ->
-    (string * int option * max_width_spec option * bool * (LTerm_geom.size -> string)) list)
+    (string
+    * int option
+    * max_width_spec option
+    * bool
+    * (LTerm_geom.size -> string))
+    list)
     option
     ref =
   ref None

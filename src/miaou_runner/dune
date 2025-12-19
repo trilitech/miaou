@@ -4,7 +4,11 @@
  (modules tui_driver_common html_driver runner_cli)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou-core.core miaou-core.interfaces miaou-core.widgets.display miaou-core.helpers))
+ (libraries
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-core.widgets.display
+  miaou-core.helpers))
 
 (library
  (name miaou_runner_tui)
@@ -20,7 +24,10 @@
  (modules runner_native)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou_runner_common miaou-driver-term.driver miaou-driver-sdl.driver))
+ (libraries
+  miaou_runner_common
+  miaou-driver-term.driver
+  miaou-driver-sdl.driver))
 
 (executable
  (name miaou_runner_tui_main)
@@ -38,4 +45,8 @@
  (instrumentation
   (backend bisect_ppx))
  (package miaou-driver-sdl)
- (libraries miaou_runner_native miaou_runner_common miaou-core.helpers eio_main))
+ (libraries
+  miaou_runner_native
+  miaou_runner_common
+  miaou-core.helpers
+  eio_main))

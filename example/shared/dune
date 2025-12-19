@@ -11,4 +11,9 @@
   system_metrics
   system_monitor_sdl
   tutorial_modal)
- (libraries miaou miaou-core.lib_miaou_internal miaou-widgets-display-sdl.widgets tsdl tsdl-ttf))
+ (libraries
+  miaou
+  miaou-core.lib_miaou_internal
+  miaou-widgets-display-sdl.widgets
+  tsdl
+  tsdl-ttf))

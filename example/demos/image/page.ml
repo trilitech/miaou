@@ -11,6 +11,7 @@ type display_mode = Logo | Gradient
 
 module Inner = struct
   let tutorial_title = "Image Widget"
+
   let tutorial_markdown = [%blob "README.md"]
 
   type state = {
@@ -31,7 +32,11 @@ module Inner = struct
         | `Terminal -> (50, 25, "example/miaou_logo_small.png")
         | `Sdl -> (600, 450, "example/miaou_logo_small.png")
       in
-      Img.load_from_file logo_path ~max_width:img_width ~max_height:img_height ()
+      Img.load_from_file
+        logo_path
+        ~max_width:img_width
+        ~max_height:img_height
+        ()
     in
     {
       mode = Logo;
@@ -65,14 +70,14 @@ module Inner = struct
     let module W = Miaou_widgets_display.Widgets in
     let header = W.titleize "Image Widget Demo" in
     let img_width, img_height =
-      match W.get_backend () with
-      | `Terminal -> (50, 25)
-      | `Sdl -> (600, 450)
+      match W.get_backend () with `Terminal -> (50, 25) | `Sdl -> (600, 450)
     in
     let img_display, img_info =
       match s.mode with
       | Logo ->
-          let sdl_context = Miaou_widgets_display.Sdl_chart_context.get_context () in
+          let sdl_context =
+            Miaou_widgets_display.Sdl_chart_context.get_context ()
+          in
           let in_transition = W.get_backend () = `Sdl && sdl_context = None in
           if in_transition then ("", "Loading...")
           else
@@ -97,11 +102,16 @@ module Inner = struct
             let w, h = Img.get_dimensions widget in
             let backend_info =
               match W.get_backend () with
-              | `Terminal -> "TUI (cropped)\nUnicode half-blocks\nANSI 256-color"
+              | `Terminal ->
+                  "TUI (cropped)\nUnicode half-blocks\nANSI 256-color"
               | `Sdl -> "SDL (full image)\nDirect pixel rendering"
             in
             ( Img.render widget ~focus:true,
-              Printf.sprintf "MIAOU Logo\nDisplayed: %d×%d\n\n%s" w h backend_info )
+              Printf.sprintf
+                "MIAOU Logo\nDisplayed: %d×%d\n\n%s"
+                w
+                h
+                backend_info )
       | Gradient ->
           let widget =
             match s.gradient_widget with
@@ -118,7 +128,9 @@ module Inner = struct
               img_height )
     in
     let mode_label =
-      match s.mode with Logo -> W.bold "1: Logo (current)" | Gradient -> "1: Logo"
+      match s.mode with
+      | Logo -> W.bold "1: Logo (current)"
+      | Gradient -> "1: Logo"
     in
     let gradient_label =
       match s.mode with
@@ -130,9 +142,12 @@ module Inner = struct
     let max_img_lines = List.length img_lines in
     let combined_lines = ref [] in
     for i = 0 to max_img_lines - 1 do
-      let img_line = if i < List.length img_lines then List.nth img_lines i else "" in
+      let img_line =
+        if i < List.length img_lines then List.nth img_lines i else ""
+      in
       let info_line =
-        if i < List.length info_lines then "  | " ^ List.nth info_lines i else ""
+        if i < List.length info_lines then "  | " ^ List.nth info_lines i
+        else ""
       in
       combined_lines := (img_line ^ info_line) :: !combined_lines
     done ;
@@ -142,7 +157,8 @@ module Inner = struct
     in
     String.concat "\n\n" [header; combined; instructions]
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     let s = update s (KeyPressed key_str) in
@@ -153,15 +169,25 @@ module Inner = struct
     | _ -> s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

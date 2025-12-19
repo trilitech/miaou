@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Spinner & Progress"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Spinner = Miaou_widgets_layout.Spinner_widget
@@ -33,15 +34,21 @@ module Inner = struct
     let progress_line = Progress.render s.progress ~cols:size.LTerm_geom.cols in
     let spinner_line = Spinner.render s.spinner in
     let lines =
-      ["Space: toggle run • r: reset • t: tutorial • Esc: back"; spinner_line; progress_line]
+      [
+        "Space: toggle run • r: reset • t: tutorial • Esc: back";
+        spinner_line;
+        progress_line;
+      ]
     in
     String.concat "\n" lines
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back s
     | Some (Miaou.Core.Keys.Char " ") -> {s with running = not s.running}
     | Some (Miaou.Core.Keys.Char "r") ->
@@ -60,14 +67,23 @@ module Inner = struct
     else s
 
   let refresh s = advance s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = advance s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

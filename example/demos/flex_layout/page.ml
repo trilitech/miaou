@@ -7,6 +7,7 @@
 
 module Inner = struct
   let tutorial_title = "Flex Layout"
+
   let tutorial_markdown = [%blob "README.md"]
 
   module Flex = Miaou_widgets_layout.Flex_layout
@@ -121,20 +122,31 @@ module Inner = struct
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
         go_back
     | _ -> s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back _ = go_back
+
   let has_modal _ = false
 end
 

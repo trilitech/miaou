@@ -82,7 +82,9 @@ let render_overlay ~(cols : int option) ~base ?rows () =
 
     let rendered =
       List.fold_left
-        (fun acc (title, left_opt, max_width_spec_opt, dim_background, view_thunk) ->
+        (fun acc
+             (title, left_opt, max_width_spec_opt, dim_background, view_thunk)
+           ->
           let cols_val = match cols with Some c -> c | None -> 80 in
           let max_width_opt =
             match max_width_spec_opt with

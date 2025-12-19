@@ -34,42 +34,71 @@ module type DEMO_PAGE_INPUT = sig
 
   (** The inner page state *)
   type state
+
   type msg
 
   val init : unit -> state
+
   val update : state -> msg -> state
+
   val view : state -> focus:bool -> size:LTerm_geom.size -> string
+
   val handle_key : state -> string -> size:LTerm_geom.size -> state
+
   val move : state -> int -> state
+
   val refresh : state -> state
+
   val enter : state -> state
+
   val service_select : state -> int -> state
+
   val service_cycle : state -> int -> state
+
   val handle_modal_key : state -> string -> size:LTerm_geom.size -> state
+
   val next_page : state -> string option
+
   val keymap : state -> (string * (state -> state) * string) list
+
   val handled_keys : unit -> Miaou.Core.Keys.t list
+
   val back : state -> state
+
   val has_modal : state -> bool
 end
 
 module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
   type state = P.state
+
   type msg = P.msg
 
   let init = P.init
+
   let update = P.update
+
   let view = P.view
+
   let move = P.move
+
   let refresh = P.refresh
+
   let enter = P.enter
+
   let service_select = P.service_select
+
   let service_cycle = P.service_cycle
+
   let handle_modal_key = P.handle_modal_key
+
   let next_page = P.next_page
+
   let keymap = P.keymap
+
   let handled_keys = P.handled_keys
+
   let back = P.back
+
   let has_modal = P.has_modal
 
   let show_tutorial () =

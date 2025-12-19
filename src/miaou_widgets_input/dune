@@ -13,4 +13,8 @@
   event_result)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou-core.widgets.display miaou-core.helpers miaou-core.interfaces lambda-term))
+ (libraries
+  miaou-core.widgets.display
+  miaou-core.helpers
+  miaou-core.interfaces
+  lambda-term))

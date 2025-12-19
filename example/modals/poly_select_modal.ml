@@ -13,7 +13,11 @@ type msg = unit
 
 let init () =
   let items =
-    [{label = "Alpha"; id = 1}; {label = "Beta"; id = 2}; {label = "Gamma"; id = 3}]
+    [
+      {label = "Alpha"; id = 1};
+      {label = "Beta"; id = 2};
+      {label = "Gamma"; id = 3};
+    ]
   in
   Miaou_widgets_input.Select_widget.open_centered
     ~cursor:0
@@ -30,15 +34,25 @@ let handle_key s key_str ~size:_ =
   Miaou_widgets_input.Select_widget.handle_key s ~key:key_str
 
 let move s _ = s
+
 let refresh s = s
+
 let enter s = s
+
 let service_select s _ = s
+
 let service_cycle s _ = s
+
 let back s = s
+
 let has_modal _ = false
+
 let handle_modal_key s _ ~size:_ = s
+
 let next_page _ = None
+
 let keymap (_ : state) = []
+
 let handled_keys () = []
 
 let extract_selection (s : state) : string option =

@@ -28,8 +28,8 @@ let make_cache () =
 let cache = make_cache ()
 
 let invalidate_cache () =
-  cache.cached_path <- "";
-  cache.cached_entries <- [];
+  cache.cached_path <- "" ;
+  cache.cached_entries <- [] ;
   Hashtbl.clear cache.cached_writable
 
 type t = {
@@ -122,8 +122,10 @@ let is_writable path =
   | Some v -> v
   | None ->
       let sys = Miaou_interfaces.System.require () in
-      let result = match sys.probe_writable ~path with Ok b -> b | Error _ -> false in
-      Hashtbl.add cache.cached_writable path result;
+      let result =
+        match sys.probe_writable ~path with Ok b -> b | Error _ -> false
+      in
+      Hashtbl.add cache.cached_writable path result ;
       result
 
 let rec next_available_name ~existing ~prefix idx =
@@ -167,12 +169,14 @@ let list_entries_safe path ~dirs_only ~show_hidden =
 
 let list_entries_with_parent path ~dirs_only ~show_hidden =
   (* Use cached entries if path and show_hidden match *)
-  if cache.cached_path = path && cache.cached_show_hidden = show_hidden && cache.cached_entries <> [] then
-    cache.cached_entries
+  if
+    cache.cached_path = path
+    && cache.cached_show_hidden = show_hidden
+    && cache.cached_entries <> []
+  then cache.cached_entries
   else begin
     (* Path or show_hidden changed - clear writable cache for fresh checks *)
-    if cache.cached_path <> path then
-      Hashtbl.clear cache.cached_writable;
+    if cache.cached_path <> path then Hashtbl.clear cache.cached_writable ;
     let entries = list_entries_safe path ~dirs_only ~show_hidden in
     let parent = Filename.dirname path in
     let with_parent =
@@ -180,14 +184,15 @@ let list_entries_with_parent path ~dirs_only ~show_hidden =
     in
     (* Add a dot entry to allow explicitly selecting the current directory,
        directly below the parent entry when present. *)
-    let result = match with_parent with
+    let result =
+      match with_parent with
       | p :: rest when p.name = ".." -> p :: {name = "."; is_dir = true} :: rest
       | lst -> {name = "."; is_dir = true} :: lst
     in
     (* Update cache *)
-    cache.cached_path <- path;
-    cache.cached_entries <- result;
-    cache.cached_show_hidden <- show_hidden;
+    cache.cached_path <- path ;
+    cache.cached_entries <- result ;
+    cache.cached_show_hidden <- show_hidden ;
     result
   end
 
@@ -199,7 +204,10 @@ let get_current_path w = w.current_path
 
 let get_selected_entry w =
   let entries =
-    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only ~show_hidden:w.show_hidden
+    list_entries_with_parent
+      w.current_path
+      ~dirs_only:w.dirs_only
+      ~show_hidden:w.show_hidden
   in
   if entries = [] then None
   else
@@ -240,7 +248,10 @@ let handle_key w ~key =
   (* Apply any pending path updates first *)
   let w = apply_pending_updates w in
   let entries =
-    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only ~show_hidden:w.show_hidden
+    list_entries_with_parent
+      w.current_path
+      ~dirs_only:w.dirs_only
+      ~show_hidden:w.show_hidden
   in
   let total = List.length entries in
   match w.mode with
@@ -248,7 +259,7 @@ let handle_key w ~key =
       match key with
       | "h" ->
           (* Toggle hidden files *)
-          invalidate_cache ();
+          invalidate_cache () ;
           {w with show_hidden = not w.show_hidden; cursor = 0}
       | "Up" ->
           {
@@ -282,7 +293,12 @@ let handle_key w ~key =
           if not (is_writable w.current_path) then
             {w with path_error = Some "Not writable"}
           else
-            let entries = list_entries_safe w.current_path ~dirs_only:false ~show_hidden:true in
+            let entries =
+              list_entries_safe
+                w.current_path
+                ~dirs_only:false
+                ~show_hidden:true
+            in
             let suggested =
               next_available_name ~existing:entries ~prefix:"new_directory" 0
             in
@@ -382,7 +398,9 @@ let handle_key w ~key =
           let buf = textbox_get_text tb in
           let dir = Filename.dirname buf in
           let base = Filename.basename buf in
-          let candidates = list_entries_safe dir ~dirs_only:false ~show_hidden:true in
+          let candidates =
+            list_entries_safe dir ~dirs_only:false ~show_hidden:true
+          in
           let names = List.map (fun e -> e.name) candidates in
           let matches =
             List.filter (fun n -> String.starts_with ~prefix:base n) names
@@ -408,7 +426,9 @@ let handle_key w ~key =
           let buf = textbox_get_text tb in
           let dir = Filename.dirname buf in
           let base = Filename.basename buf in
-          let candidates = list_entries_safe dir ~dirs_only:false ~show_hidden:true in
+          let candidates =
+            list_entries_safe dir ~dirs_only:false ~show_hidden:true
+          in
           let names = List.map (fun e -> e.name) candidates in
           let matches =
             List.filter (fun n -> String.starts_with ~prefix:base n) names
@@ -443,7 +463,7 @@ let handle_key w ~key =
               match sys.mkdir p with
               | Ok () ->
                   (* Invalidate cache after creating directory *)
-                  invalidate_cache ();
+                  invalidate_cache () ;
                   {
                     w with
                     current_path = p;
@@ -509,7 +529,10 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     loop n 0
   in
   let entries =
-    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only ~show_hidden:w.show_hidden
+    list_entries_with_parent
+      w.current_path
+      ~dirs_only:w.dirs_only
+      ~show_hidden:w.show_hidden
   in
   let total = List.length entries in
   let cursor = clamp 0 (if total = 0 then 0 else total - 1) w.cursor in
@@ -575,7 +598,8 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
   let header_controls =
     W.dim
       (truncate
-         (Printf.sprintf "↑/↓ nav • %s • Tab edit • Backspace up • Enter select"
+         (Printf.sprintf
+            "↑/↓ nav • %s • Tab edit • Backspace up • Enter select"
             hidden_hint)
       |> pad_to_width)
   in
@@ -672,9 +696,14 @@ let mkdir_and_cd browser dirname =
   | Error e -> Error e
   | Ok () -> (
       (* Invalidate cache after creating directory *)
-      invalidate_cache ();
+      invalidate_cache () ;
       (* Verify we can list the new directory *)
-      match list_entries new_path ~dirs_only:browser.dirs_only ~show_hidden:browser.show_hidden with
+      match
+        list_entries
+          new_path
+          ~dirs_only:browser.dirs_only
+          ~show_hidden:browser.show_hidden
+      with
       | Error e -> Error e
       | Ok _entries ->
           (* Schedule the path update instead of returning it directly *)

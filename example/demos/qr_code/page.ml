@@ -11,9 +11,15 @@ type example = {label : string; data : string}
 
 module Inner = struct
   let tutorial_title = "QR Code"
+
   let tutorial_markdown = [%blob "README.md"]
 
-  type state = {examples : example list; current : int; next_page : string option}
+  type state = {
+    examples : example list;
+    current : int;
+    next_page : string option;
+  }
+
   type msg = unit
 
   let examples =
@@ -72,7 +78,8 @@ module Inner = struct
     done ;
     String.concat "\n" (header :: List.rev !combined_lines)
 
-  let go_back s = {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
+  let go_back s =
+    {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
     match key_str with
@@ -84,15 +91,25 @@ module Inner = struct
     | _ -> s
 
   let move s _ = s
+
   let refresh s = s
+
   let enter s = s
+
   let service_select s _ = s
+
   let service_cycle s _ = s
+
   let handle_modal_key s _ ~size:_ = s
+
   let next_page s = s.next_page
+
   let keymap (_ : state) = []
+
   let handled_keys () = []
+
   let back s = go_back s
+
   let has_modal _ = false
 end
 

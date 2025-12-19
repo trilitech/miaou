@@ -83,7 +83,9 @@ let demos =
               }
             ~commit_on:["Space"; " "]
             ~cancel_on:["Esc"]
-            ~on_close:(fun (st : Demo_modals.File_browser_modal.state) -> function
+            ~on_close:(fun
+                (st : Demo_modals.File_browser_modal.state) ->
+              function
               | `Commit ->
                   let sel =
                     match FB.get_selection st with
@@ -118,119 +120,194 @@ let demos =
             ~extract:Demo_modals.Poly_select_modal.extract_selection
             ~on_result:(fun res ->
               match res with
-              | Some sel -> Logs.info (fun m -> m "Poly select committed: %s" sel)
+              | Some sel ->
+                  Logs.info (fun m -> m "Poly select committed: %s" sel)
               | None -> Logs.info (fun m -> m "Poly select cancelled"))
             () ;
           s);
     };
     {
       title = "Table Widget";
-      open_demo = goto "demo_table" (module Table_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_table"
+          (module Table_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Palette Sampler";
-      open_demo = goto "demo_palette" (module Palette_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_palette"
+          (module Palette_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Logger Demo";
-      open_demo = goto "demo_logger" (module Logger_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_logger"
+          (module Logger_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Key Handling";
-      open_demo = goto "demo_keys" (module Key_handling_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_keys"
+          (module Key_handling_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Description List";
       open_demo =
-        goto "demo_description_list" (module Description_list_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+        goto
+          "demo_description_list"
+          (module Description_list_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Pager Widget";
-      open_demo = goto "demo_pager" (module Pager_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_pager"
+          (module Pager_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Tree Viewer";
-      open_demo = goto "demo_tree" (module Tree_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto "demo_tree" (module Tree_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Layout Helpers";
-      open_demo = goto "demo_layout" (module Layout_helpers_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_layout"
+          (module Layout_helpers_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Flex Layout";
-      open_demo = goto "demo_flex" (module Flex_layout_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_flex"
+          (module Flex_layout_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
-    {title = "Link"; open_demo = goto "demo_link" (module Link_demo.Page : Miaou.Core.Tui_page.PAGE_SIG)};
+    {
+      title = "Link";
+      open_demo =
+        goto "demo_link" (module Link_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
     {
       title = "Checkboxes";
-      open_demo = goto "demo_checkboxes" (module Checkbox_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_checkboxes"
+          (module Checkbox_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Radio Buttons";
-      open_demo = goto "demo_radio" (module Radio_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_radio"
+          (module Radio_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Switch";
-      open_demo = goto "demo_switch" (module Switch_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_switch"
+          (module Switch_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Button";
-      open_demo = goto "demo_button" (module Button_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_button"
+          (module Button_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Validated Textbox";
       open_demo =
-        goto "demo_validated_textbox" (module Validated_textbox_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+        goto
+          "demo_validated_textbox"
+          (module Validated_textbox_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Breadcrumbs";
-      open_demo = goto "demo_breadcrumbs" (module Breadcrumbs_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_breadcrumbs"
+          (module Breadcrumbs_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Tabs Navigation";
-      open_demo = goto "demo_tabs" (module Tabs_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto "demo_tabs" (module Tabs_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Toast Notifications";
-      open_demo = goto "demo_toast" (module Toast_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_toast"
+          (module Toast_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Card & Sidebar";
-      open_demo = goto "demo_card_sidebar" (module Card_sidebar_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_card_sidebar"
+          (module Card_sidebar_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Spinner & Progress";
       open_demo =
-        goto "demo_spinner" (module Spinner_progress_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+        goto
+          "demo_spinner"
+          (module Spinner_progress_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Sparkline Charts";
-      open_demo = goto "demo_sparkline" (module Sparkline_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_sparkline"
+          (module Sparkline_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Line Chart";
-      open_demo = goto "demo_line_chart" (module Line_chart_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_line_chart"
+          (module Line_chart_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Bar Chart";
-      open_demo = goto "demo_bar_chart" (module Bar_chart_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_bar_chart"
+          (module Bar_chart_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "System Monitor (Showcase)";
       open_demo =
-        goto "demo_system_monitor" (module System_monitor_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+        goto
+          "demo_system_monitor"
+          (module System_monitor_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "QR Code";
-      open_demo = goto "demo_qr_code" (module Qr_code_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_qr_code"
+          (module Qr_code_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Image";
-      open_demo = goto "demo_image" (module Image_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_image"
+          (module Image_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
       title = "Braille Charts";
-      open_demo = goto "demo_braille" (module Braille_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+      open_demo =
+        goto
+          "demo_braille"
+          (module Braille_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
   ]
 
@@ -248,7 +325,8 @@ let view s ~focus:_ ~size =
   let module W = Miaou_widgets_display.Widgets in
   let title = "MIAOU demo launcher" in
   let instructions =
-    W.dim "Use Up/Down (or j/k) to move, Enter to launch a demo, q or Esc to exit"
+    W.dim
+      "Use Up/Down (or j/k) to move, Enter to launch a demo, q or Esc to exit"
   in
   let header_overhead = if size.LTerm_geom.cols < 80 then 1 else 0 in
   let frame_overhead = 2 + 3 + header_overhead in

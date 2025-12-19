@@ -6,4 +6,9 @@
  (modules flash_bus flash_toast_renderer headless_driver)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou-core.core miaou-core.internals miaou-core.widgets.layout lambda-term unix))
+ (libraries
+  miaou-core.core
+  miaou-core.internals
+  miaou-core.widgets.layout
+  lambda-term
+  unix))
