@@ -19,9 +19,8 @@ let pending = Atomic.make false
 let request_render () = Atomic.set pending true
 
 let should_render () =
-  if Atomic.get pending then (
-    Atomic.set pending false ;
-    true)
-  else false
+  (* Use atomic exchange to avoid race condition where multiple
+     request_render calls between get and set could be lost *)
+  Atomic.exchange pending false
 
 let clear () = Atomic.set pending false
