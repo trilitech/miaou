@@ -66,7 +66,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
            let sigwinch = 28 in
            Sys.set_signal
              sigwinch
-             (Sys.Signal_handle (fun _ -> Atomic.set resize_pending true))
+             (Sys.Signal_handle (fun _ ->
+                  Term_size_detection.invalidate_cache () ;
+                  Atomic.set resize_pending true))
          with _ -> ()) ;
 
         (* Cache the last rendered frame to avoid unnecessary redraws (reduces flicker). *)

@@ -5,7 +5,13 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-let detect_size () =
+(* Cache for terminal size to avoid spawning stty on every render.
+   Invalidated by SIGWINCH handler in lambda_term_driver.ml. *)
+let cached_size : LTerm_geom.size option ref = ref None
+
+let invalidate_cache () = cached_size := None
+
+let detect_size_uncached () =
   (* Skip LTerm-based detection (requires Lwt) - use fallback methods *)
 
   (* Direct terminal size detection using stty, bypassing System capability.
@@ -163,3 +169,11 @@ let detect_size () =
                   match try_stty_a () with
                   | Some s -> s
                   | None -> {LTerm_geom.rows = 24; cols = 80}))))
+
+let detect_size () =
+  match !cached_size with
+  | Some s -> s
+  | None ->
+      let s = detect_size_uncached () in
+      cached_size := Some s ;
+      s
