@@ -8,6 +8,28 @@
 
 type entry = {name : string; is_dir : bool}
 
+(* Cache for directory listings and writable status to avoid repeated filesystem calls *)
+type cache = {
+  mutable cached_path : string;
+  mutable cached_entries : entry list;
+  mutable cached_writable : (string, bool) Hashtbl.t;
+}
+
+let make_cache () =
+  {
+    cached_path = "";
+    cached_entries = [];
+    cached_writable = Hashtbl.create 32;
+  }
+
+(* Global cache - invalidated when path changes *)
+let cache = make_cache ()
+
+let invalidate_cache () =
+  cache.cached_path <- "";
+  cache.cached_entries <- [];
+  Hashtbl.clear cache.cached_writable
+
 type t = {
   current_path : string;
   cursor : int;
@@ -92,8 +114,13 @@ let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
 let clamp = List_nav.clamp
 
 let is_writable path =
-  let sys = Miaou_interfaces.System.require () in
-  match sys.probe_writable ~path with Ok b -> b | Error _ -> false
+  match Hashtbl.find_opt cache.cached_writable path with
+  | Some v -> v
+  | None ->
+      let sys = Miaou_interfaces.System.require () in
+      let result = match sys.probe_writable ~path with Ok b -> b | Error _ -> false in
+      Hashtbl.add cache.cached_writable path result;
+      result
 
 let rec next_available_name ~existing ~prefix idx =
   let candidate =
@@ -129,16 +156,29 @@ let list_entries_safe path ~dirs_only =
   | Error _ -> []
 
 let list_entries_with_parent path ~dirs_only =
-  let entries = list_entries_safe path ~dirs_only in
-  let parent = Filename.dirname path in
-  let with_parent =
-    if parent = path then entries else {name = ".."; is_dir = true} :: entries
-  in
-  (* Add a dot entry to allow explicitly selecting the current directory,
-     directly below the parent entry when present. *)
-  match with_parent with
-  | p :: rest when p.name = ".." -> p :: {name = "."; is_dir = true} :: rest
-  | lst -> {name = "."; is_dir = true} :: lst
+  (* Use cached entries if path matches *)
+  if cache.cached_path = path && cache.cached_entries <> [] then
+    cache.cached_entries
+  else begin
+    (* Path changed - clear writable cache for fresh checks *)
+    if cache.cached_path <> path then
+      Hashtbl.clear cache.cached_writable;
+    let entries = list_entries_safe path ~dirs_only in
+    let parent = Filename.dirname path in
+    let with_parent =
+      if parent = path then entries else {name = ".."; is_dir = true} :: entries
+    in
+    (* Add a dot entry to allow explicitly selecting the current directory,
+       directly below the parent entry when present. *)
+    let result = match with_parent with
+      | p :: rest when p.name = ".." -> p :: {name = "."; is_dir = true} :: rest
+      | lst -> {name = "."; is_dir = true} :: lst
+    in
+    (* Update cache *)
+    cache.cached_path <- path;
+    cache.cached_entries <- result;
+    result
+  end
 
 let is_cancelled w = w.cancelled
 
@@ -386,6 +426,8 @@ let handle_key w ~key =
             else
               match sys.mkdir p with
               | Ok () ->
+                  (* Invalidate cache after creating directory *)
+                  invalidate_cache ();
                   {
                     w with
                     current_path = p;
@@ -612,6 +654,8 @@ let mkdir_and_cd browser dirname =
   match sys.mkdir new_path with
   | Error e -> Error e
   | Ok () -> (
+      (* Invalidate cache after creating directory *)
+      invalidate_cache ();
       (* Verify we can list the new directory *)
       match list_entries new_path ~dirs_only:browser.dirs_only with
       | Error e -> Error e

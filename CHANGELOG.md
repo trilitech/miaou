@@ -27,6 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `should_render()` - Check if a render was requested (called by driver)
 - Used by validated textbox to trigger validation after debounce period
 
+#### Generic Debounce Module
+
+- **`Miaou_helpers.Debounce`** module for generic debounce timing
+- Thread-safe implementation using `Atomic` operations
+- Functions: `create`, `mark`, `is_ready`, `clear`, `has_pending`, `check_and_clear`
+- Configurable debounce period in milliseconds (default: 250ms)
+
+#### File Browser Performance Optimization
+
+- **Caching for directory listings** - `list_entries_with_parent` now caches results
+- **Caching for writable status** - `is_writable` checks are cached per-directory
+- Cache automatically invalidates when navigating to a different directory
+- Cache manually invalidated after directory creation (`mkdir_and_cd`, inline mkdir)
+- New `invalidate_cache()` function for manual cache clearing
+- Significantly reduces filesystem calls during rapid Up/Down navigation
+
 ### Added (2025-12-17)
 
 - Modal sizing supports dynamic width specs (`Fixed`, `Ratio`, `Clamped`) resolved at render time, including fallback terminal size detection via `/dev/tty` so modals resize with the terminal even when `System` is mocked.

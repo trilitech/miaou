@@ -232,3 +232,13 @@ val apply_pending_updates : t -> t
     @param path Path to schedule
 *)
 val schedule_path_update : string -> unit
+
+(** {1 Cache Management} *)
+
+(** Invalidate the internal filesystem cache.
+
+    Call this after external filesystem changes (e.g., directory creation)
+    to ensure the browser shows fresh data. The cache is automatically
+    invalidated when navigating to a different directory.
+*)
+val invalidate_cache : unit -> unit
