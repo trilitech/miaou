@@ -1,10 +1,10 @@
 🐱 MIAOU
 
-MIAOU is a playful TUI library for OCaml built on the Model–View–Update (MVU) pattern.
+MIAOU is a playful TUI library for OCaml with a state-view-handlers architecture.
 
 Why the name?
 
-It’s an acronym: Model, Interface, Application, OCaml, Update.
+It's an acronym: Model, Interface, Application, OCaml, UI.
 
 It’s also the French way of writing a cat’s meow—a nod to OCaml’s French roots.
 
@@ -22,7 +22,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines and [SECURI
 
 Features at a glance
 --------------------
-- MVU-inspired page lifecycle with modal support and capability injection
+- State-view-handlers page lifecycle with modal support and capability injection
 - Ready-to-use widgets: tables, file browsers, pagers, modal forms, panes, text boxes, palette helpers, charts (sparkline, line, bar), image viewer, QR code generator, etc.
 - Lambda-Term driver plus an experimental SDL2 driver with enhanced graphics rendering
 - Headless driver for tests/CI

@@ -4,7 +4,7 @@ This document describes the core architecture of MIAOU, a terminal/SDL UI framew
 
 ## Overview
 
-MIAOU follows the **Model-View-Update (MVU)** pattern, similar to Elm. Applications are built from:
+MIAOU uses a **state-view-handlers** architecture. Each page has immutable state, a pure view function, and key handlers that return new state. Applications are built from:
 
 - **Pages** - Self-contained UI screens with state and rendering
 - **Widgets** - Reusable UI components (buttons, tables, charts, etc.)
