@@ -13,6 +13,7 @@ type cache = {
   mutable cached_path : string;
   mutable cached_entries : entry list;
   mutable cached_writable : (string, bool) Hashtbl.t;
+  mutable cached_show_hidden : bool;
 }
 
 let make_cache () =
@@ -20,6 +21,7 @@ let make_cache () =
     cached_path = "";
     cached_entries = [];
     cached_writable = Hashtbl.create 32;
+    cached_show_hidden = false;
   }
 
 (* Global cache - invalidated when path changes *)
@@ -37,6 +39,7 @@ type t = {
   dirs_only : bool;
   require_writable : bool;
   select_dirs : bool;
+  show_hidden : bool; (* whether to show hidden files/dirs starting with '.' *)
   (* New: direct path editing *)
   mode : mode;
   path_buffer : string;
@@ -92,7 +95,7 @@ let rec normalize_start p =
   with _ -> "/"
 
 let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
-    ?(select_dirs = true) () =
+    ?(select_dirs = true) ?(show_hidden = false) () =
   let start = normalize_start path in
   {
     current_path = start;
@@ -101,6 +104,7 @@ let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
     dirs_only;
     require_writable;
     select_dirs;
+    show_hidden;
     mode = Browsing;
     path_buffer = "";
     path_error = None;
@@ -130,7 +134,10 @@ let rec next_available_name ~existing ~prefix idx =
     next_available_name ~existing ~prefix (idx + 1)
   else candidate
 
-let list_entries path ~dirs_only =
+let is_hidden name =
+  String.length name > 0 && name.[0] = '.' && name <> ".." && name <> "."
+
+let list_entries path ~dirs_only ~show_hidden =
   let sys = Miaou_interfaces.System.require () in
   match sys.list_dir path with
   | Error e -> Error e
@@ -140,9 +147,12 @@ let list_entries path ~dirs_only =
       let mapped =
         List.fold_right
           (fun n acc ->
-            let full = Filename.concat path n in
-            let is_dir = try sys.is_directory full with _ -> false in
-            if dirs_only && not is_dir then acc else {name = n; is_dir} :: acc)
+            (* Filter hidden files unless show_hidden is true *)
+            if (not show_hidden) && is_hidden n then acc
+            else
+              let full = Filename.concat path n in
+              let is_dir = try sys.is_directory full with _ -> false in
+              if dirs_only && not is_dir then acc else {name = n; is_dir} :: acc)
           items
           []
       in
@@ -150,20 +160,20 @@ let list_entries path ~dirs_only =
       Ok (dirs @ files)
 
 (* Internal helper that returns empty list on error for backward compatibility *)
-let list_entries_safe path ~dirs_only =
-  match list_entries path ~dirs_only with
+let list_entries_safe path ~dirs_only ~show_hidden =
+  match list_entries path ~dirs_only ~show_hidden with
   | Ok entries -> entries
   | Error _ -> []
 
-let list_entries_with_parent path ~dirs_only =
-  (* Use cached entries if path matches *)
-  if cache.cached_path = path && cache.cached_entries <> [] then
+let list_entries_with_parent path ~dirs_only ~show_hidden =
+  (* Use cached entries if path and show_hidden match *)
+  if cache.cached_path = path && cache.cached_show_hidden = show_hidden && cache.cached_entries <> [] then
     cache.cached_entries
   else begin
-    (* Path changed - clear writable cache for fresh checks *)
+    (* Path or show_hidden changed - clear writable cache for fresh checks *)
     if cache.cached_path <> path then
       Hashtbl.clear cache.cached_writable;
-    let entries = list_entries_safe path ~dirs_only in
+    let entries = list_entries_safe path ~dirs_only ~show_hidden in
     let parent = Filename.dirname path in
     let with_parent =
       if parent = path then entries else {name = ".."; is_dir = true} :: entries
@@ -177,6 +187,7 @@ let list_entries_with_parent path ~dirs_only =
     (* Update cache *)
     cache.cached_path <- path;
     cache.cached_entries <- result;
+    cache.cached_show_hidden <- show_hidden;
     result
   end
 
@@ -188,7 +199,7 @@ let get_current_path w = w.current_path
 
 let get_selected_entry w =
   let entries =
-    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only
+    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only ~show_hidden:w.show_hidden
   in
   if entries = [] then None
   else
@@ -229,12 +240,16 @@ let handle_key w ~key =
   (* Apply any pending path updates first *)
   let w = apply_pending_updates w in
   let entries =
-    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only
+    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only ~show_hidden:w.show_hidden
   in
   let total = List.length entries in
   match w.mode with
   | Browsing -> (
       match key with
+      | "h" ->
+          (* Toggle hidden files *)
+          invalidate_cache ();
+          {w with show_hidden = not w.show_hidden; cursor = 0}
       | "Up" ->
           {
             w with
@@ -267,7 +282,7 @@ let handle_key w ~key =
           if not (is_writable w.current_path) then
             {w with path_error = Some "Not writable"}
           else
-            let entries = list_entries_safe w.current_path ~dirs_only:false in
+            let entries = list_entries_safe w.current_path ~dirs_only:false ~show_hidden:true in
             let suggested =
               next_available_name ~existing:entries ~prefix:"new_directory" 0
             in
@@ -363,11 +378,11 @@ let handle_key w ~key =
               textbox = Some (textbox_set_text tb text);
             }
       | "Tab", Some tb -> (
-          (* Completion forward *)
+          (* Completion forward - always include hidden files for tab completion *)
           let buf = textbox_get_text tb in
           let dir = Filename.dirname buf in
           let base = Filename.basename buf in
-          let candidates = list_entries_safe dir ~dirs_only:false in
+          let candidates = list_entries_safe dir ~dirs_only:false ~show_hidden:true in
           let names = List.map (fun e -> e.name) candidates in
           let matches =
             List.filter (fun n -> String.starts_with ~prefix:base n) names
@@ -389,10 +404,11 @@ let handle_key w ~key =
           | [one] -> choose one
           | many -> choose (List.hd many))
       | "Shift-Tab", Some tb -> (
+          (* Completion backward - always include hidden files for tab completion *)
           let buf = textbox_get_text tb in
           let dir = Filename.dirname buf in
           let base = Filename.basename buf in
-          let candidates = list_entries_safe dir ~dirs_only:false in
+          let candidates = list_entries_safe dir ~dirs_only:false ~show_hidden:true in
           let names = List.map (fun e -> e.name) candidates in
           let matches =
             List.filter (fun n -> String.starts_with ~prefix:base n) names
@@ -493,7 +509,7 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     loop n 0
   in
   let entries =
-    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only
+    list_entries_with_parent w.current_path ~dirs_only:w.dirs_only ~show_hidden:w.show_hidden
   in
   let total = List.length entries in
   let cursor = clamp 0 (if total = 0 then 0 else total - 1) w.cursor in
@@ -555,11 +571,12 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
         in
         [line]
   in
+  let hidden_hint = if w.show_hidden then "h hide" else "h show hidden" in
   let header_controls =
     W.dim
       (truncate
-         "↑/↓ nav • Space PgDn • Shift+Space PgUp • Tab edit • Backspace up • \
-          Enter select • ? help"
+         (Printf.sprintf "↑/↓ nav • %s • Tab edit • Backspace up • Enter select"
+            hidden_hint)
       |> pad_to_width)
   in
   let header = path_bar @ [header_controls] in
@@ -657,7 +674,7 @@ let mkdir_and_cd browser dirname =
       (* Invalidate cache after creating directory *)
       invalidate_cache ();
       (* Verify we can list the new directory *)
-      match list_entries new_path ~dirs_only:browser.dirs_only with
+      match list_entries new_path ~dirs_only:browser.dirs_only ~show_hidden:browser.show_hidden with
       | Error e -> Error e
       | Ok _entries ->
           (* Schedule the path update instead of returning it directly *)

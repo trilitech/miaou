@@ -63,6 +63,7 @@ type t = {
   dirs_only : bool;  (** Show only directories *)
   require_writable : bool;  (** Filter to writable directories only *)
   select_dirs : bool;  (** Allow selecting directories (including "."). *)
+  show_hidden : bool;  (** Show hidden files/directories (starting with '.') *)
   mode : mode;  (** Current interaction mode *)
   path_buffer : string;  (** Buffer for path editing *)
   path_error : string option;  (** Error message from invalid path *)
@@ -84,12 +85,14 @@ type t = {
     @param dirs_only Show only directories, hide files (default: true)
     @param require_writable Filter to writable directories only (default: true)
     @param select_dirs Allow selecting directories (default: true)
+    @param show_hidden Show hidden files/directories starting with '.' (default: false)
 *)
 val open_centered :
   ?path:string ->
   ?dirs_only:bool ->
   ?require_writable:bool ->
   ?select_dirs:bool ->
+  ?show_hidden:bool ->
   unit ->
   t
 
@@ -190,6 +193,7 @@ val render : t -> focus:bool -> string
     - [Tab]/[C-l]: Enter path editing mode
     - [/] or [~]: Start path editing with that character
     - [n]: Start inline mkdir by opening path editing prefilled with a new name
+    - [h]: Toggle visibility of hidden files/directories
     - [Esc]: Cancel selection
 
     Path editing mode keys:
