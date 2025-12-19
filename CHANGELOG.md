@@ -51,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tab completion always includes hidden files for convenience (allows completing `.config/` etc.)
 - Header hint updates dynamically to show current state
 
+#### Textbox Input Draining for Typing Responsiveness
+
+- **`Miaou_helpers.Input_drain`** module for draining buffered input characters
+- Textbox widgets now process all pending printable characters at once
+- Prevents typing lag when entering text quickly
+- Driver registers drain function, widgets call `drain_pending_chars()`
+
 ### Added (2025-12-17)
 
 - Modal sizing supports dynamic width specs (`Fixed`, `Ratio`, `Clamped`) resolved at render time, including fallback terminal size detection via `/dev/tty` so modals resize with the terminal even when `System` is mocked.
