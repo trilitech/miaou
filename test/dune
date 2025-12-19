@@ -98,7 +98,11 @@
 (test
  (name test_drivers_smoke)
  (modules test_drivers_smoke)
- (libraries alcotest miaou-driver-term.driver miaou-driver-sdl.driver miaou-runner.common))
+ (libraries
+  alcotest
+  miaou-driver-term.driver
+  miaou-driver-sdl.driver
+  miaou-runner.common))
 
 (test
  (name test_core_utils)
@@ -182,7 +186,10 @@
 (test
  (name test_navigation_widgets)
  (modules test_navigation_widgets)
- (libraries alcotest miaou-core.widgets.navigation miaou-core.widgets.display))
+ (libraries
+  alcotest
+  miaou-core.widgets.navigation
+  miaou-core.widgets.display))
 
 (test
  (name test_flex_layout)
@@ -242,3 +249,8 @@
  (name test_input_draining)
  (modules test_input_draining)
  (libraries alcotest))
+
+(test
+ (name test_validated_textbox)
+ (modules test_validated_textbox)
+ (libraries alcotest miaou-core.widgets.input unix))
