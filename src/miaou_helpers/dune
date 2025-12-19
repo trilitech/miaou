@@ -1,7 +1,7 @@
 (library
  (name miaou_helpers)
  (public_name miaou-core.helpers)
- (modules helpers fiber_runtime)
+ (modules helpers fiber_runtime render_notify)
  (instrumentation
   (backend bisect_ppx))
  (libraries eio eio.unix))

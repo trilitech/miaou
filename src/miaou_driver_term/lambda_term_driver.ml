@@ -470,6 +470,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             then (
               Driver_common.Pager_notify.mark_refreshed pager_notifier ;
               `Refresh)
+            else if
+              (* Check global render notification (used by widgets like validated_textbox) *)
+              Miaou_helpers.Render_notify.should_render ()
+            then `Refresh
             else (
               (* Ensure at least one byte: wait a short time; if none, emit a refresh tick to drive pages. *)
               if String.length !pending = 0 then ignore (refill 0.15) ;

@@ -107,7 +107,12 @@ module Inner = struct
 
   let enter s = s
   let service_select s _ = s
-  let service_cycle s _ = s
+
+  let service_cycle s _ =
+    (* Tick both boxes on each service cycle to check for pending validation *)
+    let box_debounced = Vtextbox.tick s.box_debounced in
+    let box_immediate = Vtextbox.tick s.box_immediate in
+    {s with box_debounced; box_immediate}
   let handle_modal_key s _ ~size:_ = s
   let next_page s = s.next_page
   let keymap (_ : state) = []

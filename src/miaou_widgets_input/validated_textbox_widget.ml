@@ -79,9 +79,10 @@ let handle_key t ~key =
     if t.debounce_ms <= 0 then
       (* No debounce: validate immediately *)
       run_validation {t with textbox = updated_textbox}
-    else
-      (* Debounce enabled: defer validation *)
-      {t with textbox = updated_textbox; last_input_time = now; pending_validation = true}
+    else (
+      (* Debounce enabled: defer validation and request a re-render *)
+      Miaou_helpers.Render_notify.request_render () ;
+      {t with textbox = updated_textbox; last_input_time = now; pending_validation = true})
   else
     (* No text change (e.g., cursor movement): no validation needed *)
     {t with textbox = updated_textbox}
