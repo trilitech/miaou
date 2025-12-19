@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cache manually invalidated after directory creation (`mkdir_and_cd`, inline mkdir)
 - New `invalidate_cache()` function for manual cache clearing
 - Significantly reduces filesystem calls during rapid Up/Down navigation
+- **Note**: Cache is shared globally across all file browser instances
+
+#### File Browser Hidden Files Toggle
+
+- Press **`h`** to toggle visibility of hidden files/directories (starting with `.`)
+- New `show_hidden` parameter in `open_centered` (default: `false`)
+- Tab completion always includes hidden files for convenience (allows completing `.config/` etc.)
+- Header hint updates dynamically to show current state
 
 ### Added (2025-12-17)
 

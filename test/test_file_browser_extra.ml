@@ -207,6 +207,67 @@ let test_n_creates_directory_and_enters () =
   check string "entered new dir" "/root/new_directory" (FB.get_current_path w) ;
   check bool "no path error" true (Option.is_none w.FB.path_error)
 
+let make_stub_with_hidden ~writable =
+  let open Miaou_interfaces in
+  let run_command ~argv:_ ~cwd:_ =
+    Ok System.{exit_code = 0; stdout = ""; stderr = ""}
+  in
+  let files = [".hidden"; ".config"; "dir1"; "file.txt"] in
+  System.
+    {
+      file_exists = (fun _ -> true);
+      is_directory =
+        (fun p ->
+          String.ends_with ~suffix:"dir1" p
+          || String.ends_with ~suffix:".hidden" p
+          || String.ends_with ~suffix:".config" p
+          || p = "/tmp");
+      read_file = (fun _ -> Ok "");
+      write_file = (fun _ _ -> Ok ());
+      mkdir = (fun _ -> Ok ());
+      run_command;
+      get_current_user_info = (fun () -> Ok ("user", "/home/user"));
+      get_disk_usage = (fun ~path:_ -> Ok 0L);
+      list_dir = (fun _ -> Ok files);
+      probe_writable = (fun ~path:_ -> if writable then Ok true else Error "no");
+      get_env_var = (fun _ -> None);
+    }
+
+let has_sub s sub =
+  try
+    let _ = Str.search_forward (Str.regexp_string sub) s 0 in
+    true
+  with Not_found -> false
+
+let test_h_toggles_hidden_files () =
+  Miaou_interfaces.System.set (make_stub_with_hidden ~writable:true) ;
+  FB.invalidate_cache () ;
+  let w = FB.open_centered ~path:"/tmp" ~dirs_only:false () in
+  check bool "hidden off by default" false w.FB.show_hidden ;
+  let rendered =
+    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 10; cols = 50}
+  in
+  (* .hidden and .config should not appear when show_hidden=false *)
+  check bool "hidden files not shown" false (has_sub rendered ".hidden") ;
+  check bool "visible files shown" true (has_sub rendered "dir1") ;
+  (* Press h to toggle *)
+  let w = FB.handle_key w ~key:"h" in
+  check bool "hidden on after h" true w.FB.show_hidden ;
+  let rendered2 =
+    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 10; cols = 50}
+  in
+  check bool "hidden files now shown" true (has_sub rendered2 ".hidden") ;
+  check bool ".config shown" true (has_sub rendered2 ".config") ;
+  (* Toggle again *)
+  let w = FB.handle_key w ~key:"h" in
+  check bool "hidden off after second h" false w.FB.show_hidden
+
+let test_show_hidden_parameter () =
+  Miaou_interfaces.System.set (make_stub_with_hidden ~writable:true) ;
+  FB.invalidate_cache () ;
+  let w = FB.open_centered ~path:"/tmp" ~dirs_only:false ~show_hidden:true () in
+  check bool "show_hidden true from param" true w.FB.show_hidden
+
 let () =
   run
     "file_browser_extra"
@@ -230,5 +291,7 @@ let () =
             "n creates directory"
             `Quick
             test_n_creates_directory_and_enters;
+          test_case "h toggles hidden files" `Quick test_h_toggles_hidden_files;
+          test_case "show_hidden parameter" `Quick test_show_hidden_parameter;
         ] );
     ]
