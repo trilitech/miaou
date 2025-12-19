@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2025-12-19)
+
+#### Debounced Validation for Validated Textbox Widget
+
+- **`debounce_ms` parameter** for `Validated_textbox_widget.create` (default: 250ms)
+- Validation now defers during rapid typing, running after the debounce period elapses
+- Text input remains immediate for responsive UX
+- New functions:
+  - `tick` - Check and run pending validation (call in `service_cycle`)
+  - `flush_validation` - Force immediate validation (useful before form submission)
+  - `has_pending_validation` - Check if validation is pending
+- Set `debounce_ms=0` to disable debouncing (legacy immediate behavior)
+
+#### Global Render Notification System
+
+- **`Miaou_helpers.Render_notify`** module for widgets to request async UI updates
+- `request_render()` - Request a re-render from any widget
+- `should_render()` - Check if a render was requested (called by driver)
+- Used by validated textbox to trigger validation after debounce period
+
 ### Added (2025-12-17)
 
 - Modal sizing supports dynamic width specs (`Fixed`, `Ratio`, `Clamped`) resolved at render time, including fallback terminal size detection via `/dev/tty` so modals resize with the terminal even when `System` is mocked.
