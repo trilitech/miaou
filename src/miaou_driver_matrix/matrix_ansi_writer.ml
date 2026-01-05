@@ -26,41 +26,33 @@ let cursor_move ~row ~col = Printf.sprintf "\027[%d;%dH" (row + 1) (col + 1)
 (* Generate SGR sequence for a style *)
 let style_to_sgr style =
   let open Matrix_cell in
-  let parts = ref [] in
+  let buf = Buffer.create 32 in
 
-  (* Always start with reset if we have any attributes to set *)
-  if
-    style.fg <> -1 || style.bg <> -1 || style.bold || style.dim
-    || style.underline || style.reverse
-  then parts := "0" :: !parts ;
+  (* Always start with reset to clear previous state *)
+  Buffer.add_string buf "\027[0" ;
 
   (* Bold *)
-  if style.bold then parts := "1" :: !parts ;
+  if style.bold then Buffer.add_string buf ";1" ;
 
   (* Dim *)
-  if style.dim then parts := "2" :: !parts ;
+  if style.dim then Buffer.add_string buf ";2" ;
 
   (* Underline *)
-  if style.underline then parts := "4" :: !parts ;
+  if style.underline then Buffer.add_string buf ";4" ;
 
   (* Reverse *)
-  if style.reverse then parts := "7" :: !parts ;
+  if style.reverse then Buffer.add_string buf ";7" ;
 
   (* Foreground color *)
   if style.fg >= 0 && style.fg <= 255 then
-    parts := Printf.sprintf "38;5;%d" style.fg :: !parts
-  else if style.fg = -1 then ()
-  else () ;
+    Buffer.add_string buf (Printf.sprintf ";38;5;%d" style.fg) ;
 
   (* Background color *)
   if style.bg >= 0 && style.bg <= 255 then
-    parts := Printf.sprintf "48;5;%d" style.bg :: !parts
-  else if style.bg = -1 then ()
-  else () ;
+    Buffer.add_string buf (Printf.sprintf ";48;5;%d" style.bg) ;
 
-  match !parts with
-  | [] -> ""
-  | ps -> "\027[" ^ String.concat ";" (List.rev ps) ^ "m"
+  Buffer.add_char buf 'm' ;
+  Buffer.contents buf
 
 (* Render changes to ANSI string *)
 let render t changes =
