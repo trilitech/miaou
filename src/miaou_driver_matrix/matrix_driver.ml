@@ -21,6 +21,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `SwitchTo of string] =
   (* Load configuration *)
   let config = Matrix_config.load () in
+  let tick_time_s = config.tick_time_ms /. 1000.0 in
 
   (* Setup terminal *)
   let terminal = Matrix_terminal.setup () in
@@ -54,8 +55,12 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
   (* Clear screen initially *)
   Matrix_terminal.write terminal "\027[2J\027[H" ;
 
-  (* Main loop *)
+  (* Start render domain - runs at 60 FPS in parallel *)
+  Matrix_render_loop.start render_loop ;
+
+  (* Main loop - runs in main domain, handles input and effects *)
   let rec loop packed =
+    let tick_start = Unix.gettimeofday () in
     let (Packed ((module Page), state)) = packed in
 
     (* Get current terminal size *)
@@ -64,8 +69,10 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
 
     (* Check if we need to resize buffer *)
     let buf_rows, buf_cols = Matrix_buffer.size buffer in
-    if rows <> buf_rows || cols <> buf_cols then
-      Matrix_buffer.mark_all_dirty buffer ;
+    if rows <> buf_rows || cols <> buf_cols then begin
+      Matrix_buffer.resize buffer ~rows ~cols ;
+      Matrix_buffer.mark_all_dirty buffer
+    end ;
 
     (* Render page view to ANSI string *)
     let view_output = Page.view state ~focus:true ~size in
@@ -85,23 +92,25 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       else view_output
     in
 
-    (* Clear back buffer *)
-    Matrix_buffer.clear_back buffer ;
+    (* Update back buffer with new view - thread-safe batch operation *)
+    Matrix_buffer.with_back_buffer buffer (fun () ->
+        (* Clear back buffer *)
+        for r = 0 to rows - 1 do
+          for c = 0 to cols - 1 do
+            Matrix_cell.reset (Matrix_buffer.get_back buffer ~row:r ~col:c)
+          done
+        done ;
 
-    (* Parse ANSI output into buffer *)
-    Matrix_ansi_parser.reset parser ;
-    let _ =
-      Matrix_ansi_parser.parse_into parser buffer ~row:0 ~col:0 view_output
-    in
+        (* Parse ANSI output into buffer *)
+        Matrix_ansi_parser.reset parser ;
+        let _ =
+          Matrix_ansi_parser.parse_into parser buffer ~row:0 ~col:0 view_output
+        in
+        ()) ;
 
-    (* Request frame render *)
-    Matrix_render_loop.request_frame render_loop ;
-
-    (* Render if needed (respects FPS cap) *)
-    let _ = Matrix_render_loop.render_if_needed render_loop in
-
-    (* Poll for input *)
-    match Matrix_input.poll input ~timeout_ms:100 with
+    (* Poll for input with short timeout to maintain TPS *)
+    let timeout_ms = int_of_float (config.tick_time_ms *. 0.8) in
+    match Matrix_input.poll input ~timeout_ms with
     | Matrix_input.Quit ->
         Matrix_render_loop.shutdown render_loop ;
         `Quit
@@ -111,7 +120,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         loop packed
     | Matrix_input.Refresh ->
         let state' = Page.service_cycle state 0 in
-        check_navigation (Packed ((module Page), state'))
+        check_navigation (Packed ((module Page), state')) tick_start
     | Matrix_input.Key key ->
         let _ = Matrix_input.drain_nav_keys input (Matrix_input.Key key) in
         (* Set modal size before handling keys *)
@@ -121,7 +130,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           Modal_manager.handle_key key ;
           (* After modal handles key, check if navigation requested *)
           let state' = Page.service_cycle state 0 in
-          check_navigation (Packed ((module Page), state'))
+          check_navigation (Packed ((module Page), state')) tick_start
         end
         else if key = "Esc" || key = "Escape" then
           (* Special handling for Escape: let page handle it first,
@@ -132,7 +141,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           | None -> `SwitchTo "__BACK__"
         else
           let state' = Page.handle_key state key ~size in
-          check_navigation (Packed ((module Page), state'))
+          check_navigation (Packed ((module Page), state')) tick_start
     | Matrix_input.Mouse (row, col) ->
         let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
         (* Set modal size before handling keys *)
@@ -141,19 +150,24 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         if Modal_manager.has_active () then begin
           Modal_manager.handle_key mouse_key ;
           let state' = Page.service_cycle state 0 in
-          check_navigation (Packed ((module Page), state'))
+          check_navigation (Packed ((module Page), state')) tick_start
         end
         else
           let state' = Page.handle_key state mouse_key ~size in
-          check_navigation (Packed ((module Page), state'))
-  and check_navigation packed =
+          check_navigation (Packed ((module Page), state')) tick_start
+  and check_navigation packed tick_start =
     let (Packed ((module Page), state)) = packed in
     match Page.next_page state with
     | Some "__QUIT__" ->
         Matrix_render_loop.shutdown render_loop ;
         `Quit
     | Some name -> `SwitchTo name
-    | None -> loop (Packed ((module Page), state))
+    | None ->
+        (* Maintain TPS by sleeping if we have time left *)
+        let elapsed = Unix.gettimeofday () -. tick_start in
+        let sleep_time = tick_time_s -. elapsed in
+        if sleep_time > 0.001 then Thread.delay sleep_time ;
+        loop (Packed ((module Page), state))
   in
 
   (* Start with initial page *)
