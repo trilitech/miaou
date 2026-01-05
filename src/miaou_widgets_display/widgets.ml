@@ -478,14 +478,15 @@ let overlay ~base ~content ~top ~left ~canvas_h ~canvas_w : string =
       if pad_left > 0 then base_line ^ String.make pad_left ' ' else base_line
     in
     let span = min c_w (max 0 (canvas_w - left)) in
-    let pre = String.make (max 0 left) ' ' in
+    let idx_left = visible_byte_index_of_pos base_padded left in
+    (* Extract actual base content before overlay position, not just spaces *)
+    let pre = String.sub base_padded 0 idx_left in
     let ov =
       let s = overlay_line in
       let s = if visible_chars_count s > span then s else s in
       s
     in
     let ov_chars = visible_chars_count ov in
-    let idx_left = visible_byte_index_of_pos base_padded left in
     let byte_index_after_span_from i span =
       let len = String.length base_padded in
       let rec loop i rem =
