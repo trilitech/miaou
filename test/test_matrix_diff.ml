@@ -72,6 +72,30 @@ let test_diff_starts_with_moveto () =
            (change_to_string first)
            changes_str)
 
+(* Test that consecutive identical chars become WriteRun *)
+let test_write_run_optimization () =
+  let buf = Buffer.create ~rows:5 ~cols:20 in
+  (* Write a horizontal line of dashes *)
+  for col = 0 to 9 do
+    Buffer.set_char buf ~row:0 ~col ~char:"-" ~style:Cell.default_style
+  done ;
+  let changes = Diff.compute buf in
+  (* Should have MoveTo, then WriteRun for 10 dashes *)
+  let has_run =
+    List.exists
+      (function Diff.WriteRun ("-", 10) -> true | _ -> false)
+      changes
+  in
+  check bool "has WriteRun for 10 dashes" true has_run ;
+  (* Should NOT have 10 separate WriteChars *)
+  let write_char_count =
+    List.fold_left
+      (fun acc c -> match c with Diff.WriteChar "-" -> acc + 1 | _ -> acc)
+      0
+      changes
+  in
+  check int "no individual WriteChar for dashes" 0 write_char_count
+
 (* Test that diff outputs content at correct positions *)
 let test_diff_positions () =
   let buf = Buffer.create ~rows:5 ~cols:20 in
@@ -196,6 +220,7 @@ let () =
       ( "basic",
         [
           test_case "diff starts with moveto" `Quick test_diff_starts_with_moveto;
+          test_case "write run optimization" `Quick test_write_run_optimization;
           test_case "diff positions" `Quick test_diff_positions;
           test_case "unchanged rows skipped" `Quick test_unchanged_rows_skipped;
         ] );
