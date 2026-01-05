@@ -114,12 +114,31 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         check_navigation (Packed ((module Page), state'))
     | Matrix_input.Key key ->
         let _ = Matrix_input.drain_nav_keys input (Matrix_input.Key key) in
-        let state' = Page.handle_key state key ~size in
-        check_navigation (Packed ((module Page), state'))
+        (* Set modal size before handling keys *)
+        Modal_manager.set_current_size rows cols ;
+        (* Check if modal is active - if so, send keys to modal instead of page *)
+        if Modal_manager.has_active () then begin
+          Modal_manager.handle_key key ;
+          (* After modal handles key, check if navigation requested *)
+          let state' = Page.service_cycle state 0 in
+          check_navigation (Packed ((module Page), state'))
+        end
+        else
+          let state' = Page.handle_key state key ~size in
+          check_navigation (Packed ((module Page), state'))
     | Matrix_input.Mouse (row, col) ->
         let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
-        let state' = Page.handle_key state mouse_key ~size in
-        check_navigation (Packed ((module Page), state'))
+        (* Set modal size before handling keys *)
+        Modal_manager.set_current_size rows cols ;
+        (* Check if modal is active - if so, send keys to modal instead of page *)
+        if Modal_manager.has_active () then begin
+          Modal_manager.handle_key mouse_key ;
+          let state' = Page.service_cycle state 0 in
+          check_navigation (Packed ((module Page), state'))
+        end
+        else
+          let state' = Page.handle_key state mouse_key ~size in
+          check_navigation (Packed ((module Page), state'))
   and check_navigation packed =
     let (Packed ((module Page), state)) = packed in
     match Page.next_page state with
