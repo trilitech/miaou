@@ -30,28 +30,46 @@ let overlay_enabled =
     | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
     | _ -> false)
 
-type tps_tracker = {
-  mutable tick_count : int;
+type fps_tracker = {
+  mutable loop_count : int;
+  mutable render_count : int;
   mutable last_time : float;
+  mutable current_loop_fps : float;
+  mutable current_render_fps : float;
   mutable current_tps : float;
 }
 
-let create_tps_tracker () =
-  {tick_count = 0; last_time = Unix.gettimeofday (); current_tps = 0.0}
+let create_fps_tracker () =
+  {
+    loop_count = 0;
+    render_count = 0;
+    last_time = Unix.gettimeofday ();
+    current_loop_fps = 0.0;
+    current_render_fps = 0.0;
+    current_tps = 0.0;
+  }
 
-let update_tps tracker =
-  tracker.tick_count <- tracker.tick_count + 1 ;
+let update_loop_fps tracker =
+  tracker.loop_count <- tracker.loop_count + 1 ;
   let now = Unix.gettimeofday () in
   let elapsed = now -. tracker.last_time in
   if elapsed >= 1.0 then begin
-    tracker.current_tps <- float_of_int tracker.tick_count /. elapsed ;
-    tracker.tick_count <- 0 ;
+    tracker.current_loop_fps <- float_of_int tracker.loop_count /. elapsed ;
+    tracker.current_render_fps <- float_of_int tracker.render_count /. elapsed ;
+    tracker.current_tps <- tracker.current_loop_fps ;
+    tracker.loop_count <- 0 ;
+    tracker.render_count <- 0 ;
     tracker.last_time <- now
   end
 
-let render_overlay_ansi ~tps ~cols =
-  (* Render "TPS:XX" in top-right corner with dim style *)
-  let text = Printf.sprintf "TPS:%.0f" tps in
+let record_render tracker = tracker.render_count <- tracker.render_count + 1
+
+let render_overlay_ansi ~loop_fps ~render_fps ~tps ~cols =
+  (* Render "lterm L:XX R:XX T:XX" in top-right corner with dim style
+     L = Loop FPS (cap), R = Render FPS (actual), T = TPS *)
+  let text =
+    Printf.sprintf "lterm L:%.0f R:%.0f T:%.0f" loop_fps render_fps tps
+  in
   let len = String.length text in
   let start_col = cols - len - 1 in
   if start_col > 0 then
@@ -114,8 +132,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     render tick. This avoids depending on SIGWINCH being available at
     compile-time across different platforms. *)
         let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
-        (* TPS tracker for debug overlay *)
-        let tps_tracker = create_tps_tracker () in
+        (* FPS tracker for debug overlay *)
+        let fps_tracker = create_fps_tracker () in
         (* Portable size detection used by render and key handlers.
        First, try lambda-term directly (in-process, no subprocess TTY issues).
        Then fall back to external tools. Avoid touching stdin to not interfere
@@ -264,8 +282,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               let head = take head_count lines in
               Helpers.concat_lines (head @ [last_line])
           in
-          (* Update TPS tracker *)
-          update_tps tps_tracker ;
+          (* Update FPS tracker *)
+          update_loop_fps fps_tracker ;
 
           (* Write only when output changed; keeps the terminal stable and avoids flicker. *)
           Capture.record_frame
@@ -274,13 +292,16 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             out_trimmed ;
           let full_out = out_trimmed ^ "\n" in
           if full_out <> !last_out_ref then (
+            record_render fps_tracker ;
             (* Use full clear (ESC[2J]) then home (ESC[H]) to keep previous behavior. *)
             print_string ("\027[2J\027[H" ^ full_out) ;
             (* Render debug overlay if enabled *)
             if Lazy.force overlay_enabled then
               print_string
                 (render_overlay_ansi
-                   ~tps:tps_tracker.current_tps
+                   ~loop_fps:fps_tracker.current_loop_fps
+                   ~render_fps:fps_tracker.current_render_fps
+                   ~tps:fps_tracker.current_tps
                    ~cols:size.LTerm_geom.cols) ;
             Stdlib.flush stdout ;
             last_out_ref := full_out)
