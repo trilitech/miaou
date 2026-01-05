@@ -16,7 +16,10 @@
  (modules runner_tui)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou_runner_common miaou-driver-term.driver))
+ (libraries
+  miaou_runner_common
+  miaou-driver-term.driver
+  miaou-driver-matrix.driver))
 
 (library
  (name miaou_runner_native)
@@ -27,7 +30,8 @@
  (libraries
   miaou_runner_common
   miaou-driver-term.driver
-  miaou-driver-sdl.driver))
+  miaou-driver-sdl.driver
+  miaou-driver-matrix.driver))
 
 (executable
  (name miaou_runner_tui_main)

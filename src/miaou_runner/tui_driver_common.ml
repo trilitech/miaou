@@ -37,21 +37,29 @@ let current_page : (module PAGE_SIG) option ref = ref None
 let set_page (page_module : (module PAGE_SIG)) =
   current_page := Some page_module
 
-let backend_choice ~sdl_available =
+let backend_choice ~sdl_available ~matrix_available =
   match Sys.getenv_opt "MIAOU_DRIVER" with
   | Some v -> (
       match String.lowercase_ascii (String.trim v) with
+      | "matrix" when matrix_available -> `Matrix
       | "sdl" when sdl_available -> `Sdl
       | "html" when Html_driver.available -> `Html
       | _ -> `Lambda_term)
   | None -> if sdl_available then `Sdl else `Lambda_term
 
-let run ~term_backend ~sdl_backend (initial_page : (module PAGE_SIG)) : outcome
-    =
+let run ~term_backend ~sdl_backend ~matrix_backend
+    (initial_page : (module PAGE_SIG)) : outcome =
   Widgets.set_backend `Terminal ;
   let rec loop (page : (module PAGE_SIG)) : outcome =
     let outcome =
-      match backend_choice ~sdl_available:sdl_backend.available with
+      match
+        backend_choice
+          ~sdl_available:sdl_backend.available
+          ~matrix_available:matrix_backend.available
+      with
+      | `Matrix ->
+          Widgets.set_backend `Terminal ;
+          matrix_backend.run page
       | `Sdl ->
           Widgets.set_backend `Sdl ;
           sdl_backend.run page

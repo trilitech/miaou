@@ -20,4 +20,15 @@ let run page =
       run = (fun page -> Miaou_driver_sdl.Sdl_driver.run page);
     }
   in
-  Miaou_runner_common.Tui_driver_common.run ~term_backend ~sdl_backend page
+  let matrix_backend =
+    {
+      Miaou_runner_common.Tui_driver_common.available =
+        Miaou_driver_matrix.Matrix_driver.available;
+      run = Miaou_driver_matrix.Matrix_driver.run;
+    }
+  in
+  Miaou_runner_common.Tui_driver_common.run
+    ~term_backend
+    ~sdl_backend
+    ~matrix_backend
+    page
