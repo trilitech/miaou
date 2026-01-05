@@ -23,6 +23,42 @@ module Helpers = Miaou_helpers.Helpers
 (* Persistent session flags *)
 let narrow_warned = ref false
 
+(* Debug overlay - shows TPS when MIAOU_OVERLAY is set *)
+let overlay_enabled =
+  lazy
+    (match Sys.getenv_opt "MIAOU_OVERLAY" with
+    | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
+    | _ -> false)
+
+type tps_tracker = {
+  mutable tick_count : int;
+  mutable last_time : float;
+  mutable current_tps : float;
+}
+
+let create_tps_tracker () =
+  {tick_count = 0; last_time = Unix.gettimeofday (); current_tps = 0.0}
+
+let update_tps tracker =
+  tracker.tick_count <- tracker.tick_count + 1 ;
+  let now = Unix.gettimeofday () in
+  let elapsed = now -. tracker.last_time in
+  if elapsed >= 1.0 then begin
+    tracker.current_tps <- float_of_int tracker.tick_count /. elapsed ;
+    tracker.tick_count <- 0 ;
+    tracker.last_time <- now
+  end
+
+let render_overlay_ansi ~tps ~cols =
+  (* Render "TPS:XX" in top-right corner with dim style *)
+  let text = Printf.sprintf "TPS:%.0f" tps in
+  let len = String.length text in
+  let start_col = cols - len - 1 in
+  if start_col > 0 then
+    (* Move to row 1, col start_col, dim style, print, reset *)
+    Printf.sprintf "\027[1;%dH\027[2;38;5;245m%s\027[0m" start_col text
+  else ""
+
 module LT = LTerm
 
 type t = private T
@@ -78,6 +114,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     render tick. This avoids depending on SIGWINCH being available at
     compile-time across different platforms. *)
         let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
+        (* TPS tracker for debug overlay *)
+        let tps_tracker = create_tps_tracker () in
         (* Portable size detection used by render and key handlers.
        First, try lambda-term directly (in-process, no subprocess TTY issues).
        Then fall back to external tools. Avoid touching stdin to not interfere
@@ -226,6 +264,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               let head = take head_count lines in
               Helpers.concat_lines (head @ [last_line])
           in
+          (* Update TPS tracker *)
+          update_tps tps_tracker ;
+
           (* Write only when output changed; keeps the terminal stable and avoids flicker. *)
           Capture.record_frame
             ~rows:size.LTerm_geom.rows
@@ -235,6 +276,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           if full_out <> !last_out_ref then (
             (* Use full clear (ESC[2J]) then home (ESC[H]) to keep previous behavior. *)
             print_string ("\027[2J\027[H" ^ full_out) ;
+            (* Render debug overlay if enabled *)
+            if Lazy.force overlay_enabled then
+              print_string
+                (render_overlay_ansi
+                   ~tps:tps_tracker.current_tps
+                   ~cols:size.LTerm_geom.cols) ;
             Stdlib.flush stdout ;
             last_out_ref := full_out)
           else () ;
