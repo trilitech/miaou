@@ -43,9 +43,14 @@ let backend_choice ~sdl_available ~matrix_available =
       match String.lowercase_ascii (String.trim v) with
       | "matrix" when matrix_available -> `Matrix
       | "sdl" when sdl_available -> `Sdl
+      | "term" | "lambda-term" | "lambda_term" -> `Lambda_term
       | "html" when Html_driver.available -> `Html
-      | _ -> `Lambda_term)
-  | None -> if sdl_available then `Sdl else `Lambda_term
+      | _ -> `Matrix (* Default to matrix for unknown values too *))
+  | None ->
+      (* Default priority: Matrix > SDL > Lambda_term *)
+      if matrix_available then `Matrix
+      else if sdl_available then `Sdl
+      else `Lambda_term
 
 let run ~term_backend ~sdl_backend ~matrix_backend
     (initial_page : (module PAGE_SIG)) : outcome =
