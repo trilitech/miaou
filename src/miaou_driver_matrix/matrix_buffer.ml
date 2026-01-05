@@ -94,17 +94,11 @@ let clear_back t =
       done)
 
 let set_char t ~row ~col ~char ~style =
-  if in_bounds t ~row ~col then begin
-    t.back.(row).(col).char <- char ;
-    t.back.(row).(col).style <- style
-  end
-
-(* Unlocked version for batch operations - caller must hold lock *)
-let set_char_unlocked t ~row ~col ~char ~style =
-  if in_bounds t ~row ~col then begin
-    t.back.(row).(col).char <- char ;
-    t.back.(row).(col).style <- style
-  end
+  with_lock t (fun () ->
+      if in_bounds t ~row ~col then begin
+        t.back.(row).(col).char <- char ;
+        t.back.(row).(col).style <- style
+      end)
 
 let get_front t ~row ~col =
   if in_bounds t ~row ~col then t.front.(row).(col) else Matrix_cell.empty ()
@@ -136,9 +130,42 @@ let is_dirty t = Atomic.get t.dirty
 
 let clear_dirty t = Atomic.set t.dirty false
 
+(** Batch operations record - provides unlocked accessors within with_back_buffer *)
+type batch_ops = {
+  clear : unit -> unit;
+  set_char :
+    row:int -> col:int -> char:string -> style:Matrix_cell.style -> unit;
+  get : row:int -> col:int -> Matrix_cell.t;
+  rows : int;
+  cols : int;
+}
+
 (* Execute a function with the buffer lock held - for batch operations *)
 let with_back_buffer t f =
   with_lock t (fun () ->
-      let result = f () in
+      let ops =
+        {
+          clear =
+            (fun () ->
+              for r = 0 to t.rows - 1 do
+                for c = 0 to t.cols - 1 do
+                  Matrix_cell.reset t.back.(r).(c)
+                done
+              done);
+          set_char =
+            (fun ~row ~col ~char ~style ->
+              if in_bounds t ~row ~col then begin
+                t.back.(row).(col).char <- char ;
+                t.back.(row).(col).style <- style
+              end);
+          get =
+            (fun ~row ~col ->
+              if in_bounds t ~row ~col then t.back.(row).(col)
+              else Matrix_cell.empty ());
+          rows = t.rows;
+          cols = t.cols;
+        }
+      in
+      let result = f ops in
       Atomic.set t.dirty true ;
       result)

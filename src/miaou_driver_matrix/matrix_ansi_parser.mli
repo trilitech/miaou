@@ -34,7 +34,7 @@ val reset : t -> unit
 val current_style : t -> Matrix_cell.style
 
 (** Parse an ANSI string into the buffer starting at (row, col).
-    Returns the column after the last written character.
+    Returns the (row, col) after the last written character.
     Handles newlines by advancing row and resetting col to 0. *)
 val parse_into :
   t -> Matrix_buffer.t -> row:int -> col:int -> string -> int * int
@@ -42,6 +42,11 @@ val parse_into :
 (** Parse a single line (no newline handling) into buffer.
     Returns the column after last character. *)
 val parse_line : t -> Matrix_buffer.t -> row:int -> col:int -> string -> int
+
+(** Parse into buffer using batch_ops for thread-safe access.
+    Use within [Matrix_buffer.with_back_buffer]. *)
+val parse_into_batch :
+  t -> Matrix_buffer.batch_ops -> row:int -> col:int -> string -> int * int
 
 (** Parse string and return list of (char, style) pairs for inspection.
     Useful for testing. Does not write to buffer. *)

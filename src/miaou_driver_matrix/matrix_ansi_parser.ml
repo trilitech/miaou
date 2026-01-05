@@ -174,6 +174,79 @@ let parse_into t buf ~row ~col input =
     lines ;
   (!row, !col)
 
+(* Batch version using batch_ops for thread-safe access *)
+let parse_line_batch t (ops : Matrix_buffer.batch_ops) ~row ~col input =
+  let len = String.length input in
+  let col = ref col in
+  let pos = ref 0 in
+
+  while !pos < len do
+    match t.state with
+    | Normal -> (
+        let c = input.[!pos] in
+        match c with
+        | '\027' ->
+            t.state <- EscapeStart ;
+            incr pos
+        | '\n' | '\r' -> incr pos
+        | _ ->
+            let char, char_len = extract_utf8_char input !pos in
+            if char_len > 0 then begin
+              ops.set_char ~row ~col:!col ~char ~style:t.style ;
+              incr col ;
+              pos := !pos + char_len
+            end
+            else incr pos)
+    | EscapeStart ->
+        if !pos < len then (
+          match input.[!pos] with
+          | '[' ->
+              t.state <- CSI ([], 0) ;
+              incr pos
+          | _ ->
+              t.state <- Normal ;
+              incr pos)
+        else t.state <- Normal
+    | CSI (params, current) ->
+        if !pos < len then (
+          let c = input.[!pos] in
+          match c with
+          | '0' .. '9' ->
+              let digit = Char.code c - Char.code '0' in
+              t.state <- CSI (params, (current * 10) + digit) ;
+              incr pos
+          | ';' ->
+              t.state <- CSI (params @ [current], 0) ;
+              incr pos
+          | 'm' ->
+              let all_params = params @ [current] in
+              t.style <- apply_sgr all_params t.style ;
+              t.state <- Normal ;
+              incr pos
+          | 'A' .. 'Z' | 'a' .. 'l' | 'n' .. 'z' ->
+              t.state <- Normal ;
+              incr pos
+          | _ ->
+              t.state <- Normal ;
+              incr pos)
+        else t.state <- Normal
+  done ;
+  !col
+
+let parse_into_batch t ops ~row ~col input =
+  let lines = String.split_on_char '\n' input in
+  let row = ref row in
+  let col = ref col in
+  List.iteri
+    (fun i line ->
+      if i > 0 then begin
+        incr row ;
+        col := 0
+      end ;
+      col := parse_line_batch t ops ~row:!row ~col:!col line)
+    lines ;
+  (!row, !col)
+
 let parse_to_cells t input =
   let results = ref [] in
   let len = String.length input in

@@ -93,18 +93,19 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     in
 
     (* Update back buffer with new view - thread-safe batch operation *)
-    Matrix_buffer.with_back_buffer buffer (fun () ->
+    Matrix_buffer.with_back_buffer buffer (fun ops ->
         (* Clear back buffer *)
-        for r = 0 to rows - 1 do
-          for c = 0 to cols - 1 do
-            Matrix_cell.reset (Matrix_buffer.get_back buffer ~row:r ~col:c)
-          done
-        done ;
+        ops.clear () ;
 
-        (* Parse ANSI output into buffer *)
+        (* Parse ANSI output into buffer using batch set_char *)
         Matrix_ansi_parser.reset parser ;
         let _ =
-          Matrix_ansi_parser.parse_into parser buffer ~row:0 ~col:0 view_output
+          Matrix_ansi_parser.parse_into_batch
+            parser
+            ops
+            ~row:0
+            ~col:0
+            view_output
         in
         ()) ;
 

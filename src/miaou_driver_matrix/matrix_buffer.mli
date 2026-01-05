@@ -50,14 +50,8 @@ val get_back : t -> row:int -> col:int -> Matrix_cell.t
 (** Clear the back buffer (fill with empty cells). Thread-safe. *)
 val clear_back : t -> unit
 
-(** Set character and style directly in back buffer.
-    NOT thread-safe - use within [with_back_buffer] for batch operations. *)
+(** Set character and style directly in back buffer. Thread-safe. *)
 val set_char :
-  t -> row:int -> col:int -> char:string -> style:Matrix_cell.style -> unit
-
-(** Set character and style directly - unlocked version for batch ops.
-    Caller must hold lock via [with_back_buffer]. *)
-val set_char_unlocked :
   t -> row:int -> col:int -> char:string -> style:Matrix_cell.style -> unit
 
 (** {2 Front Buffer Operations (Last Rendered State)} *)
@@ -91,6 +85,16 @@ val clear_dirty : t -> unit
 
 (** {2 Batch Operations} *)
 
+(** Record of unlocked operations available within [with_back_buffer]. *)
+type batch_ops = {
+  clear : unit -> unit;  (** Clear back buffer *)
+  set_char :
+    row:int -> col:int -> char:string -> style:Matrix_cell.style -> unit;
+  get : row:int -> col:int -> Matrix_cell.t;  (** Get cell from back buffer *)
+  rows : int;  (** Current row count *)
+  cols : int;  (** Current column count *)
+}
+
 (** Execute function with buffer lock held. Marks dirty after.
-    Use for batch writes to back buffer. *)
-val with_back_buffer : t -> (unit -> 'a) -> 'a
+    The callback receives [batch_ops] for safe unlocked access. *)
+val with_back_buffer : t -> (batch_ops -> 'a) -> 'a
