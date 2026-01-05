@@ -134,9 +134,18 @@ type batch_ops = {
   cols : int;
 }
 
-(* Execute a function with the buffer lock held - for batch operations *)
-let with_back_buffer t f =
+(* Execute a function with the buffer lock held - for batch operations.
+   If force_full_redraw is true, also clears the front buffer so all cells
+   appear changed - this is done atomically to avoid race conditions. *)
+let with_back_buffer ?(force_full_redraw = false) t f =
   with_lock t (fun () ->
+      (* If forcing full redraw, clear front buffer first (while holding lock) *)
+      if force_full_redraw then
+        for r = 0 to t.rows - 1 do
+          for c = 0 to t.cols - 1 do
+            Matrix_cell.reset t.front.(r).(c)
+          done
+        done ;
       let ops =
         {
           clear =

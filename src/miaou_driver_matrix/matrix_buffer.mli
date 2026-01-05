@@ -96,8 +96,11 @@ type batch_ops = {
 }
 
 (** Execute function with buffer lock held. Marks dirty after.
-    The callback receives [batch_ops] for safe unlocked access. *)
-val with_back_buffer : t -> (batch_ops -> 'a) -> 'a
+    The callback receives [batch_ops] for safe unlocked access.
+    If [force_full_redraw] is true, clears the front buffer first
+    (atomically, while holding the lock) so all cells appear changed.
+    This avoids race conditions when a full redraw is needed. *)
+val with_back_buffer : ?force_full_redraw:bool -> t -> (batch_ops -> 'a) -> 'a
 
 (** {2 Atomic Read Operations (for render domain)} *)
 

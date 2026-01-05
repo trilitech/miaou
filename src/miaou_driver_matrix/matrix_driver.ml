@@ -139,7 +139,8 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         let oc = open_out filename in
         output_string oc view_output ;
         close_out oc) ;
-      Matrix_buffer.mark_all_dirty buffer ;
+      (* NOTE: mark_all_dirty is now done INSIDE with_back_buffer to avoid
+         race condition where render domain could see cleared front with old back *)
       last_modal_active := modal_active
     end ;
 
@@ -170,8 +171,12 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     (* Update TPS tracker *)
     update_tps tps_tracker ;
 
-    (* Update back buffer with new view - thread-safe batch operation *)
-    Matrix_buffer.with_back_buffer buffer (fun ops ->
+    (* Update back buffer with new view - thread-safe batch operation.
+       If modal just changed, force full redraw to avoid artifacts. *)
+    Matrix_buffer.with_back_buffer
+      ~force_full_redraw:modal_just_changed
+      buffer
+      (fun ops ->
         (* Clear back buffer *)
         ops.clear () ;
 
