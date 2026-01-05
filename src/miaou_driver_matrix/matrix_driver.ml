@@ -228,18 +228,25 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           (* Page has its own modal - use page's modal key handler *)
           let state' = Page.handle_modal_key state key ~size in
           check_navigation (Packed ((module Page), state')) tick_start
-        else if key = "Esc" || key = "Escape" then
-          (* Special handling for Escape: let page handle it first,
-             if no navigation requested, go back *)
-          let state' = Page.handle_key state key ~size in
-          match Page.next_page state' with
-          | Some name -> `SwitchTo name
-          | None -> `SwitchTo "__BACK__"
         else
-          (* Try page keymap first (for keys like 'c', 'd', etc.) *)
+          (* Try page keymap first (for all keys including Esc) *)
           let keymap = Page.keymap state in
+          let keymap_match = List.find_opt (fun (k, _, _) -> k = key) keymap in
+          (* Debug: log keymap lookup *)
+          if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
+            let oc =
+              open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
+            in
+            Printf.fprintf
+              oc
+              "Keymap lookup for %S: %s\n%!"
+              key
+              (match keymap_match with
+              | Some (k, _, d) -> Printf.sprintf "found (%s: %s)" k d
+              | None -> "not found") ;
+            close_out oc) ;
           let state' =
-            match List.find_opt (fun (k, _, _) -> k = key) keymap with
+            match keymap_match with
             | Some (_, transformer, _) -> transformer state
             | None -> Page.handle_key state key ~size
           in
