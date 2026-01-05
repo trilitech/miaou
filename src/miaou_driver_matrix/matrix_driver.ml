@@ -246,26 +246,24 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           let state' = Page.handle_modal_key state key ~size in
           check_navigation (Packed ((module Page), state')) tick_start
         else
-          (* Try page keymap first (for all keys including Esc) *)
-          let keymap = Page.keymap state in
-          let keymap_match = List.find_opt (fun (k, _, _) -> k = key) keymap in
-          (* Debug: log keymap lookup *)
-          if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
-            let oc =
-              open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
-            in
-            Printf.fprintf
-              oc
-              "Keymap lookup for %S: %s\n%!"
-              key
-              (match keymap_match with
-              | Some (k, _, d) -> Printf.sprintf "found (%s: %s)" k d
-              | None -> "not found") ;
-            close_out oc) ;
+          (* Arrow keys always go through handle_key (like lambda-term) to ensure
+             page state updates like content_height happen. Other keys check keymap first. *)
+          let is_arrow_key =
+            key = "Up" || key = "Down" || key = "Left" || key = "Right"
+          in
           let state' =
-            match keymap_match with
-            | Some (_, transformer, _) -> transformer state
-            | None -> Page.handle_key state key ~size
+            if is_arrow_key then
+              (* Arrow keys: always use handle_key *)
+              Page.handle_key state key ~size
+            else
+              (* Other keys: try keymap first, fall back to handle_key *)
+              let keymap = Page.keymap state in
+              let keymap_match =
+                List.find_opt (fun (k, _, _) -> k = key) keymap
+              in
+              match keymap_match with
+              | Some (_, transformer, _) -> transformer state
+              | None -> Page.handle_key state key ~size
           in
           check_navigation (Packed ((module Page), state')) tick_start
     | Matrix_input.Mouse (row, col) ->
