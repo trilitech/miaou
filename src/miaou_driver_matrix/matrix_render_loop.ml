@@ -5,44 +5,27 @@
 (*                                                                           *)
 (*****************************************************************************)
 
+[@@@warning "-69"]
+
 type t = {
   config : Matrix_config.t;
   buffer : Matrix_buffer.t;
   writer : Matrix_ansi_writer.t;
   terminal : Matrix_terminal.t;
-  mutable frame_requested : bool;
+  shutdown_flag : bool Atomic.t;
+  mutable render_domain : unit Domain.t option;
   mutable last_frame_time : float;
   mutable frame_count : int;
   mutable fps_start_time : float;
-  mutable current_fps : float;
-  mutable is_shutdown : bool;
+  current_fps : float Atomic.t;
 }
-
-let create ~config ~buffer ~writer ~terminal =
-  let now = Unix.gettimeofday () in
-  {
-    config;
-    buffer;
-    writer;
-    terminal;
-    frame_requested = false;
-    last_frame_time = now;
-    frame_count = 0;
-    fps_start_time = now;
-    current_fps = 0.0;
-    is_shutdown = false;
-  }
-
-let request_frame t = t.frame_requested <- true
-
-let frame_pending t = t.frame_requested
 
 let do_render t =
   (* Reset terminal style and writer state to ensure consistency *)
   Matrix_terminal.write t.terminal "\027[0m" ;
   Matrix_ansi_writer.reset t.writer ;
 
-  (* Compute diff *)
+  (* Compute diff - buffer operations are thread-safe *)
   let changes = Matrix_diff.compute t.buffer in
 
   (* Generate ANSI output *)
@@ -51,8 +34,9 @@ let do_render t =
   (* Write to terminal *)
   if String.length ansi > 0 then Matrix_terminal.write t.terminal ansi ;
 
-  (* Swap buffers *)
+  (* Swap buffers and clear dirty flag *)
   Matrix_buffer.swap t.buffer ;
+  Matrix_buffer.clear_dirty t.buffer ;
 
   (* Update frame timing *)
   let now = Unix.gettimeofday () in
@@ -62,32 +46,72 @@ let do_render t =
   (* Update FPS calculation every second *)
   let elapsed = now -. t.fps_start_time in
   if elapsed >= 1.0 then begin
-    t.current_fps <- float_of_int t.frame_count /. elapsed ;
+    Atomic.set t.current_fps (float_of_int t.frame_count /. elapsed) ;
     t.frame_count <- 0 ;
     t.fps_start_time <- now
   end
 
+(* Render domain main loop *)
+let render_loop_fn t =
+  let frame_time_s = t.config.frame_time_ms /. 1000.0 in
+  while not (Atomic.get t.shutdown_flag) do
+    let frame_start = Unix.gettimeofday () in
+
+    (* Only render if buffer is dirty *)
+    if Matrix_buffer.is_dirty t.buffer then do_render t ;
+
+    (* Sleep to maintain frame rate *)
+    let elapsed = Unix.gettimeofday () -. frame_start in
+    let sleep_time = frame_time_s -. elapsed in
+    if sleep_time > 0.0 then Thread.delay sleep_time
+  done
+
+let create ~config ~buffer ~writer ~terminal =
+  let now = Unix.gettimeofday () in
+  {
+    config;
+    buffer;
+    writer;
+    terminal;
+    shutdown_flag = Atomic.make false;
+    render_domain = None;
+    last_frame_time = now;
+    frame_count = 0;
+    fps_start_time = now;
+    current_fps = Atomic.make 0.0;
+  }
+
+(* Start the render domain *)
+let start t =
+  if Option.is_none t.render_domain then begin
+    let domain = Domain.spawn (fun () -> render_loop_fn t) in
+    t.render_domain <- Some domain
+  end
+
+(* Legacy API for compatibility - now just marks dirty *)
+let request_frame _t = ()
+
+let frame_pending t = Matrix_buffer.is_dirty t.buffer
+
+(* Synchronous render - for use before domain starts or after shutdown *)
 let render_if_needed t =
-  if t.is_shutdown then false
-  else if not t.frame_requested then false
+  if Atomic.get t.shutdown_flag then false
+  else if not (Matrix_buffer.is_dirty t.buffer) then false
   else begin
-    (* Check FPS cap *)
-    let now = Unix.gettimeofday () in
-    let elapsed_ms = (now -. t.last_frame_time) *. 1000.0 in
-    if elapsed_ms < t.config.frame_time_ms then false
-    else begin
-      t.frame_requested <- false ;
-      do_render t ;
-      true
-    end
+    do_render t ;
+    true
   end
 
-let force_render t =
-  if not t.is_shutdown then begin
-    t.frame_requested <- false ;
-    do_render t
-  end
+let force_render t = if not (Atomic.get t.shutdown_flag) then do_render t
 
-let shutdown t = t.is_shutdown <- true
+let shutdown t =
+  Atomic.set t.shutdown_flag true ;
+  match t.render_domain with
+  | Some domain ->
+      Domain.join domain ;
+      t.render_domain <- None
+  | None -> ()
 
-let current_fps t = t.current_fps
+let current_fps t = Atomic.get t.current_fps
+
+let is_running t = Option.is_some t.render_domain
