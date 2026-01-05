@@ -222,14 +222,23 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         (* Check if modal is active - if so, send keys to modal instead of page *)
         if Modal_manager.has_active () then begin
           Modal_manager.handle_key key ;
+          (* If modal was closed by Esc, drain any pending Esc keys to prevent
+             double-navigation (modal close + page back) *)
+          if
+            (key = "Esc" || key = "Escape") && not (Modal_manager.has_active ())
+          then ignore (Matrix_input.drain_esc_keys input) ;
           (* After modal handles key, check if navigation requested *)
           let state' = Page.service_cycle state 0 in
           check_navigation (Packed ((module Page), state')) tick_start
         end
-        else if Page.has_modal state then
+        else if Page.has_modal state then begin
           (* Page has its own modal - use page's modal key handler *)
           let state' = Page.handle_modal_key state key ~size in
+          (* If modal was closed by Esc, drain any pending Esc keys *)
+          if (key = "Esc" || key = "Escape") && not (Page.has_modal state') then
+            ignore (Matrix_input.drain_esc_keys input) ;
           check_navigation (Packed ((module Page), state')) tick_start
+        end
         else
           (* Handle keys like lambda-term:
              - Enter: special handling via Page.enter

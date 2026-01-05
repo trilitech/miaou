@@ -35,3 +35,8 @@ val poll : t -> timeout_ms:int -> event
     Call after receiving Up/Down/Left/Right/Tab to prevent scroll lag.
     Returns count of drained events. *)
 val drain_nav_keys : t -> event -> int
+
+(** Drain any pending Esc keys from buffer.
+    Call after modal close to prevent double-Esc navigation.
+    Returns count of drained events. *)
+val drain_esc_keys : t -> int

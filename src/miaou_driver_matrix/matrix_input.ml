@@ -250,3 +250,19 @@ let drain_nav_keys t event =
     in
     drain () ;
     !count
+
+(* Drain any pending Esc keys from buffer.
+   Call after modal close to prevent double-Esc navigation. *)
+let drain_esc_keys t =
+  let count = ref 0 in
+  let rec drain () =
+    ignore (refill t 0.0) ;
+    (* Non-blocking *)
+    match parse_key t with
+    | Some (Key "Esc") | Some (Key "Escape") ->
+        incr count ;
+        drain ()
+    | _ -> ()
+  in
+  drain () ;
+  !count
