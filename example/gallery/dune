@@ -49,3 +49,10 @@
  (package miaou)
  (modules main_sdl)
  (libraries gallery miaou-driver-sdl.runner miaou-core.helpers eio_main))
+
+(executable
+ (name main_matrix)
+ (public_name miaou.demo-matrix)
+ (package miaou)
+ (modules main_matrix)
+ (libraries gallery miaou-runner.tui miaou-core.helpers eio_main))
