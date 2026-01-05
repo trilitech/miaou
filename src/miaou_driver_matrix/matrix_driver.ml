@@ -246,14 +246,23 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           let state' = Page.handle_modal_key state key ~size in
           check_navigation (Packed ((module Page), state')) tick_start
         else
-          (* Arrow keys always go through handle_key (like lambda-term) to ensure
-             page state updates like content_height happen. Other keys check keymap first. *)
-          let is_arrow_key =
-            key = "Up" || key = "Down" || key = "Left" || key = "Right"
-          in
+          (* Handle keys like lambda-term:
+             - Enter: special handling via Page.enter
+             - Esc: special handling, then handle_key
+             - Navigation keys (arrows, Tab): always handle_key
+             - Other keys: keymap first, then handle_key *)
           let state' =
-            if is_arrow_key then
-              (* Arrow keys: always use handle_key *)
+            if key = "Enter" then
+              (* Enter: call Page.enter like lambda-term does *)
+              Page.enter state
+            else if key = "Esc" || key = "Escape" then
+              (* Esc: use handle_key for page-specific behavior *)
+              Page.handle_key state key ~size
+            else if
+              key = "Up" || key = "Down" || key = "Left" || key = "Right"
+              || key = "Tab" || key = "Shift-Tab"
+            then
+              (* Navigation keys: always use handle_key *)
               Page.handle_key state key ~size
             else
               (* Other keys: try keymap first, fall back to handle_key *)
