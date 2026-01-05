@@ -269,3 +269,8 @@
  (name test_terminal_raw)
  (modules test_terminal_raw)
  (libraries alcotest miaou-core.driver-common unix))
+
+(test
+ (name test_input_parser)
+ (modules test_input_parser)
+ (libraries alcotest miaou-core.driver-common unix))
