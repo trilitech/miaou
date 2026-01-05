@@ -86,6 +86,15 @@ let apply_extended_sgr ~(default : ansi_state) state codes =
       List.fold_left (apply_sgr_code ~default) {state with bg} tl
   | lst -> List.fold_left (apply_sgr_code ~default) state lst
 
+(* Get the byte length of a UTF-8 character from its first byte *)
+let utf8_char_len byte =
+  let b = Char.code byte in
+  if b land 0x80 = 0 then 1 (* 0xxxxxxx - ASCII *)
+  else if b land 0xE0 = 0xC0 then 2 (* 110xxxxx *)
+  else if b land 0xF0 = 0xE0 then 3 (* 1110xxxx *)
+  else if b land 0xF8 = 0xF0 then 4 (* 11110xxx *)
+  else 1 (* Invalid UTF-8, treat as single byte *)
+
 let parse_ansi_segments ~(default : ansi_state) (s : string) =
   let len = String.length s in
   let buf = Buffer.create 64 in
@@ -122,8 +131,16 @@ let parse_ansi_segments ~(default : ansi_state) (s : string) =
             loop (!j + 1) acc' state'
       | '\r' -> loop (i + 1) acc state
       | c ->
-          Buffer.add_char buf c ;
-          loop (i + 1) acc state
+          (* Handle UTF-8 multi-byte characters properly *)
+          let char_len = utf8_char_len c in
+          if i + char_len <= len then begin
+            Buffer.add_substring buf s i char_len ;
+            loop (i + char_len) acc state
+          end
+          else begin
+            (* Incomplete UTF-8 at end, skip *)
+            loop (i + 1) acc state
+          end
   in
   loop 0 [] {fg = default.fg; bg = default.bg}
 

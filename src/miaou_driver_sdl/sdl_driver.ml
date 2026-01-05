@@ -540,7 +540,7 @@ let poll_event ~timeout_ms ~on_resize =
         let elapsed_ms = Int32.(to_int (sub (Sdl.get_ticks ()) start)) in
         if elapsed_ms > timeout_ms then Refresh
         else (
-          Sdl.delay 12l ;
+          Sdl.delay 1l ;
           loop ())
   in
   loop ()
@@ -686,10 +686,10 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
           [`Quit | `SwitchTo of string] =
        fun (module P : PAGE_SIG with type state = s) (st : s) ->
         render_and_draw (module P) st ;
-        match poll_event ~timeout_ms:120 ~on_resize:update_size with
+        match poll_event ~timeout_ms:16 ~on_resize:update_size with
         | Quit -> `Quit
         | Refresh ->
-            let st' = P.refresh st in
+            let st' = P.service_cycle (P.refresh st) 0 in
             Page_transition.handle_next_page
               (module P)
               st'
@@ -787,7 +787,6 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                   k = "Up" || k = "Down" || k = "Left" || k = "Right"
                   || k = "Tab" || k = "Shift-Tab"
                 then P.handle_key st k ~size
-                else if k = "q" || k = "Q" then st
                 else
                   (* Try keymap first, fall back to handle_key *)
                   let keymap = P.keymap st in
@@ -798,45 +797,45 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                   | Some (_, transformer, _) -> transformer st
                   | None -> P.handle_key st k ~size
               in
+              (* Run service_cycle after handling key, like other drivers *)
+              let st' = P.service_cycle st' 0 in
               render_and_draw (module P) st' ;
-              if k = "q" || k = "Q" then `Quit
-              else
-                Page_transition.handle_next_page
-                  (module P)
-                  st'
-                  {
-                    on_quit = (fun () -> `Quit);
-                    on_same_page = (fun () -> loop (module P) st');
-                    on_new_page =
-                      (fun (type a)
-                           (module Next : PAGE_SIG with type state = a)
-                           (st_to : a)
-                         ->
-                        let size = !size_ref in
-                        (* Disable SDL chart rendering during transition text capture *)
-                        Miaou_widgets_display.Sdl_chart_context.set_context_obj
-                          ~renderer
-                          ~font
-                          ~char_w
-                          ~char_h
-                          ~y_offset:0
-                          ~cols:size.cols
-                          ~enabled:false
-                          () ;
-                        let from_text = render_page (module P) st' size in
-                        let to_text = render_page (module Next) st_to size in
-                        Miaou_widgets_display.Sdl_chart_context.clear_context () ;
-                        perform_transition
-                          renderer
-                          font
-                          cfg
-                          char_w
-                          char_h
-                          ~from_lines:(String.split_on_char '\n' from_text)
-                          ~to_lines:(String.split_on_char '\n' to_text)
-                          ~size ;
-                        loop (module Next) st_to);
-                  }
+              Page_transition.handle_next_page
+                (module P)
+                st'
+                {
+                  on_quit = (fun () -> `Quit);
+                  on_same_page = (fun () -> loop (module P) st');
+                  on_new_page =
+                    (fun (type a)
+                         (module Next : PAGE_SIG with type state = a)
+                         (st_to : a)
+                       ->
+                      let size = !size_ref in
+                      (* Disable SDL chart rendering during transition text capture *)
+                      Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                        ~renderer
+                        ~font
+                        ~char_w
+                        ~char_h
+                        ~y_offset:0
+                        ~cols:size.cols
+                        ~enabled:false
+                        () ;
+                      let from_text = render_page (module P) st' size in
+                      let to_text = render_page (module Next) st_to size in
+                      Miaou_widgets_display.Sdl_chart_context.clear_context () ;
+                      perform_transition
+                        renderer
+                        font
+                        cfg
+                        char_w
+                        char_h
+                        ~from_lines:(String.split_on_char '\n' from_text)
+                        ~to_lines:(String.split_on_char '\n' to_text)
+                        ~size ;
+                      loop (module Next) st_to);
+                }
       in
       Fun.protect
         ~finally:(fun () ->
