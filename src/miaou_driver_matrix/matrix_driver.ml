@@ -126,20 +126,12 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     (* Render page view to ANSI string *)
     let view_output = Page.view state ~focus:true ~size in
 
-    (* Check for modal state change - force full redraw on open/close *)
+    (* Check for modal state change - force full redraw on open/close.
+       We clear the terminal here to avoid artifacts; this causes brief flicker
+       but is necessary until we have smarter modal diff rendering. *)
     let modal_active = Modal_manager.has_active () in
     let modal_just_changed = modal_active <> !last_modal_active in
     if modal_just_changed then begin
-      (* Debug: dump view_output to file when modal state changes *)
-      if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
-        let filename =
-          if modal_active then "/tmp/miaou-modal-open-base.ansi"
-          else "/tmp/miaou-modal-close.ansi"
-        in
-        let oc = open_out filename in
-        output_string oc view_output ;
-        close_out oc) ;
-      (* Clear terminal and invalidate buffer for clean redraw on modal transitions *)
       Matrix_terminal.write terminal "\027[2J\027[H" ;
       Matrix_buffer.mark_all_dirty buffer ;
       last_modal_active := modal_active
