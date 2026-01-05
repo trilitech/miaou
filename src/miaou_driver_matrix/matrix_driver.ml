@@ -11,6 +11,45 @@ open Miaou_core
 
 let available = true
 
+(* Debug overlay - shows FPS/TPS when MIAOU_OVERLAY is set *)
+let overlay_enabled =
+  lazy
+    (match Sys.getenv_opt "MIAOU_OVERLAY" with
+    | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
+    | _ -> false)
+
+type tps_tracker = {
+  mutable tick_count : int;
+  mutable last_time : float;
+  mutable current_tps : float;
+}
+
+let create_tps_tracker () =
+  {tick_count = 0; last_time = Unix.gettimeofday (); current_tps = 0.0}
+
+let update_tps tracker =
+  tracker.tick_count <- tracker.tick_count + 1 ;
+  let now = Unix.gettimeofday () in
+  let elapsed = now -. tracker.last_time in
+  if elapsed >= 1.0 then begin
+    tracker.current_tps <- float_of_int tracker.tick_count /. elapsed ;
+    tracker.tick_count <- 0 ;
+    tracker.last_time <- now
+  end
+
+let render_overlay_text ~fps ~tps ~cols (ops : Matrix_buffer.batch_ops) =
+  (* Render "FPS:XX TPS:XX" in top-right corner with dim style *)
+  let text = Printf.sprintf "FPS:%.0f TPS:%.0f" fps tps in
+  let len = String.length text in
+  let start_col = cols - len - 1 in
+  if start_col > 0 then begin
+    let style = {Matrix_cell.default_style with dim = true; fg = 245} in
+    String.iteri
+      (fun i c ->
+        ops.set_char ~row:0 ~col:(start_col + i) ~char:(String.make 1 c) ~style)
+      text
+  end
+
 (* Pack page and state together to avoid GADT escaping issues *)
 type packed_state =
   | Packed :
@@ -58,6 +97,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
   (* Start render domain - runs at 60 FPS in parallel *)
   Matrix_render_loop.start render_loop ;
 
+  (* TPS tracker for debug overlay *)
+  let tps_tracker = create_tps_tracker () in
+
   (* Main loop - runs in main domain, handles input and effects *)
   let rec loop packed =
     let tick_start = Unix.gettimeofday () in
@@ -92,6 +134,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       else view_output
     in
 
+    (* Update TPS tracker *)
+    update_tps tps_tracker ;
+
     (* Update back buffer with new view - thread-safe batch operation *)
     Matrix_buffer.with_back_buffer buffer (fun ops ->
         (* Clear back buffer *)
@@ -107,7 +152,14 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             ~col:0
             view_output
         in
-        ()) ;
+
+        (* Render debug overlay if enabled *)
+        if Lazy.force overlay_enabled then
+          render_overlay_text
+            ~fps:(Matrix_render_loop.current_fps render_loop)
+            ~tps:tps_tracker.current_tps
+            ~cols
+            ops) ;
 
     (* Poll for input with short timeout to maintain TPS *)
     let timeout_ms = int_of_float (config.tick_time_ms *. 0.8) in
