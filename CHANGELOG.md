@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-01-05)
+
+#### High-Performance Matrix Terminal Driver
+
+- **`miaou-driver-matrix`** package with Ratatui-style diff rendering
+- **Two-domain architecture** using OCaml 5 Domains for true parallelism:
+  - Render Domain: 60 FPS, handles diff computation and terminal output
+  - Main Domain: 30 TPS, handles input and state updates
+- **Cell-based double buffering** with O(1) pointer swap
+- **Diff-based rendering**: only changed cells are written to terminal (no flicker)
+- **Thread-safe buffer** with mutex synchronization and atomic dirty flag
+- Pure ANSI output (no lambda-term dependency)
+- Matrix is now the **default driver** (priority: Matrix > SDL > Lambda-term)
+- Configuration via environment variables:
+  - `MIAOU_DRIVER=matrix` (default) or `term` or `sdl`
+  - `MIAOU_MATRIX_FPS=60` - Render domain frame rate cap
+  - `MIAOU_MATRIX_TPS=30` - Main domain tick rate
+
+#### Debug Overlay for Performance Monitoring
+
+- **`MIAOU_OVERLAY=1`** environment variable enables real-time performance metrics
+- Displays in top-right corner with dim styling:
+  - **L** (Loop FPS): Render loop iteration rate (the cap)
+  - **R** (Render FPS): Actual frames rendered per second
+  - **T** (TPS): Ticks per second (main loop rate)
+- Available in both Matrix and Lambda-term drivers
+- Useful for diagnosing performance issues and verifying frame rates
+
 ### Added (2025-12-19)
 
 #### Debounced Validation for Validated Textbox Widget
