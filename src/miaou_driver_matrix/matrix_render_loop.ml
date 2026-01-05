@@ -16,8 +16,10 @@ type t = {
   mutable render_domain : unit Domain.t option;
   mutable last_frame_time : float;
   mutable frame_count : int;
+  mutable loop_count : int;
   mutable fps_start_time : float;
-  current_fps : float Atomic.t;
+  current_fps : float Atomic.t; (* Actual renders per second *)
+  loop_fps : float Atomic.t; (* Loop iterations per second (cap) *)
 }
 
 let do_render t =
@@ -39,17 +41,8 @@ let do_render t =
   if String.length ansi > 0 then Matrix_terminal.write t.terminal ansi ;
 
   (* Update frame timing *)
-  let now = Unix.gettimeofday () in
-  t.last_frame_time <- now ;
-  t.frame_count <- t.frame_count + 1 ;
-
-  (* Update FPS calculation every second *)
-  let elapsed = now -. t.fps_start_time in
-  if elapsed >= 1.0 then begin
-    Atomic.set t.current_fps (float_of_int t.frame_count /. elapsed) ;
-    t.frame_count <- 0 ;
-    t.fps_start_time <- now
-  end
+  t.last_frame_time <- Unix.gettimeofday () ;
+  t.frame_count <- t.frame_count + 1
 
 (* Render domain main loop *)
 let render_loop_fn t =
@@ -57,8 +50,24 @@ let render_loop_fn t =
   while not (Atomic.get t.shutdown_flag) do
     let frame_start = Unix.gettimeofday () in
 
+    (* Count loop iteration *)
+    t.loop_count <- t.loop_count + 1 ;
+
     (* Only render if buffer is dirty *)
     if Matrix_buffer.is_dirty t.buffer then do_render t ;
+
+    (* Update loop FPS calculation every second *)
+    let now = Unix.gettimeofday () in
+    let elapsed_since_start = now -. t.fps_start_time in
+    if elapsed_since_start >= 1.0 then begin
+      Atomic.set t.loop_fps (float_of_int t.loop_count /. elapsed_since_start) ;
+      Atomic.set
+        t.current_fps
+        (float_of_int t.frame_count /. elapsed_since_start) ;
+      t.loop_count <- 0 ;
+      t.frame_count <- 0 ;
+      t.fps_start_time <- now
+    end ;
 
     (* Sleep to maintain frame rate *)
     let elapsed = Unix.gettimeofday () -. frame_start in
@@ -77,8 +86,10 @@ let create ~config ~buffer ~writer ~terminal =
     render_domain = None;
     last_frame_time = now;
     frame_count = 0;
+    loop_count = 0;
     fps_start_time = now;
     current_fps = Atomic.make 0.0;
+    loop_fps = Atomic.make 0.0;
   }
 
 (* Start the render domain *)
@@ -113,5 +124,7 @@ let shutdown t =
   | None -> ()
 
 let current_fps t = Atomic.get t.current_fps
+
+let loop_fps t = Atomic.get t.loop_fps
 
 let is_running t = Option.is_some t.render_domain

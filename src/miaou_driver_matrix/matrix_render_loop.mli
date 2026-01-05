@@ -51,8 +51,11 @@ val force_render : t -> unit
 (** Shutdown the render loop and join the domain. *)
 val shutdown : t -> unit
 
-(** Get current achieved FPS (for diagnostics). Thread-safe. *)
+(** Get current achieved FPS - actual renders per second (for diagnostics). Thread-safe. *)
 val current_fps : t -> float
+
+(** Get loop FPS - how fast the render loop is checking (the cap). Thread-safe. *)
+val loop_fps : t -> float
 
 (** Check if buffer needs render. *)
 val frame_pending : t -> bool

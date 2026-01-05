@@ -37,9 +37,11 @@ let update_tps tracker =
     tracker.last_time <- now
   end
 
-let render_overlay_text ~fps ~tps ~cols (ops : Matrix_buffer.batch_ops) =
-  (* Render "FPS:XX TPS:XX" in top-right corner with dim style *)
-  let text = Printf.sprintf "FPS:%.0f TPS:%.0f" fps tps in
+let render_overlay_text ~loop_fps ~render_fps ~tps ~cols
+    (ops : Matrix_buffer.batch_ops) =
+  (* Render "L:XX R:XX T:XX" in top-right corner with dim style
+     L = Loop FPS (cap), R = Render FPS (actual), T = TPS *)
+  let text = Printf.sprintf "L:%.0f R:%.0f T:%.0f" loop_fps render_fps tps in
   let len = String.length text in
   let start_col = cols - len - 1 in
   if start_col > 0 then begin
@@ -156,7 +158,8 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         (* Render debug overlay if enabled *)
         if Lazy.force overlay_enabled then
           render_overlay_text
-            ~fps:(Matrix_render_loop.current_fps render_loop)
+            ~loop_fps:(Matrix_render_loop.loop_fps render_loop)
+            ~render_fps:(Matrix_render_loop.current_fps render_loop)
             ~tps:tps_tracker.current_tps
             ~cols
             ops) ;
