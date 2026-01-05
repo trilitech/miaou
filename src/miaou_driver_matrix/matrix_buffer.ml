@@ -45,17 +45,11 @@ let resize t ~rows ~cols =
   with_lock t (fun () ->
       let rows = max 1 rows in
       let cols = max 1 cols in
+      (* On resize, create fresh empty buffers - don't copy old content.
+         The UI layout changes completely on resize, so we need a full redraw.
+         Leaving front buffer empty ensures diff will redraw everything. *)
       let new_front = make_grid ~rows ~cols in
       let new_back = make_grid ~rows ~cols in
-      (* Copy existing content where it fits *)
-      let copy_rows = min t.rows rows in
-      let copy_cols = min t.cols cols in
-      for r = 0 to copy_rows - 1 do
-        for c = 0 to copy_cols - 1 do
-          new_front.(r).(c) <- Matrix_cell.copy t.front.(r).(c) ;
-          new_back.(r).(c) <- Matrix_cell.copy t.back.(r).(c)
-        done
-      done ;
       t.rows <- rows ;
       t.cols <- cols ;
       t.front <- new_front ;

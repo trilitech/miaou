@@ -172,6 +172,8 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         `Quit
     | Matrix_input.Resize ->
         Matrix_terminal.invalidate_size_cache terminal ;
+        (* Clear terminal on resize to avoid artifacts from old layout *)
+        Matrix_terminal.write terminal "\027[2J\027[H" ;
         Matrix_buffer.mark_all_dirty buffer ;
         loop packed
     | Matrix_input.Refresh ->
