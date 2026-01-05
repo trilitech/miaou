@@ -24,18 +24,28 @@ Features at a glance
 --------------------
 - State-view-handlers page lifecycle with modal support and capability injection
 - Ready-to-use widgets: tables, file browsers, pagers, modal forms, panes, text boxes, palette helpers, charts (sparkline, line, bar), image viewer, QR code generator, etc.
-- Lambda-Term driver plus an experimental SDL2 driver with enhanced graphics rendering
+- Three rendering backends: Matrix (default, high-performance), Lambda-Term (stable), SDL2 (experimental graphics)
 - Headless driver for tests/CI
+- Debug overlay for performance monitoring (`MIAOU_OVERLAY=1`)
 - Example demo with system monitoring, chart visualization, and image display capabilities
 
 Backends
 --------
 
-MIAOU supports two rendering backends:
+MIAOU supports three rendering backends:
 
-1. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Excellent compatibility across terminals. Chart widgets now support **Unicode Braille mode** for higher resolution rendering (2×4 dots per cell vs 1 character per cell).
+1. **Matrix (Default)**: High-performance terminal driver with cell-based double buffering and diff-based rendering. Uses OCaml 5 Domains for true parallelism: render domain runs at 60 FPS while main domain handles input at 30 TPS. Only changed cells are written to terminal, eliminating flicker. Pure ANSI output with no lambda-term dependency.
 
-2. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, smooth curves, pixel-perfect rendering, and full RGB color support. Provides superior visual quality for charts, sparklines, images, and QR codes.
+2. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Excellent compatibility across terminals. Chart widgets now support **Unicode Braille mode** for higher resolution rendering (2×4 dots per cell vs 1 character per cell).
+
+3. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, smooth curves, pixel-perfect rendering, and full RGB color support. Provides superior visual quality for charts, sparklines, images, and QR codes.
+
+**Backend selection** (priority: Matrix > SDL > Lambda-Term):
+```sh
+MIAOU_DRIVER=matrix  # Default - high-performance diff rendering
+MIAOU_DRIVER=term    # Lambda-Term fallback
+MIAOU_DRIVER=sdl     # SDL2 graphics (requires tsdl packages)
+```
 
 The SDL2 backend (`miaou-driver-sdl` package) requires Tsdl + Tsdl_ttf + Tsdl_image. Run with `MIAOU_DRIVER=sdl dune exec -- miaou.demo-sdl`. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if auto-detection fails.
 
@@ -82,7 +92,8 @@ MIAOU is split into multiple opam packages to allow flexible installation:
 | `miaou-tui` | Terminal-only (recommended for most users) | No |
 | `miaou` | Full install with SDL support | Yes |
 | `miaou-core` | Core library and widgets | No |
-| `miaou-driver-term` | Terminal driver | No |
+| `miaou-driver-matrix` | High-performance Matrix driver (default) | No |
+| `miaou-driver-term` | Lambda-Term driver | No |
 | `miaou-driver-sdl` | SDL2 driver | Yes |
 | `miaou-runner` | Runner with backend selection | No (SDL optional) |
 
@@ -106,6 +117,7 @@ The libraries use package-prefixed public names:
 - `miaou-core.widgets.layout` → `Miaou_widgets_layout`
 - `miaou-core.widgets.input` → `Miaou_widgets_input`
 - `miaou-core.internals` → `Miaou_internals`
+- `miaou-driver-matrix.driver` → `Miaou_driver_matrix`
 - `miaou-driver-term.driver` → `Miaou_driver_term`
 - `miaou-driver-sdl.driver` → `Miaou_driver_sdl`
 
@@ -541,12 +553,21 @@ Debugging & environment variables
 
 **General:**
 - `MIAOU_DEBUG=1` — enable debug logging output (driver events, SDL context, widget rendering)
+- `MIAOU_OVERLAY=1` — show real-time FPS/TPS metrics in top-right corner (all drivers)
 - `MIAOU_TUI_DEBUG_MODAL=1` — verbose modal-manager logging (also honored by `Miaou_internals.Modal_renderer`)
 - `MIAOU_TUI_UNICODE_BORDERS=false` — force ASCII borders if your terminal font lacks box-drawing glyphs
 - `MIAOU_TUI_ROWS` / `MIAOU_TUI_COLS` — override terminal geometry for the Lambda-Term driver during development
 
+**Backend Selection:**
+- `MIAOU_DRIVER=matrix` — use the Matrix driver (default, high-performance diff rendering)
+- `MIAOU_DRIVER=term` — use the Lambda-Term driver
+- `MIAOU_DRIVER=sdl` — use the SDL2 backend (requires `tsdl` + `tsdl-ttf` + `tsdl-image`)
+
+**Matrix Backend:**
+- `MIAOU_MATRIX_FPS=60` — render domain frame rate cap (default: 60)
+- `MIAOU_MATRIX_TPS=30` — main domain tick rate (default: 30)
+
 **SDL Backend:**
-- `MIAOU_DRIVER=sdl` — switch to the experimental SDL2 backend (requires `tsdl` + `tsdl-ttf` + `tsdl-image`)
 - `MIAOU_SDL_FONT=/path/to/font.ttf` — specify TrueType font for SDL rendering
 - `MIAOU_SDL_FONT_SIZE=14` — font size in pixels (default: 14)
 - `MIAOU_SDL_WINDOW_TITLE="My App"` — custom window title
