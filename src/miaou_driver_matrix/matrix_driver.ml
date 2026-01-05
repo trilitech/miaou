@@ -123,6 +123,13 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           let state' = Page.service_cycle state 0 in
           check_navigation (Packed ((module Page), state'))
         end
+        else if key = "Esc" || key = "Escape" then
+          (* Special handling for Escape: let page handle it first,
+             if no navigation requested, go back *)
+          let state' = Page.handle_key state key ~size in
+          match Page.next_page state' with
+          | Some name -> `SwitchTo name
+          | None -> `SwitchTo "__BACK__"
         else
           let state' = Page.handle_key state key ~size in
           check_navigation (Packed ((module Page), state'))
