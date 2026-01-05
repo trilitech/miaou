@@ -38,6 +38,10 @@ let request_frame t = t.frame_requested <- true
 let frame_pending t = t.frame_requested
 
 let do_render t =
+  (* Reset terminal style and writer state to ensure consistency *)
+  Matrix_terminal.write t.terminal "\027[0m" ;
+  Matrix_ansi_writer.reset t.writer ;
+
   (* Compute diff *)
   let changes = Matrix_diff.compute t.buffer in
 
