@@ -39,9 +39,11 @@ let update_tps tracker =
 
 let render_overlay_text ~loop_fps ~render_fps ~tps ~cols
     (ops : Matrix_buffer.batch_ops) =
-  (* Render "L:XX R:XX T:XX" in top-right corner with dim style
+  (* Render "matrix L:XX R:XX T:XX" in top-right corner with dim style
      L = Loop FPS (cap), R = Render FPS (actual), T = TPS *)
-  let text = Printf.sprintf "L:%.0f R:%.0f T:%.0f" loop_fps render_fps tps in
+  let text =
+    Printf.sprintf "matrix L:%.0f R:%.0f T:%.0f" loop_fps render_fps tps
+  in
   let len = String.length text in
   let start_col = cols - len - 1 in
   if start_col > 0 then begin
