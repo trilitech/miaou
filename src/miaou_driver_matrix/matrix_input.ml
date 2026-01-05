@@ -5,14 +5,24 @@
 (*                                                                            *)
 (******************************************************************************)
 
-type event = Key of string | Mouse of int * int | Resize | Refresh | Quit
+type event =
+  | Key of string
+  | Mouse of int * int
+  | Resize
+  | Refresh (* Time for service_cycle - rate limited *)
+  | Idle (* No input, not time for refresh - just keep rendering *)
+  | Quit
 
 type t = {
   terminal : Matrix_terminal.t;
   fd : Unix.file_descr;
   pending : Buffer.t; (* Using Buffer for efficient append *)
   exit_flag : bool Atomic.t;
+  mutable last_refresh_time : float; (* Rate limit refresh events *)
 }
+
+(* Refresh interval in seconds - controls how often service_cycle is called *)
+let refresh_interval = 1.0
 
 let create terminal =
   let fd = Matrix_terminal.fd terminal in
@@ -20,7 +30,13 @@ let create terminal =
     Matrix_terminal.install_signals terminal (fun () ->
         Matrix_terminal.cleanup terminal)
   in
-  {terminal; fd; pending = Buffer.create 256; exit_flag}
+  {
+    terminal;
+    fd;
+    pending = Buffer.create 256;
+    exit_flag;
+    last_refresh_time = 0.0;
+  }
 
 (* Get current pending content as string *)
 let pending_contents t = Buffer.contents t.pending
@@ -201,10 +217,17 @@ let poll t ~timeout_ms =
       ignore (refill t timeout_s)
     end ;
     if pending_length t = 0 then begin
-      (* Inject refresh marker *)
-      Buffer.add_char t.pending '\000'
+      (* Rate-limit refresh events to avoid calling service_cycle too often.
+         Pages like Diagnostics do expensive I/O in service_cycle. *)
+      let now = Unix.gettimeofday () in
+      if now -. t.last_refresh_time >= refresh_interval then begin
+        t.last_refresh_time <- now ;
+        Buffer.add_char t.pending '\000' (* Inject refresh marker *)
+      end
     end ;
-    match parse_key t with Some event -> event | None -> Refresh
+    match parse_key t with
+    | Some event -> event
+    | None -> Idle (* No input, not time for refresh *)
   end
 
 (* Drain consecutive navigation keys to prevent scroll lag *)

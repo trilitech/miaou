@@ -212,6 +212,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     | Matrix_input.Refresh ->
         let state' = Page.service_cycle state 0 in
         check_navigation (Packed ((module Page), state')) tick_start
+    | Matrix_input.Idle ->
+        (* No input and not time for refresh - just continue loop *)
+        loop packed
     | Matrix_input.Key key ->
         (* Debug: log received key if MIAOU_DEBUG is set *)
         if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (

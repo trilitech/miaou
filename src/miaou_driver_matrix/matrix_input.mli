@@ -16,7 +16,8 @@ type event =
   | Key of string  (** Named key or character *)
   | Mouse of int * int  (** Click at (row, col), 1-indexed *)
   | Resize  (** Terminal was resized *)
-  | Refresh  (** Idle refresh tick *)
+  | Refresh  (** Time for service_cycle - rate limited to ~1/sec *)
+  | Idle  (** No input, not time for refresh - just keep rendering *)
   | Quit  (** Exit signal received *)
 
 (** Input reader state. *)
