@@ -213,7 +213,10 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         let state' = Page.service_cycle state 0 in
         check_navigation (Packed ((module Page), state')) tick_start
     | Matrix_input.Idle ->
-        (* No input and not time for refresh - just continue loop *)
+        (* No input and not time for refresh - maintain TPS and continue *)
+        let elapsed = Unix.gettimeofday () -. tick_start in
+        let sleep_time = tick_time_s -. elapsed in
+        if sleep_time > 0.001 then Thread.delay sleep_time ;
         loop packed
     | Matrix_input.Key key ->
         (* Debug: log received key if MIAOU_DEBUG is set *)
