@@ -37,6 +37,7 @@ type t = {
   mutable lines : string list; (* made mutable to support incremental appends *)
   mutable offset : int;
   mutable follow : bool;
+  mutable wrap : bool; (* whether to wrap long lines or truncate with ... *)
   mutable streaming : bool;
       (* whether this pager is currently showing a streaming request *)
   mutable spinner_pos : int; (* spinner animation position updated on render *)
@@ -52,9 +53,10 @@ type t = {
       (* minimum interval between flushes in milliseconds *)
   mutable last_win : int;
       (* last render window height to keep follow anchored *)
+  mutable last_cols : int; (* last render window width for wrap calculations *)
   mutable search : string option;
   mutable is_regex : bool;
-  mutable input_mode : [`None | `Search_edit | `Lookup];
+  mutable input_mode : [`None | `Search_edit | `Lookup | `Help];
   mutable input_buffer : string;
   mutable input_pos : int;
   mutable notify_render : (unit -> unit) option;
@@ -78,6 +80,27 @@ let clamp lo hi x = max lo (min hi x)
 (* Calculate maximum offset given total lines and window size *)
 let max_offset_for ~total ~win = max 0 (total - win)
 
+(* Truncate a line to fit within width, adding "..." if truncated.
+   Handles ANSI escape codes by not counting them toward visible width. *)
+let truncate_line ~width line =
+  let visible_len = Widgets.visible_chars_count line in
+  if visible_len <= width then line
+  else
+    (* Find byte index for (width - 3) visible chars, then add "..." *)
+    let target_width = max 0 (width - 3) in
+    let byte_idx = Widgets.visible_byte_index_of_pos line target_width in
+    String.sub line 0 byte_idx ^ "\027[0m..."
+
+(* Count how many display lines a source line will take when wrapped *)
+let wrapped_line_count ~width line =
+  if width <= 0 then 1
+  else
+    let visible_len = Widgets.visible_chars_count line in
+    if visible_len <= width then 1
+    else
+      (* Ceiling division *)
+      (visible_len + width - 1) / width
+
 let build_body_buffer ~wrap ~cols lines =
   let buf =
     let est =
@@ -94,8 +117,8 @@ let build_body_buffer ~wrap ~cols lines =
         (String.length line) ;
     Buffer.add_string buf line
   in
+  let width = max 10 (cols - 2) in
   if wrap then
-    let width = max 10 (cols - 2) in
     List.iter
       (fun line ->
         if String.contains line '\027' then
@@ -107,8 +130,101 @@ let build_body_buffer ~wrap ~cols lines =
             (List.length wrapped) ;
         List.iter add_line wrapped)
       lines
-  else List.iter add_line lines ;
+  else
+    (* Truncate mode: one source line = one display line *)
+    List.iter (fun line -> add_line (truncate_line ~width line)) lines ;
   Buffer.contents buf
+
+(* Generate help modal content *)
+let help_content ~streaming ~wrap ~follow =
+  let open Widgets in
+  let hint k v = dim (fg 242 k) ^ ": " ^ v in
+  let lines =
+    [
+      bold (fg 75 "  Pager Keyboard Shortcuts  ");
+      "";
+      hint "↑/↓" "Scroll one line up/down";
+      hint "PgUp/PgDn" "Scroll one page up/down";
+      hint "g/G" "Jump to top/bottom";
+      hint "/" "Search (Enter to confirm, Esc to cancel)";
+      hint "n/p" "Next/previous search match";
+      hint
+        "w"
+        (if wrap then "Disable line wrapping" else "Enable line wrapping");
+    ]
+  in
+  let lines =
+    if streaming then
+      lines
+      @ [
+          hint
+            "f"
+            (if follow then "Stop following new lines" else "Follow new lines");
+        ]
+    else lines
+  in
+  lines @ [""; dim (fg 242 "Press Esc or ? to close")]
+
+(* Render a simple modal box *)
+let render_modal ~width lines =
+  let open Widgets in
+  (* For UTF-8 box chars, use the actual string *)
+  let hline =
+    if Lazy.force use_ascii_borders then String.make width '-'
+    else
+      let buf = Buffer.create (width * 3) in
+      for _ = 1 to width do
+        Buffer.add_string buf "─"
+      done ;
+      Buffer.contents buf
+  in
+  let top = color_border ("┌" ^ hline ^ "┐") in
+  let bot = color_border ("└" ^ hline ^ "┘") in
+  let pad_line line =
+    let visible = Widgets.visible_chars_count line in
+    let padding = max 0 (width - visible) in
+    color_border "│" ^ line ^ String.make padding ' ' ^ color_border "│"
+  in
+  let body_lines = List.map pad_line lines in
+  String.concat "\n" ([top] @ body_lines @ [bot])
+
+(* Overlay modal in center of body content *)
+let overlay_modal_centered ~cols ~rows body modal_lines modal_width =
+  let body_lines = String.split_on_char '\n' body in
+  let modal_height = List.length modal_lines + 2 in
+  (* +2 for top/bottom border *)
+  let start_row = max 0 ((rows - modal_height) / 2) in
+  let start_col = max 0 ((cols - modal_width - 2) / 2) in
+  (* -2 for borders *)
+  let modal_rendered = render_modal ~width:modal_width modal_lines in
+  let modal_rows = String.split_on_char '\n' modal_rendered in
+  let rec overlay row_idx body_rows modal_idx acc =
+    match body_rows with
+    | [] -> List.rev acc
+    | body_row :: rest ->
+        let new_row =
+          if row_idx >= start_row && modal_idx < List.length modal_rows then
+            let modal_row = List.nth modal_rows modal_idx in
+            let body_visible = Widgets.visible_chars_count body_row in
+            let before =
+              if start_col > 0 && body_visible >= start_col then
+                let idx =
+                  Widgets.visible_byte_index_of_pos body_row start_col
+                in
+                String.sub body_row 0 idx
+              else String.make (min start_col (max 0 body_visible)) ' '
+            in
+            before ^ modal_row
+          else body_row
+        in
+        let new_modal_idx =
+          if row_idx >= start_row && modal_idx < List.length modal_rows then
+            modal_idx + 1
+          else modal_idx
+        in
+        overlay (row_idx + 1) rest new_modal_idx (new_row :: acc)
+  in
+  String.concat "\n" (overlay 0 body_lines 0 [])
 
 let open_lines ?title ?notify_render lines =
   {
@@ -116,6 +232,8 @@ let open_lines ?title ?notify_render lines =
     lines;
     offset = 0;
     follow = false;
+    wrap = false;
+    (* default to no wrap for log viewing *)
     streaming = false;
     spinner_pos = 0;
     pending_lines = [];
@@ -126,6 +244,7 @@ let open_lines ?title ?notify_render lines =
     flush_interval_ms = 200;
     (* default: 200ms -> conservative flush rate *)
     last_win = default_win;
+    last_cols = 80;
     search = None;
     is_regex = false;
     input_mode = `None;
@@ -469,27 +588,70 @@ let find_prev lines ~start ~q ~is_regex =
 
 (* Rendering ------------------------------------------------------------ *)
 
-let visible_slice ~win t =
+(* Calculate visible slice accounting for wrapped line heights.
+   Returns (start_line_idx, lines_to_take) where lines_to_take may be
+   fewer than win if wrapping causes lines to expand. *)
+let visible_slice_wrapped ~win ~cols ~wrap t =
   let total = List.length t.lines in
-  let max_off = max_offset_for ~total ~win in
-  if t.follow then (max_off, total)
+  let width = max 10 (cols - 2) in
+  if not wrap then
+    (* Simple case: 1 source line = 1 display line *)
+    let max_off = max_offset_for ~total ~win in
+    if t.follow then (max_off, min win (total - max_off))
+    else
+      let start = clamp 0 max_off t.offset in
+      let count = min win (total - start) in
+      (start, count)
   else
-    let start = clamp 0 max_off t.offset in
-    let stop = min total (start + win) in
-    (start, stop)
+    (* Complex case: need to account for wrapped line heights *)
+    let line_heights =
+      List.map (fun line -> wrapped_line_count ~width line) t.lines
+    in
+    let heights_arr = Array.of_list line_heights in
+    let n = Array.length heights_arr in
+    if n = 0 then (0, 0)
+    else if t.follow then
+      (* Start from end, go backwards until we fill win display lines *)
+      let rec find_start idx display_lines =
+        if idx < 0 then (0, display_lines)
+        else
+          let h = heights_arr.(idx) in
+          if display_lines + h > win then (idx + 1, display_lines)
+          else find_start (idx - 1) (display_lines + h)
+      in
+      let start, _ = find_start (n - 1) 0 in
+      (start, n - start)
+    else
+      (* Start from offset, count forward until we fill win display lines *)
+      let start = clamp 0 (n - 1) t.offset in
+      let rec count_lines idx display_lines lines_taken =
+        if idx >= n || display_lines >= win then lines_taken
+        else
+          let h = heights_arr.(idx) in
+          if display_lines + h > win && lines_taken > 0 then lines_taken
+          else count_lines (idx + 1) (display_lines + h) (lines_taken + 1)
+      in
+      let count = count_lines start 0 0 in
+      (start, count)
 
-let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
+let render ?cols ~win (t : t) ~focus : string =
   (* flush buffered lines opportunistically on render *)
   flush_pending_if_needed t ;
   t.last_win <- win ;
+  let cols = match cols with Some c -> c | None -> 80 in
+  t.last_cols <- cols ;
+  let wrap = t.wrap in
   debug
-    "[PAGER] render called: search=%s input_mode=%s\n"
+    "[PAGER] render called: search=%s input_mode=%s wrap=%b\n"
     (match t.search with Some s -> "Some('" ^ s ^ "')" | None -> "None")
     (match t.input_mode with
     | `None -> "None"
     | `Search_edit -> "Search_edit"
-    | `Lookup -> "Lookup") ;
-  let start, stop = visible_slice ~win t in
+    | `Lookup -> "Lookup"
+    | `Help -> "Help")
+    wrap ;
+  let start, count = visible_slice_wrapped ~win ~cols ~wrap t in
+  let stop = start + count in
   let body_lines =
     let slice =
       let rec take_range i acc = function
@@ -522,10 +684,10 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
     let pos =
       Printf.sprintf "%d-%d/%d" (start + 1) stop (List.length t.lines)
     in
+    let wrap_indicator = if wrap then " [wrap]" else "" in
     let mode = if t.follow then " [follow]" else "" in
-    Widgets.dim (Widgets.fg Colors.status_dim (pos ^ mode))
+    Widgets.dim (Widgets.fg Colors.status_dim (pos ^ wrap_indicator ^ mode))
   in
-  let cols = match cols with Some c -> c | None -> 80 in
   (* Show search input prompt when in search edit mode *)
   let search_prompt =
     match t.input_mode with
@@ -565,8 +727,10 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
             [("Up/Down", "scroll"); ("PgUp/PgDn", "page"); ("/", "search")]
           in
           let base = base @ [("n/p", "next/prev")] in
+          let base = base @ [("w", if wrap then "unwrap" else "wrap")] in
+          let base = base @ [("?", "help")] in
           if t.streaming then
-            base @ [("f", if t.follow then "follow off" else "follow on")]
+            base @ [("f", if t.follow then "unfollow" else "follow")]
           else base
     in
     Widgets.footer_hints_wrapped_capped
@@ -575,6 +739,17 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
       hints
   in
   let body = build_body_buffer ~wrap ~cols body_lines in
+  (* Overlay help modal when in Help mode *)
+  let body =
+    match t.input_mode with
+    | `Help ->
+        let help_lines =
+          help_content ~streaming:t.streaming ~wrap ~follow:t.follow
+        in
+        let modal_width = min (cols - 4) 50 in
+        overlay_modal_centered ~cols ~rows:win body help_lines modal_width
+    | _ -> body
+  in
   Widgets.render_frame ~title ~header ~body ~footer ~cols ()
 
 (* Kept for compatibility; callers that can compute terminal cols should prefer
@@ -678,6 +853,10 @@ let handle_nav_key t ~key ~win ~total ~page =
       t.follow <- not t.follow ;
       if t.follow then t.offset <- max_offset ;
       Some (t, true)
+  | "w" | "W" ->
+      t.wrap <- not t.wrap ;
+      t.cached_body <- None ;
+      Some (t, true)
   | "/" ->
       t.input_mode <- `Search_edit ;
       t.input_buffer <- "" ;
@@ -705,6 +884,9 @@ let handle_nav_key t ~key ~win ~total ~page =
       | Some i ->
           t.offset <- clamp 0 max_offset i ;
           Some (t, true))
+  | "?" ->
+      t.input_mode <- `Help ;
+      Some (t, true)
   | _ -> None
 
 let handle_key ?win (t : t) ~key : t * bool =
@@ -714,6 +896,7 @@ let handle_key ?win (t : t) ~key : t * bool =
     (match t.input_mode with
     | `Search_edit -> "Search_edit"
     | `Lookup -> "Lookup"
+    | `Help -> "Help"
     | `None -> "None") ;
   let win = match win with Some w -> w | None -> default_win in
   let total = List.length t.lines in
@@ -723,6 +906,12 @@ let handle_key ?win (t : t) ~key : t * bool =
       match handle_search_input t ~key with
       | Some result -> result
       | None -> (t, false))
+  | `Help -> (
+      match key with
+      | "Escape" | "Esc" | "?" ->
+          t.input_mode <- `None ;
+          (t, true)
+      | _ -> (t, true) (* absorb all other keys while help is shown *))
   | `None | `Lookup -> (
       match handle_nav_key t ~key ~win ~total ~page with
       | Some result -> result
