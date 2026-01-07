@@ -50,6 +50,7 @@ type t = {
   mutable lines : string list;
   mutable offset : int;
   mutable follow : bool;
+  mutable wrap : bool;
   mutable streaming : bool;
   mutable spinner_pos : int;
   mutable pending_lines : string list;
@@ -59,9 +60,10 @@ type t = {
   mutable last_flush : float;
   mutable flush_interval_ms : int;
   mutable last_win : int;
+  mutable last_cols : int;
   mutable search : string option;
   mutable is_regex : bool;
-  mutable input_mode : [`None | `Search_edit | `Lookup];
+  mutable input_mode : [`None | `Search_edit | `Lookup | `Help];
   mutable input_buffer : string;
   mutable input_pos : int;
   mutable notify_render : (unit -> unit) option;
@@ -208,7 +210,7 @@ val set_search : t -> string option -> t
     @param focus Whether the pager has focus (affects styling)
     @return Rendered string
 *)
-val render : ?cols:int -> ?wrap:bool -> win:int -> t -> focus:bool -> string
+val render : ?cols:int -> win:int -> t -> focus:bool -> string
 
 (** Render with size-aware window calculation.
 
