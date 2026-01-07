@@ -61,6 +61,16 @@ let enter_raw t =
         }
       in
       Unix.tcsetattr t.fd Unix.TCSANOW raw ;
+      (* Enter alternate screen mode first *)
+      (try
+         let alt_seq = "\027[?1049h" in
+         ignore
+           (Unix.write
+              t.tty_out_fd
+              (Bytes.of_string alt_seq)
+              0
+              (String.length alt_seq))
+       with _ -> ()) ;
       (* Redirect stdout/stderr to /dev/null to prevent system commands
          from printing directly to the terminal while TUI is active *)
       try
@@ -68,18 +78,7 @@ let enter_raw t =
         Unix.dup2 devnull Unix.stdout ;
         Unix.dup2 devnull Unix.stderr ;
         Unix.close devnull
-      with _ -> (
-        () ;
-        (* Enter alternate screen mode *)
-        try
-          let alt_seq = "\027[?1049h" in
-          ignore
-            (Unix.write
-               t.tty_out_fd
-               (Bytes.of_string alt_seq)
-               0
-               (String.length alt_seq))
-        with _ -> ()))
+      with _ -> ())
 
 let leave_raw t =
   (* Restore stdout/stderr before leaving raw mode so cleanup messages can be seen *)
@@ -134,12 +133,22 @@ let cleanup t =
     (* Clear screen, move cursor home, show cursor, reset style *)
     (* Also exit alt screen mode to prevent terminal pollution *)
     let cleanup_seq = "\027[2J\027[H\027[?1049l\027[?25h\027[0m\n" in
+    (* Write cleanup sequence directly to tty_out_fd first (most reliable) *)
+    (try
+       ignore
+         (Unix.write
+            t.tty_out_fd
+            (Bytes.of_string cleanup_seq)
+            0
+            (String.length cleanup_seq)) ;
+       Unix.tcdrain t.tty_out_fd
+     with _ -> ()) ;
+    (* Also try via stdout after restoring it *)
+    leave_raw t ;
     (try
        print_string cleanup_seq ;
        Stdlib.flush stdout
      with _ -> ()) ;
-    (* Terminal restore - must happen before mouse disable *)
-    leave_raw t ;
     (* Close saved file descriptors *)
     (try Unix.close t.orig_stdout with _ -> ()) ;
     try Unix.close t.orig_stderr with _ -> ()
