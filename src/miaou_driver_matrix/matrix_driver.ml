@@ -326,9 +326,10 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         | Some name -> `SwitchTo name
         | None ->
             (* Maintain TPS by sleeping if we have time left *)
+            (* Use Eio.Time.sleep to allow other fibers to run *)
             let elapsed = Unix.gettimeofday () -. tick_start in
             let sleep_time = tick_time_s -. elapsed in
-            if sleep_time > 0.001 then Thread.delay sleep_time ;
+            eio_sleep env sleep_time ;
             loop (Packed ((module Page), state))
       in
 
@@ -340,6 +341,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       Matrix_render_loop.shutdown render_loop ;
       Matrix_terminal.write terminal Matrix_ansi_writer.cursor_show ;
       Matrix_terminal.write terminal "\027[0m" ;
+      (* Save screen content for debugging - will be printed after exit *)
+      let screen_dump = Matrix_buffer.dump_to_string buffer in
+      Matrix_terminal.set_exit_screen_dump terminal screen_dump ;
       Matrix_terminal.cleanup terminal ;
 
       result)

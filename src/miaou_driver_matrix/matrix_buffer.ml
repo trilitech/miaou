@@ -205,3 +205,43 @@ let swap_unlocked (t : t) =
   let tmp = t.front in
   t.front <- t.back ;
   t.back <- tmp
+
+(* Generate SGR sequence for a style - used for dump_to_string *)
+let style_to_sgr style =
+  let open Matrix_cell in
+  let buf = Buffer.create 32 in
+  Buffer.add_string buf "\027[0" ;
+  if style.bold then Buffer.add_string buf ";1" ;
+  if style.dim then Buffer.add_string buf ";2" ;
+  if style.underline then Buffer.add_string buf ";4" ;
+  if style.reverse then Buffer.add_string buf ";7" ;
+  if style.fg >= 0 && style.fg <= 255 then
+    Buffer.add_string buf (Printf.sprintf ";38;5;%d" style.fg) ;
+  if style.bg >= 0 && style.bg <= 255 then
+    Buffer.add_string buf (Printf.sprintf ";48;5;%d" style.bg) ;
+  Buffer.add_char buf 'm' ;
+  Buffer.contents buf
+
+(* Dump front buffer to string with ANSI formatting - for preserving screen on exit *)
+let dump_to_string t =
+  with_lock t (fun () ->
+      let buf = Buffer.create (t.rows * t.cols * 2) in
+      let current_style = ref Matrix_cell.default_style in
+      for row = 0 to t.rows - 1 do
+        for col = 0 to t.cols - 1 do
+          let cell = t.front.(row).(col) in
+          (* Update style if changed *)
+          if not (Matrix_cell.style_equal cell.style !current_style) then begin
+            if Matrix_cell.style_equal cell.style Matrix_cell.default_style then
+              Buffer.add_string buf "\027[0m"
+            else Buffer.add_string buf (style_to_sgr cell.style) ;
+            current_style := cell.style
+          end ;
+          Buffer.add_string buf cell.char
+        done ;
+        (* Add newline after each row except the last *)
+        if row < t.rows - 1 then Buffer.add_char buf '\n'
+      done ;
+      (* Reset style at end *)
+      Buffer.add_string buf "\027[0m" ;
+      Buffer.contents buf)

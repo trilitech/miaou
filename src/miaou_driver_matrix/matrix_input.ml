@@ -42,7 +42,7 @@ let key_to_event = function
   | Parser.Refresh -> Refresh
   | key -> Key (Parser.key_to_string key)
 
-let poll t ~timeout_ms =
+let poll t ~timeout_ms:_ =
   (* Check exit flag *)
   if Atomic.get t.exit_flag then Quit
   else if Matrix_terminal.resize_pending t.terminal then begin
@@ -51,11 +51,10 @@ let poll t ~timeout_ms =
   end
   else if Miaou_helpers.Render_notify.should_render () then Refresh
   else begin
-    (* Try to read input *)
-    if Parser.pending_length t.parser = 0 then begin
-      let timeout_s = float_of_int timeout_ms /. 1000.0 in
-      ignore (Parser.refill t.parser ~timeout_s)
-    end ;
+    (* Try to read input with minimal timeout - let Eio handle actual timing
+       to allow other fibers to run *)
+    if Parser.pending_length t.parser = 0 then
+      ignore (Parser.refill t.parser ~timeout_s:0.001) ;
     (* Rate-limit refresh events *)
     if Parser.pending_length t.parser = 0 then begin
       let now = Unix.gettimeofday () in

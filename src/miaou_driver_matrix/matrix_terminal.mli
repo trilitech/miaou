@@ -54,3 +54,7 @@ val resize_pending : t -> bool
 
 (** Clear the resize pending flag. *)
 val clear_resize_pending : t -> unit
+
+(** Set screen content to dump on exit for debugging.
+    The content will be printed after exiting alternate screen mode. *)
+val set_exit_screen_dump : t -> string -> unit

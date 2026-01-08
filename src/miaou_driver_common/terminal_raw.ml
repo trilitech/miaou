@@ -15,9 +15,8 @@ type t = {
   mutable cached_size : (int * int) option;
   mutable cleanup_done : bool;
   resize_pending : bool Atomic.t;
-  (* Save original stdout/stderr to restore on cleanup *)
-  orig_stdout : Unix.file_descr;
-  orig_stderr : Unix.file_descr;
+  (* Screen content to dump on exit for debugging *)
+  mutable exit_screen_dump : string option;
 }
 
 let setup () =
@@ -31,9 +30,6 @@ let setup () =
     try Unix.openfile "/dev/tty" [Unix.O_WRONLY] 0
     with _ -> Unix.descr_of_out_channel stdout
   in
-  (* Save original stdout/stderr file descriptors for restoration later *)
-  let orig_stdout = Unix.dup Unix.stdout in
-  let orig_stderr = Unix.dup Unix.stderr in
   {
     fd;
     tty_out_fd;
@@ -41,9 +37,10 @@ let setup () =
     cached_size = None;
     cleanup_done = false;
     resize_pending = Atomic.make false;
-    orig_stdout;
-    orig_stderr;
+    exit_screen_dump = None;
   }
+
+let set_exit_screen_dump t dump = t.exit_screen_dump <- Some dump
 
 let fd t = t.fd
 
@@ -62,30 +59,17 @@ let enter_raw t =
       in
       Unix.tcsetattr t.fd Unix.TCSANOW raw ;
       (* Enter alternate screen mode first *)
-      (try
-         let alt_seq = "\027[?1049h" in
-         ignore
-           (Unix.write
-              t.tty_out_fd
-              (Bytes.of_string alt_seq)
-              0
-              (String.length alt_seq))
-       with _ -> ()) ;
-      (* Redirect stdout/stderr to /dev/null to prevent system commands
-         from printing directly to the terminal while TUI is active *)
       try
-        let devnull = Unix.openfile "/dev/null" [Unix.O_WRONLY] 0 in
-        Unix.dup2 devnull Unix.stdout ;
-        Unix.dup2 devnull Unix.stderr ;
-        Unix.close devnull
+        let alt_seq = "\027[?1049h" in
+        ignore
+          (Unix.write
+             t.tty_out_fd
+             (Bytes.of_string alt_seq)
+             0
+             (String.length alt_seq))
       with _ -> ())
 
 let leave_raw t =
-  (* Restore stdout/stderr before leaving raw mode so cleanup messages can be seen *)
-  (try
-     Unix.dup2 t.orig_stdout Unix.stdout ;
-     Unix.dup2 t.orig_stderr Unix.stderr
-   with _ -> ()) ;
   match t.orig_termios with
   | None -> ()
   | Some orig -> ( try Unix.tcsetattr t.fd Unix.TCSANOW orig with _ -> ())
@@ -130,28 +114,48 @@ let enable_mouse _t =
 let cleanup t =
   if not t.cleanup_done then begin
     t.cleanup_done <- true ;
-    (* Clear screen, move cursor home, show cursor, reset style *)
-    (* Also exit alt screen mode to prevent terminal pollution *)
-    let cleanup_seq = "\027[2J\027[H\027[?1049l\027[?25h\027[0m\n" in
-    (* Write cleanup sequence directly to tty_out_fd first (most reliable) *)
+    (* Step 1: Exit alternate screen mode (restores main buffer) *)
+    let exit_alt_seq = "\027[?1049l" in
     (try
        ignore
          (Unix.write
             t.tty_out_fd
-            (Bytes.of_string cleanup_seq)
+            (Bytes.of_string exit_alt_seq)
             0
-            (String.length cleanup_seq)) ;
+            (String.length exit_alt_seq)) ;
        Unix.tcdrain t.tty_out_fd
      with _ -> ()) ;
-    (* Also try via stdout after restoring it *)
+    (* Step 2: Restore terminal settings *)
     leave_raw t ;
-    (try
-       print_string cleanup_seq ;
-       Stdlib.flush stdout
-     with _ -> ()) ;
-    (* Close saved file descriptors *)
-    (try Unix.close t.orig_stdout with _ -> ()) ;
-    try Unix.close t.orig_stderr with _ -> ()
+    (* Step 3: Print saved screen content (if any) for debugging *)
+    (* Write directly to /dev/tty to avoid shell interference (ble.sh, etc.) *)
+    (match t.exit_screen_dump with
+    | Some dump -> (
+        try
+          (* Clear screen and move cursor home before printing dump *)
+          let clear_seq = "\027[2J\027[H" in
+          ignore
+            (Unix.write
+               t.tty_out_fd
+               (Bytes.of_string clear_seq)
+               0
+               (String.length clear_seq)) ;
+          ignore
+            (Unix.write
+               t.tty_out_fd
+               (Bytes.of_string dump)
+               0
+               (String.length dump)) ;
+          ignore (Unix.write t.tty_out_fd (Bytes.of_string "\n") 0 1) ;
+          Unix.tcdrain t.tty_out_fd
+        with _ -> ())
+    | None -> ()) ;
+    (* Step 4: Show cursor, reset style *)
+    let final_seq = "\027[?25h\027[0m" in
+    try
+      print_string final_seq ;
+      Stdlib.flush stdout
+    with _ -> ()
   end ;
   (* THEN disable mouse tracking - terminal is now in normal mode *)
   disable_mouse t
