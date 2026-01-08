@@ -3,35 +3,33 @@ open Alcotest
 module Good_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = ()
+  let init () = Miaou_core.Navigation.make ()
 
-  let update s _ = s
+  let update ps _ = ps
 
-  let view _ ~focus:_ ~size:_ = "good"
+  let view _ps ~focus:_ ~size:_ = "good"
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
-
-  let back s = s
+  let back ps = ps
 
   let keymap _ = [("a", Fun.id, "action")]
 
   let handled_keys () = [Miaou_core.Keys.Char "a"; Miaou_core.Keys.Enter]
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key s _ ~size:_ = s
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end
@@ -39,36 +37,34 @@ end
 module Bad_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = ()
+  let init () = Miaou_core.Navigation.make ()
 
-  let update s _ = s
+  let update ps _ = ps
 
-  let view _ ~focus:_ ~size:_ = "bad"
+  let view _ps ~focus:_ ~size:_ = "bad"
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
-
-  let back s = s
+  let back ps = ps
 
   let keymap _ = [("C-q", Fun.id, "quit")]
 
   (* This page tries to handle a global key (C-q = Quit) *)
   let handled_keys () = [Miaou_core.Keys.Control "q"]
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key s _ ~size:_ = s
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end
@@ -76,36 +72,34 @@ end
 module Conflicting_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = ()
+  let init () = Miaou_core.Navigation.make ()
 
-  let update s _ = s
+  let update ps _ = ps
 
-  let view _ ~focus:_ ~size:_ = "conflicting"
+  let view _ps ~focus:_ ~size:_ = "conflicting"
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
-
-  let back s = s
+  let back ps = ps
 
   let keymap _ = [("a", Fun.id, "other action")]
 
   (* This page handles same key as Good_page *)
   let handled_keys () = [Miaou_core.Keys.Char "a"]
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key s _ ~size:_ = s
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end

@@ -8,20 +8,23 @@
 (* Gallery launcher - imports all demo modules and provides navigation *)
 
 module FB = Miaou_widgets_layout.File_browser_widget
+module Navigation = Miaou.Core.Navigation
 
-type step = {title : string; open_demo : state -> state}
+type step = {title : string; open_demo : pstate -> pstate}
 
-and state = {cursor : int; next_page : string option}
+and state = {cursor : int}
+
+and pstate = state Navigation.t
 
 type msg = Move of int
 
 let launcher_page_name = Demo_shared.Demo_config.launcher_page_name
 
 let goto name page =
-  let f s =
+  let f ps =
     if not (Miaou.Core.Registry.exists name) then
       Miaou.Core.Registry.register name page ;
-    {s with next_page = Some name}
+    Navigation.goto name ps
   in
   f
 
@@ -30,7 +33,7 @@ let demos =
     {
       title = "Textbox Widget";
       open_demo =
-        (fun s ->
+        (fun ps ->
           Miaou.Core.Modal_manager.push
             (module Demo_modals.Textbox_modal)
             ~init:(Demo_modals.Textbox_modal.init ())
@@ -46,12 +49,12 @@ let demos =
             ~on_close:(fun _ -> function
               | `Commit -> Logs.info (fun m -> m "Textbox committed")
               | `Cancel -> Logs.info (fun m -> m "Textbox cancelled")) ;
-          s);
+          ps);
     };
     {
       title = "Select Widget";
       open_demo =
-        (fun s ->
+        (fun ps ->
           Miaou.Core.Modal_manager.confirm_with_extract
             (module Demo_modals.Select_modal)
             ~init:(Demo_modals.Select_modal.init ())
@@ -59,18 +62,19 @@ let demos =
             ~left:20
             ~max_width:(Fixed 60)
             ~dim_background:true
-            ~extract:Demo_modals.Select_modal.extract_selection
+            ~extract:(fun modal_ps ->
+              Demo_modals.Select_modal.extract_selection modal_ps)
             ~on_result:(fun res ->
               match res with
               | Some sel -> Logs.info (fun m -> m "Select committed: %s" sel)
               | None -> Logs.info (fun m -> m "Select cancelled"))
             () ;
-          s);
+          ps);
     };
     {
       title = "File Browser";
       open_demo =
-        (fun s ->
+        (fun ps ->
           Miaou.Core.Modal_manager.push
             (module Demo_modals.File_browser_modal)
             ~init:(Demo_modals.File_browser_modal.init ())
@@ -84,9 +88,10 @@ let demos =
             ~commit_on:["Space"; " "]
             ~cancel_on:["Esc"]
             ~on_close:(fun
-                (st : Demo_modals.File_browser_modal.state) ->
+                (modal_ps : Demo_modals.File_browser_modal.pstate) ->
               function
               | `Commit ->
+                  let st = modal_ps.Miaou.Core.Navigation.s in
                   let sel =
                     match FB.get_selection st with
                     | Some path -> path
@@ -98,18 +103,19 @@ let demos =
                     ~markdown:(Printf.sprintf "You selected:\n\n`%s`" sel)
                     ()
               | `Cancel ->
+                  let st = modal_ps.Miaou.Core.Navigation.s in
                   Logs.info (fun m ->
                       m
                         "File browser cancelled (was on %s)"
                         (match FB.get_selection st with
                         | Some path -> path
                         | None -> "<none>"))) ;
-          s);
+          ps);
     };
     {
       title = "Select Widget (records)";
       open_demo =
-        (fun s ->
+        (fun ps ->
           Miaou.Core.Modal_manager.confirm_with_extract
             (module Demo_modals.Poly_select_modal)
             ~init:(Demo_modals.Poly_select_modal.init ())
@@ -117,14 +123,15 @@ let demos =
             ~left:20
             ~max_width:(Fixed 60)
             ~dim_background:true
-            ~extract:Demo_modals.Poly_select_modal.extract_selection
+            ~extract:(fun modal_ps ->
+              Demo_modals.Poly_select_modal.extract_selection modal_ps)
             ~on_result:(fun res ->
               match res with
               | Some sel ->
                   Logs.info (fun m -> m "Poly select committed: %s" sel)
               | None -> Logs.info (fun m -> m "Poly select cancelled"))
             () ;
-          s);
+          ps);
     };
     {
       title = "Table Widget";
@@ -311,17 +318,18 @@ let demos =
     };
   ]
 
-let init () = {cursor = 0; next_page = None}
+let init () = Navigation.make {cursor = 0}
 
-let update s = function
+let update ps = function
   | Move d ->
       let hi = max 0 (List.length demos - 1) in
-      {s with cursor = max 0 (min hi (s.cursor + d))}
+      Navigation.update (fun s -> {cursor = max 0 (min hi (s.cursor + d))}) ps
 
-let open_demo s idx =
-  match List.nth_opt demos idx with Some d -> d.open_demo s | None -> s
+let open_demo ps idx =
+  match List.nth_opt demos idx with Some d -> d.open_demo ps | None -> ps
 
-let view s ~focus:_ ~size =
+let view ps ~focus:_ ~size =
+  let s = ps.Navigation.s in
   let module W = Miaou_widgets_display.Widgets in
   let title = "MIAOU demo launcher" in
   let instructions =
@@ -351,41 +359,38 @@ let view s ~focus:_ ~size =
   in
   String.concat "\n" (title :: instructions :: "" :: items)
 
-let handle_key s key_str ~size:_ =
+let handle_key ps key_str ~size:_ =
+  let s = ps.Navigation.s in
   match Miaou.Core.Keys.of_string key_str with
-  | Some Miaou.Core.Keys.Up -> update s (Move (-1))
-  | Some Miaou.Core.Keys.Down -> update s (Move 1)
-  | Some Miaou.Core.Keys.Left -> update s (Move (-1))
-  | Some Miaou.Core.Keys.Right -> update s (Move 1)
-  | Some Miaou.Core.Keys.Enter -> open_demo s s.cursor
+  | Some Miaou.Core.Keys.Up -> update ps (Move (-1))
+  | Some Miaou.Core.Keys.Down -> update ps (Move 1)
+  | Some Miaou.Core.Keys.Left -> update ps (Move (-1))
+  | Some Miaou.Core.Keys.Right -> update ps (Move 1)
+  | Some Miaou.Core.Keys.Enter -> open_demo ps s.cursor
   | Some (Miaou.Core.Keys.Char "q")
   | Some (Miaou.Core.Keys.Char "Esc")
   | Some (Miaou.Core.Keys.Char "Escape") ->
-      {s with next_page = Some "__QUIT__"}
-  | Some (Miaou.Core.Keys.Char " ") -> open_demo s s.cursor
-  | Some (Miaou.Core.Keys.Char "j") -> update s (Move 1)
-  | Some (Miaou.Core.Keys.Char "k") -> update s (Move (-1))
-  | None -> s
-  | _ -> s
+      Navigation.quit ps
+  | Some (Miaou.Core.Keys.Char " ") -> open_demo ps s.cursor
+  | Some (Miaou.Core.Keys.Char "j") -> update ps (Move 1)
+  | Some (Miaou.Core.Keys.Char "k") -> update ps (Move (-1))
+  | None -> ps
+  | _ -> ps
 
-let move s delta = update s (Move delta)
+let move ps delta = update ps (Move delta)
 
-let refresh s = s
+let refresh ps = ps
 
-let enter s = open_demo s s.cursor
+let service_select ps _ = ps
 
-let service_select s _ = s
+let service_cycle ps _ = ps
 
-let service_cycle s _ = s
+let handle_modal_key ps _ ~size:_ = ps
 
-let handle_modal_key s _ ~size:_ = s
-
-let next_page s = s.next_page
-
-let keymap (_ : state) = []
+let keymap (_ : pstate) = []
 
 let handled_keys () = []
 
-let back s = s
+let back ps = ps
 
 let has_modal _ = Miaou.Core.Modal_manager.has_active ()

@@ -5,12 +5,20 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-(** Clears and re-renders the terminal screen *)
-val clear_and_render :
-  (module Miaou_core.Tui_page.PAGE_SIG with type state = 'a) ->
-  'a Miaou_core.Navigation.t ->
-  Miaou_internals.Key_handler_stack.t ->
-  (unit -> LTerm_geom.size) ->
-  string ref ->
-  LTerm_geom.size ref ->
-  unit
+(** Page state wrapper with navigation support.
+    Pages work with ['a pstate] instead of raw state, enabling
+    framework-managed navigation without boilerplate. *)
+
+type 'a t = {s : 'a; nav : string option}
+
+let make s = {s; nav = None}
+
+let goto page ps = {ps with nav = Some page}
+
+let back ps = {ps with nav = Some "__BACK__"}
+
+let quit ps = {ps with nav = Some "__QUIT__"}
+
+let pending ps = ps.nav
+
+let update f ps = {ps with s = f ps.s}

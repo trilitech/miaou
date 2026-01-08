@@ -301,7 +301,7 @@ let render_lines renderer font ~(fg : color) ~(bg : color) ~(char_w : int)
         in
         let segments =
           Colors.parse_ansi_segments ~default:default_state padded
-          |> List.map (fun ((st : ansi_state), txt) -> ((st.fg, st.bg), txt))
+          |> List.map (fun ((ps : ansi_state), txt) -> ((ps.fg, ps.bg), txt))
         in
         let rec render_seg x = function
           | [] -> ()
@@ -545,8 +545,9 @@ let poll_event ~timeout_ms ~on_resize =
   in
   loop ()
 
-let render_page (type s) (module P : PAGE_SIG with type state = s) st size =
-  let base = P.view st ~focus:true ~size in
+let render_page (type s) (module P : PAGE_SIG with type state = s)
+    (ps : s Page_transition.Navigation.t) size =
+  let base = P.view ps ~focus:true ~size in
   Driver_common.Modal_utils.render_with_modal_overlay
     ~view:base
     ~rows:size.rows
@@ -598,7 +599,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       let fps_tracker = create_fps_tracker () in
 
       let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
-          (st : s) =
+          (ps : s Page_transition.Navigation.t) =
         let size = !size_ref in
         update_fps fps_tracker ;
 
@@ -618,7 +619,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
           () ;
 
         (* Render page (may use SDL context for charts) *)
-        let text = render_page (module P) st size in
+        let text = render_page (module P) ps size in
 
         (* Clear SDL context *)
         Miaou_widgets_display.Sdl_chart_context.clear_context () ;
@@ -682,24 +683,26 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
 
       let rec loop : type s.
           (module PAGE_SIG with type state = s) ->
-          s ->
+          s Page_transition.Navigation.t ->
           [`Quit | `SwitchTo of string] =
-       fun (module P : PAGE_SIG with type state = s) (st : s) ->
-        render_and_draw (module P) st ;
+       fun (module P : PAGE_SIG with type state = s)
+           (ps : s Page_transition.Navigation.t)
+         ->
+        render_and_draw (module P) ps ;
         match poll_event ~timeout_ms:16 ~on_resize:update_size with
         | Quit -> `Quit
         | Refresh ->
-            let st' = P.service_cycle (P.refresh st) 0 in
+            let ps' = P.service_cycle (P.refresh ps) 0 in
             Page_transition.handle_next_page
               (module P)
-              st'
+              ps'
               {
                 on_quit = (fun () -> `Quit);
-                on_same_page = (fun () -> loop (module P) st');
+                on_same_page = (fun () -> loop (module P) ps');
                 on_new_page =
                   (fun (type a)
                        (module Next : PAGE_SIG with type state = a)
-                       (st_to : a)
+                       (ps_to : a Page_transition.Navigation.t)
                      ->
                     let size = !size_ref in
                     (* Disable SDL chart rendering during transition text capture *)
@@ -712,8 +715,8 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                       ~cols:size.cols
                       ~enabled:false
                       () ;
-                    let from_text = render_page (module P) st size in
-                    let to_text = render_page (module Next) st_to size in
+                    let from_text = render_page (module P) ps size in
+                    let to_text = render_page (module Next) ps_to size in
                     Miaou_widgets_display.Sdl_chart_context.clear_context () ;
                     perform_transition
                       renderer
@@ -724,7 +727,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                       ~from_lines:(String.split_on_char '\n' from_text)
                       ~to_lines:(String.split_on_char '\n' to_text)
                       ~size ;
-                    loop (module Next) st_to);
+                    loop (module Next) ps_to);
               }
         | Key k ->
             (match Logger_capability.get () with
@@ -741,7 +744,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
               let name = String.sub k 11 (String.length k - 11) in
               match Registry.find name with
               | Some (module Next : PAGE_SIG) ->
-                  let st_to = Next.init () in
+                  let ps_to = Next.init () in
                   let size = !size_ref in
                   (* Disable SDL chart rendering during transition text capture *)
                   Miaou_widgets_display.Sdl_chart_context.set_context_obj
@@ -753,8 +756,8 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                     ~cols:size.cols
                     ~enabled:false
                     () ;
-                  let from_text = render_page (module P) st size in
-                  let to_text = render_page (module Next) st_to size in
+                  let from_text = render_page (module P) ps size in
+                  let to_text = render_page (module Next) ps_to size in
                   Miaou_widgets_display.Sdl_chart_context.clear_context () ;
                   perform_transition
                     renderer
@@ -765,11 +768,11 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                     ~from_lines:(String.split_on_char '\n' from_text)
                     ~to_lines:(String.split_on_char '\n' to_text)
                     ~size ;
-                  loop (module Next) st_to
+                  loop (module Next) ps_to
               | None -> `Quit
             else
               let size = !size_ref in
-              let st' =
+              let ps' =
                 (* Handle keys like lambda-term and matrix drivers:
                    1. Modal_manager modals first
                    2. Page-level modals (Page.has_modal)
@@ -779,37 +782,37 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                    6. Other keys -> keymap first, then handle_key *)
                 if Modal_manager.has_active () then (
                   Modal_manager.handle_key k ;
-                  st)
-                else if P.has_modal st then P.handle_modal_key st k ~size
-                else if k = "Enter" then P.enter st
-                else if k = "Esc" || k = "Escape" then P.handle_key st k ~size
+                  ps)
+                else if P.has_modal ps then P.handle_modal_key ps k ~size
+                else if k = "Enter" then P.handle_key ps "Enter" ~size
+                else if k = "Esc" || k = "Escape" then P.handle_key ps k ~size
                 else if
                   k = "Up" || k = "Down" || k = "Left" || k = "Right"
                   || k = "Tab" || k = "Shift-Tab"
-                then P.handle_key st k ~size
+                then P.handle_key ps k ~size
                 else
                   (* Try keymap first, fall back to handle_key *)
-                  let keymap = P.keymap st in
+                  let keymap = P.keymap ps in
                   let keymap_match =
                     List.find_opt (fun (key, _, _) -> key = k) keymap
                   in
                   match keymap_match with
-                  | Some (_, transformer, _) -> transformer st
-                  | None -> P.handle_key st k ~size
+                  | Some (_, transformer, _) -> transformer ps
+                  | None -> P.handle_key ps k ~size
               in
               (* Run service_cycle after handling key, like other drivers *)
-              let st' = P.service_cycle st' 0 in
-              render_and_draw (module P) st' ;
+              let ps' = P.service_cycle ps' 0 in
+              render_and_draw (module P) ps' ;
               Page_transition.handle_next_page
                 (module P)
-                st'
+                ps'
                 {
                   on_quit = (fun () -> `Quit);
-                  on_same_page = (fun () -> loop (module P) st');
+                  on_same_page = (fun () -> loop (module P) ps');
                   on_new_page =
                     (fun (type a)
                          (module Next : PAGE_SIG with type state = a)
-                         (st_to : a)
+                         (ps_to : a Page_transition.Navigation.t)
                        ->
                       let size = !size_ref in
                       (* Disable SDL chart rendering during transition text capture *)
@@ -822,8 +825,8 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                         ~cols:size.cols
                         ~enabled:false
                         () ;
-                      let from_text = render_page (module P) st' size in
-                      let to_text = render_page (module Next) st_to size in
+                      let from_text = render_page (module P) ps' size in
+                      let to_text = render_page (module Next) ps_to size in
                       Miaou_widgets_display.Sdl_chart_context.clear_context () ;
                       perform_transition
                         renderer
@@ -834,7 +837,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                         ~from_lines:(String.split_on_char '\n' from_text)
                         ~to_lines:(String.split_on_char '\n' to_text)
                         ~size ;
-                      loop (module Next) st_to);
+                      loop (module Next) ps_to);
                 }
       in
       Fun.protect

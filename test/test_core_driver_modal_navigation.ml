@@ -6,6 +6,8 @@ module Driver = Miaou_driver_term.Lambda_term_driver
 module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
   let nav = ref None
@@ -13,27 +15,27 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
   module Consuming_modal : Miaou_core.Tui_page.PAGE_SIG = struct
     type state = unit
 
+    type pstate = state Miaou_core.Navigation.t
+
     type msg = unit
 
-    let init () = ()
+    let init () = Miaou_core.Navigation.make ()
 
-    let update s _ = s
+    let update ps _ = ps
 
-    let view _ ~focus:_ ~size:_ = ""
+    let view _ps ~focus:_ ~size:_ = ""
 
-    let move s _ = s
+    let move ps _ = ps
 
-    let refresh s = s
+    let refresh ps = ps
 
-    let enter s = s
+    let service_select ps _ = ps
 
-    let service_select s _ = s
+    let service_cycle ps _ = ps
 
-    let service_cycle s _ = s
+    let back ps = ps
 
-    let back s = s
-
-    let handle_modal_key s key ~size:_ =
+    let handle_modal_key ps key ~size:_ =
       (match key with
       | "Enter" ->
           Miaou_core.Modal_manager.set_consume_next_key () ;
@@ -42,9 +44,9 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
           Miaou_core.Modal_manager.set_consume_next_key () ;
           Miaou_core.Modal_manager.close_top `Cancel
       | _ -> ()) ;
-      s
+      ps
 
-    let handle_key s key ~size:_ =
+    let handle_key ps key ~size:_ =
       (match key with
       | "Enter" ->
           Miaou_core.Modal_manager.set_consume_next_key () ;
@@ -53,13 +55,11 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
           Miaou_core.Modal_manager.set_consume_next_key () ;
           Miaou_core.Modal_manager.close_top `Cancel
       | _ -> ()) ;
-      s
+      ps
 
     let keymap _ = []
 
     let handled_keys () = []
-
-    let next_page _ = None
 
     let has_modal _ = false
   end
@@ -78,35 +78,36 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
   let init () =
     Miaou_core.Modal_manager.clear () ;
     push_modal () ;
-    ()
+    Miaou_core.Navigation.make ()
 
-  let update s _ = s
+  let update ps _ = ps
 
-  let view _ ~focus:_ ~size:_ = ""
+  let view _ps ~focus:_ ~size:_ = ""
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ =
+    match !nav with
+    | Some page ->
+        nav := None ;
+        Miaou_core.Navigation.goto page ps
+    | None -> ps
 
-  let service_cycle s _ = s
+  let back ps = ps
 
-  let back s = s
-
-  let handle_modal_key s key ~size:_ =
+  let handle_modal_key ps key ~size:_ =
     Miaou_core.Modal_manager.handle_key key ;
-    s
+    ps
 
-  let handle_key s _ ~size:_ = s
+  let handle_key ps _ ~size:_ = ps
 
   let keymap _ = []
 
   let handled_keys () = []
-
-  let next_page _ = !nav
 
   let has_modal _ = Miaou_core.Modal_manager.has_active ()
 end

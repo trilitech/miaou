@@ -4,35 +4,36 @@ module MM = Miaou_core.Modal_manager
 module Modal_page = struct
   type state = int
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = 0
+  let init () = Miaou_core.Navigation.make 0
 
-  let update st _ = st
+  let update ps _ = ps
 
-  let view st ~focus:_ ~size:_ = Printf.sprintf "st=%d" st
+  let view ps ~focus:_ ~size:_ =
+    Printf.sprintf "st=%d" ps.Miaou_core.Navigation.s
 
-  let move st _ = st
+  let move ps _ = ps
 
-  let refresh st = st
+  let refresh ps = ps
 
-  let enter st = st
+  let service_select ps _ = ps
 
-  let service_select st _ = st
+  let service_cycle ps _ = ps
 
-  let service_cycle st _ = st
-
-  let back st = st
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key st _ ~size:_ = st
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key st key ~size:_ = if key = "inc" then st + 1 else st
-
-  let next_page _ = None
+  let handle_key ps key ~size:_ =
+    if key = "inc" then Miaou_core.Navigation.update (fun st -> st + 1) ps
+    else ps
 
   let has_modal _ = false
 end
@@ -79,7 +80,7 @@ let test_convenience () =
   MM.confirm_with_extract
     (module Modal_page)
     ~init:(Modal_page.init ())
-    ~extract:(fun st -> Some st)
+    ~extract:(fun ps -> Some ps.Miaou_core.Navigation.s)
     ~on_result:(fun v ->
       results :=
         ( "confirm_extract",
@@ -91,7 +92,7 @@ let test_convenience () =
   MM.prompt
     (module Modal_page)
     ~init:(Modal_page.init ())
-    ~extract:(fun st -> Some (st + 10))
+    ~extract:(fun ps -> Some (ps.Miaou_core.Navigation.s + 10))
     ~on_result:(fun v ->
       results :=
         ("prompt", Option.value ~default:"none" (Option.map string_of_int v))

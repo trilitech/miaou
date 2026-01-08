@@ -3,35 +3,35 @@ open Alcotest
 module Capture_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = int
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = 0
+  let init () = Miaou_core.Navigation.make 0
 
-  let update s _ = s
+  let update ps _ = ps
 
-  let view s ~focus:_ ~size:_ = Printf.sprintf "Capture demo %d" s
+  let view ps ~focus:_ ~size:_ =
+    Printf.sprintf "Capture demo %d" ps.Miaou_core.Navigation.s
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
-
-  let back s = s
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key s key ~size:_ = if key = "x" then s + 1 else s
-
-  let next_page _ = None
+  let handle_key ps key ~size:_ =
+    if key = "x" then Miaou_core.Navigation.update (fun s -> s + 1) ps else ps
 
   let has_modal _ = false
 end

@@ -3,11 +3,13 @@ open Alcotest
 module Adaptive_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = ()
+  let init () = Miaou_core.Navigation.make ()
 
-  let update s _ = s
+  let update ps _ = ps
 
   let layout_for size =
     let module Pane = Miaou_widgets_layout.Pane in
@@ -35,29 +37,25 @@ module Adaptive_page : Miaou_core.Tui_page.PAGE_SIG = struct
         ~top:left
         ~bottom:right
 
-  let view () ~focus:_ ~size = layout_for size
+  let view _ps ~focus:_ ~size = layout_for size
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
-
-  let back s = s
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key s _ ~size:_ = s
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end

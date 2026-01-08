@@ -10,6 +10,7 @@
 
 module Logger_capability = Miaou_interfaces.Logger_capability
 open Miaou_core.Tui_page
+module Navigation = Miaou_core.Navigation
 module Capture = Miaou_core.Tui_capture
 module Khs = Miaou_internals.Key_handler_stack
 module Modal_manager = Miaou_core.Modal_manager
@@ -140,7 +141,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
        with input handling. *)
         let detect_size = Term_size_detection.detect_size in
         let footer_ref : string option ref = ref None in
-        let clear_and_render st key_stack =
+        let clear_and_render ps key_stack =
           (* Log driver render tick using the Miaou TUI logger if available. *)
           (match Logger_capability.get () with
           | Some logger when Sys.getenv_opt "MIAOU_DEBUG" = Some "1" ->
@@ -191,7 +192,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                 }
               ~commit_on:[]
               ~cancel_on:[]
-              ~on_close:(fun (_ : Narrow_modal.Page.state) _ -> ()) ;
+              ~on_close:(fun
+                  (_ : Narrow_modal.Page.state Miaou_core.Navigation.t) _ -> ()) ;
             (* Mark the next key as consumed so Enter/Esc won't propagate. *)
             Modal_manager.set_consume_next_key () ;
             (* Auto-dismiss after 5s. We only close the modal if it's still the
@@ -213,7 +215,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           Modal_manager.set_current_size
             size.LTerm_geom.rows
             size.LTerm_geom.cols ;
-          let body = Page.view st ~focus:true ~size in
+          let body = Page.view ps ~focus:true ~size in
           let title_opt =
             match String.index_opt body '\n' with
             | None -> None
@@ -334,7 +336,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
        sequences (ESC '[' A/B/C/D) are returned as a single token. *)
         (* We need to expose refs to the current page state and key_stack so the
      pager notifier can call clear_and_render with a consistent snapshot. *)
-        let current_state_ref : Page.state option ref = ref None in
+        let current_state_ref : Page.pstate option ref = ref None in
         (* key stack is always present (use empty as initial value) so notifier
       can dereference it without option handling. *)
         let current_key_stack_ref : Khs.t ref = ref Khs.empty in
@@ -746,7 +748,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           with End_of_file -> `Quit
         in
 
-        let handle_key_like st key key_stack =
+        let handle_key_like ps key key_stack =
           (* Compute current size for handlers so pages can react to geometry during key handling. *)
           let size = detect_size () in
           Modal_manager.set_current_size
@@ -754,31 +756,33 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             size.LTerm_geom.cols ;
           if Modal_manager.has_active () then (
             Modal_manager.handle_key key ;
-            st)
-          else if Page.has_modal st then (
-            let st' = Page.handle_modal_key st key ~size in
-            clear_and_render st' key_stack ;
-            st')
-          else Page.handle_key st key ~size
+            ps)
+          else if Page.has_modal ps then (
+            let ps' = Page.handle_modal_key ps key ~size in
+            clear_and_render ps' key_stack ;
+            ps')
+          else Page.handle_key ps key ~size
         in
 
         (* Key handler stack (pure) integration: thread alongside page state. *)
         (* Prepare key handler stack: push a frame for the page keymap once per page.
        We translate (key, state->state, desc) into a side-effect that records
        a pending state transformation applied after dispatch. *)
-        let pending_update : (Page.state -> Page.state) option ref = ref None in
-        let rec loop st key_stack =
+        let pending_update : (Page.pstate -> Page.pstate) option ref =
+          ref None
+        in
+        let rec loop ps key_stack =
           (* Check if a signal (Ctrl+C) requested exit - if so, exit gracefully *)
           if Atomic.get signal_exit_flag then
             (* Don't call cleanup() here - let it run via at_exit for proper cleanup timing *)
             `SwitchTo "__EXIT__"
           else (
             (* Refresh refs for pager notifier to see current state/key_stack snapshots. *)
-            current_state_ref := Some st ;
+            current_state_ref := Some ps ;
             current_key_stack_ref := key_stack ;
             (* Rebuild page keymap frame each iteration so dynamic state (e.g. search mode) can adjust bindings. *)
             let key_stack =
-              let merged = Page.keymap st in
+              let merged = Page.keymap ps in
               match !page_frame_handle with
               | Some h ->
                   let ks = Khs.pop key_stack h in
@@ -805,12 +809,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             | `Refresh -> (
                 (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
                 if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-                let st' = Page.service_cycle st 0 in
-                match Page.next_page st' with
+                let ps' = Page.service_cycle ps 0 in
+                match Navigation.pending ps' with
                 | Some page -> `SwitchTo page
                 | None ->
-                    clear_and_render st' key_stack ;
-                    loop st' key_stack)
+                    clear_and_render ps' key_stack ;
+                    loop ps' key_stack)
             | `Enter -> (
                 if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
                 if Modal_manager.has_active () then
@@ -819,8 +823,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     is_narrow_modal_active ()
                   then (
                     Modal_manager.close_top `Cancel ;
-                    clear_and_render st key_stack ;
-                    loop st key_stack)
+                    clear_and_render ps key_stack ;
+                    loop ps key_stack)
                   else (
                     (* Forward to modal; if it just closed and the page requested navigation, switch now. *)
                     Modal_manager.handle_key "Enter" ;
@@ -828,47 +832,48 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                propagate Enter to the underlying page. *)
                     if Modal_manager.take_consume_next_key () then
                       if not (Modal_manager.has_active ()) then (
-                        let st' = Page.service_cycle st 0 in
-                        match Page.next_page st' with
+                        let ps' = Page.service_cycle ps 0 in
+                        match Navigation.pending ps' with
                         | Some page -> `SwitchTo page
                         | None ->
-                            clear_and_render st' key_stack ;
-                            loop st' key_stack)
+                            clear_and_render ps' key_stack ;
+                            loop ps' key_stack)
                       else (
-                        clear_and_render st key_stack ;
-                        loop st key_stack)
+                        clear_and_render ps key_stack ;
+                        loop ps key_stack)
                     else if not (Modal_manager.has_active ()) then (
-                      let st' = Page.service_cycle st 0 in
-                      match Page.next_page st' with
+                      let ps' = Page.service_cycle ps 0 in
+                      match Navigation.pending ps' with
                       | Some page -> `SwitchTo page
                       | None ->
-                          clear_and_render st' key_stack ;
-                          loop st' key_stack)
+                          clear_and_render ps' key_stack ;
+                          loop ps' key_stack)
                     else (
-                      clear_and_render st key_stack ;
-                      loop st key_stack))
-                else if Page.has_modal st then (
+                      clear_and_render ps key_stack ;
+                      loop ps key_stack))
+                else if Page.has_modal ps then (
                   let size = detect_size () in
                   Modal_manager.set_current_size
                     size.LTerm_geom.rows
                     size.LTerm_geom.cols ;
-                  let st' = Page.handle_modal_key st "Enter" ~size in
-                  match Page.next_page st' with
+                  let ps' = Page.handle_modal_key ps "Enter" ~size in
+                  match Navigation.pending ps' with
                   | Some page -> `SwitchTo page
                   | None ->
-                      clear_and_render st' key_stack ;
-                      loop st' key_stack)
+                      clear_and_render ps' key_stack ;
+                      loop ps' key_stack)
                 else
                   (* Non-modal Enter: perform page.enter, then switch immediately if next_page set. *)
-                  match Page.next_page st with
+                  match Navigation.pending ps with
                   | Some page -> `SwitchTo page
                   | None -> (
-                      let st' = Page.enter st in
-                      match Page.next_page st' with
+                      let size = detect_size () in
+                      let ps' = Page.handle_key ps "Enter" ~size in
+                      match Navigation.pending ps' with
                       | Some page -> `SwitchTo page
                       | None ->
-                          clear_and_render st' key_stack ;
-                          loop st' key_stack))
+                          clear_and_render ps' key_stack ;
+                          loop ps' key_stack))
             | (`Up | `Down | `Left | `Right | `NextPage | `PrevPage) as k -> (
                 (* Drain consecutive identical navigation keys to prevent scroll lag.
              When arrow keys are held down and released, the terminal buffer may
@@ -895,53 +900,53 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                 in
                 if key <> "" then (
                   if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-                  let st' = handle_key_like st key key_stack in
-                  match Page.next_page st' with
+                  let ps' = handle_key_like ps key key_stack in
+                  match Navigation.pending ps' with
                   | Some page -> `SwitchTo page
                   | None ->
-                      clear_and_render st' key_stack ;
-                      loop st' key_stack)
+                      clear_and_render ps' key_stack ;
+                      loop ps' key_stack)
                 else if Modal_manager.has_active () then
                   if is_narrow_modal_active () then (
                     Modal_manager.close_top `Cancel ;
-                    clear_and_render st key_stack ;
-                    loop st key_stack)
+                    clear_and_render ps key_stack ;
+                    loop ps key_stack)
                   else (
                     Modal_manager.handle_key key ;
-                    clear_and_render st key_stack ;
-                    loop st key_stack)
-                else if Page.has_modal st then (
+                    clear_and_render ps key_stack ;
+                    loop ps key_stack)
+                else if Page.has_modal ps then (
                   let size = detect_size () in
                   Modal_manager.set_current_size
                     size.LTerm_geom.rows
                     size.LTerm_geom.cols ;
-                  let st' = Page.handle_modal_key st key ~size in
-                  clear_and_render st' key_stack ;
-                  loop st' key_stack)
+                  let ps' = Page.handle_modal_key ps key ~size in
+                  clear_and_render ps' key_stack ;
+                  loop ps' key_stack)
                 else
                   (* First attempt stack-based dispatch. *)
                   let consumed, key_stack' = Khs.dispatch key_stack key in
                   if consumed then (
-                    let st' =
+                    let ps' =
                       match !pending_update with
                       | Some f ->
-                          let s' = f st in
+                          let s' = f ps in
                           pending_update := None ;
                           s'
-                      | None -> st
+                      | None -> ps
                     in
-                    match Page.next_page st' with
+                    match Navigation.pending ps' with
                     | Some page -> `SwitchTo page
                     | None ->
-                        clear_and_render st' key_stack ;
-                        loop st' key_stack')
+                        clear_and_render ps' key_stack ;
+                        loop ps' key_stack')
                   else
-                    let st' = handle_key_like st key key_stack in
-                    match Page.next_page st' with
+                    let ps' = handle_key_like ps key key_stack in
+                    match Navigation.pending ps' with
                     | Some page -> `SwitchTo page
                     | None ->
-                        clear_and_render st' key_stack ;
-                        loop st' key_stack')
+                        clear_and_render ps' key_stack ;
+                        loop ps' key_stack')
             | `Other key ->
                 if key = "?" then (
                   (* Build help text with optional contextual hint (markdown),
@@ -1045,35 +1050,35 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     module Page : PAGE_SIG = struct
                       type state = unit
 
+                      type pstate = state Navigation.t
+
                       type msg = unit
 
-                      let handle_modal_key s _ ~size:_ = s
+                      let handle_modal_key ps _ ~size:_ = ps
 
-                      let handle_key s _ ~size:_ = s
+                      let handle_key ps _ ~size:_ = ps
 
-                      let update s _ = s
+                      let update ps _ = ps
 
-                      let move s _ = s
+                      let move ps _ = ps
 
-                      let refresh s = s
+                      let refresh ps = ps
 
-                      let enter s = s
+                      let service_select ps _ = ps
 
-                      let service_select s _ = s
+                      let service_cycle ps _ = ps
 
-                      let service_cycle s _ = s
-
-                      let back s = s
-
-                      let next_page _ = None
+                      let back ps = ps
 
                       let has_modal _ = false
 
-                      let init () = ()
+                      let init () = Navigation.make ()
 
-                      let view _ ~focus:_ ~size:_ = body
+                      let view ps ~focus:_ ~size:_ =
+                        ignore ps ;
+                        body
 
-                      let keymap (_ : state) = []
+                      let keymap (_ : pstate) = []
 
                       let handled_keys () = []
                     end
@@ -1088,40 +1093,40 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                         max_width = Some (Fixed (content_width + 4));
                         dim_background = true;
                       }
-                    ~on_close:(fun (_ : Help_modal.Page.state) _ -> ()) ;
-                  clear_and_render st key_stack ;
-                  loop st key_stack)
+                    ~on_close:(fun (_ : Help_modal.Page.pstate) _ -> ()) ;
+                  clear_and_render ps key_stack ;
+                  loop ps key_stack)
                 else if key = "Esc" || key = "Escape" then
-                  if Modal_manager.has_active () || Page.has_modal st then (
+                  if Modal_manager.has_active () || Page.has_modal ps then (
                     (* Close modal if any; if page requested navigation, switch now. *)
                     Modal_manager.handle_key "Esc" ;
                     if Modal_manager.take_consume_next_key () then
                       if not (Modal_manager.has_active ()) then (
-                        let st' = Page.service_cycle st 0 in
-                        match Page.next_page st' with
+                        let ps' = Page.service_cycle ps 0 in
+                        match Navigation.pending ps' with
                         | Some page -> `SwitchTo page
                         | None ->
-                            clear_and_render st' key_stack ;
-                            loop st' key_stack)
+                            clear_and_render ps' key_stack ;
+                            loop ps' key_stack)
                       else (
-                        clear_and_render st key_stack ;
-                        loop st key_stack)
+                        clear_and_render ps key_stack ;
+                        loop ps key_stack)
                     else if not (Modal_manager.has_active ()) then (
-                      let st' = Page.service_cycle st 0 in
-                      match Page.next_page st' with
+                      let ps' = Page.service_cycle ps 0 in
+                      match Navigation.pending ps' with
                       | Some page -> `SwitchTo page
                       | None ->
-                          clear_and_render st' key_stack ;
-                          loop st' key_stack)
+                          clear_and_render ps' key_stack ;
+                          loop ps' key_stack)
                     else (
-                      clear_and_render st key_stack ;
-                      loop st key_stack))
+                      clear_and_render ps key_stack ;
+                      loop ps key_stack))
                   else
                     (* Let the current page override Esc/Escape. If it sets next_page,
                  navigate there; else fall back to default back behavior. *)
                     let size = detect_size () in
-                    let st' = Page.handle_key st key ~size in
-                    match Page.next_page st' with
+                    let ps' = Page.handle_key ps key ~size in
+                    match Navigation.pending ps' with
                     | Some page -> `SwitchTo page
                     | None -> `SwitchTo "__BACK__"
                 else if
@@ -1133,37 +1138,37 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                 then
                   if is_narrow_modal_active () then (
                     Modal_manager.close_top `Cancel ;
-                    clear_and_render st key_stack ;
-                    loop st key_stack)
+                    clear_and_render ps key_stack ;
+                    loop ps key_stack)
                   else (
                     Modal_manager.handle_key key ;
-                    clear_and_render st key_stack ;
-                    loop st key_stack)
+                    clear_and_render ps key_stack ;
+                    loop ps key_stack)
                 else (
                   if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
                   (* Stack dispatch first. *)
                   let consumed, key_stack' = Khs.dispatch key_stack key in
                   if consumed then (
-                    let st' =
+                    let ps' =
                       match !pending_update with
                       | Some f ->
-                          let s' = f st in
+                          let s' = f ps in
                           pending_update := None ;
                           s'
-                      | None -> st
+                      | None -> ps
                     in
-                    match Page.next_page st' with
+                    match Navigation.pending ps' with
                     | Some page -> `SwitchTo page
                     | None ->
-                        clear_and_render st' key_stack ;
-                        loop st' key_stack')
+                        clear_and_render ps' key_stack ;
+                        loop ps' key_stack')
                   else
-                    let st' = handle_key_like st key key_stack in
-                    match Page.next_page st' with
+                    let ps' = handle_key_like ps key key_stack in
+                    match Navigation.pending ps' with
                     | Some page -> `SwitchTo page
                     | None ->
-                        clear_and_render st' key_stack ;
-                        loop st' key_stack'))
+                        clear_and_render ps' key_stack ;
+                        loop ps' key_stack'))
         in
 
         enter_raw () ;
@@ -1185,16 +1190,16 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                  initial_size.LTerm_geom.cols)
         | _ -> ()) ;
         last_size := initial_size ;
-        let st0 = Page.init () in
+        let ps0 = Page.init () in
         (* Initialize refs for pager notifier and register hook. *)
-        current_state_ref := Some st0 ;
+        current_state_ref := Some ps0 ;
         (* Initialize stack after we have initial state. *)
         let init_stack =
           let bindings =
             List.map
               (fun (k, fn, desc) ->
                 (k, (fun () -> pending_update := Some fn), desc))
-              (Page.keymap st0)
+              (Page.keymap ps0)
           in
           let key_stack, handle = Khs.push Khs.empty bindings in
           page_frame_handle := Some handle ;
@@ -1205,9 +1210,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
        Applications using pager widgets should pass notify_render_from_pager_flag when creating pagers. *)
         (* Footer cache updated each loop; initialize ref *)
         footer_ref := None ;
-        clear_and_render st0 init_stack ;
+        clear_and_render ps0 init_stack ;
         let outcome =
-          try loop st0 init_stack
+          try loop ps0 init_stack
           with e ->
             (* Ensure cleanup runs even on exceptions *)
             cleanup () ;

@@ -9,6 +9,8 @@ type item = {label : string; id : int}
 
 type state = item Miaou_widgets_input.Select_widget.t
 
+type pstate = state Miaou.Core.Navigation.t
+
 type msg = unit
 
 let init () =
@@ -19,43 +21,45 @@ let init () =
       {label = "Gamma"; id = 3};
     ]
   in
-  Miaou_widgets_input.Select_widget.open_centered
-    ~cursor:0
-    ~title:"Select a record (poly)"
-    ~items
-    ~to_string:(fun i -> Printf.sprintf "%s (id=%d)" i.label i.id)
-    ()
+  Miaou.Core.Navigation.make
+    (Miaou_widgets_input.Select_widget.open_centered
+       ~cursor:0
+       ~title:"Select a record (poly)"
+       ~items
+       ~to_string:(fun i -> Printf.sprintf "%s (id=%d)" i.label i.id)
+       ())
 
-let update s _ = s
+let update ps _ = ps
 
-let view s ~focus ~size:_ = Miaou_widgets_input.Select_widget.render s ~focus
+let view ps ~focus ~size:_ =
+  Miaou_widgets_input.Select_widget.render ps.Miaou.Core.Navigation.s ~focus
 
-let handle_key s key_str ~size:_ =
-  Miaou_widgets_input.Select_widget.handle_key s ~key:key_str
+let handle_key ps key_str ~size:_ =
+  Miaou.Core.Navigation.update
+    (fun s -> Miaou_widgets_input.Select_widget.handle_key s ~key:key_str)
+    ps
 
-let move s _ = s
+let move ps _ = ps
 
-let refresh s = s
+let refresh ps = ps
 
-let enter s = s
+let service_select ps _ = ps
 
-let service_select s _ = s
+let service_cycle ps _ = ps
 
-let service_cycle s _ = s
-
-let back s = s
+let back ps = ps
 
 let has_modal _ = false
 
-let handle_modal_key s _ ~size:_ = s
+let handle_modal_key ps _ ~size:_ = ps
 
-let next_page _ = None
-
-let keymap (_ : state) = []
+let keymap (_ : pstate) = []
 
 let handled_keys () = []
 
-let extract_selection (s : state) : string option =
-  match Miaou_widgets_input.Select_widget.get_selection s with
+let extract_selection (ps : pstate) : string option =
+  match
+    Miaou_widgets_input.Select_widget.get_selection ps.Miaou.Core.Navigation.s
+  with
   | None -> None
   | Some it -> Some (Printf.sprintf "%s (id=%d)" it.label it.id)

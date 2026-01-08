@@ -60,9 +60,9 @@ let test_checkbox_disabled () =
 let test_checkbox_demo_enter () =
   let s0 = Checkbox_demo.init () in
   check string "initial unchecked" "[ ]" (first_checkbox_marker s0) ;
-  let s1 = Checkbox_demo.enter s0 in
+  let s1 = Checkbox_demo.handle_key s0 "Enter" ~size:demo_size in
   check string "enter toggles on" "[X]" (first_checkbox_marker s1) ;
-  let s2 = Checkbox_demo.enter s1 in
+  let s2 = Checkbox_demo.handle_key s1 "Enter" ~size:demo_size in
   check string "enter toggles off" "[ ]" (first_checkbox_marker s2)
 
 let test_checkbox_demo_space () =

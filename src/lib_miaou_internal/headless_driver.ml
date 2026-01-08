@@ -4,6 +4,7 @@
 [@@@warning "-32-34-37-69"]
 
 module Tui_page = Miaou_core.Tui_page
+module Navigation = Miaou_core.Navigation
 module Capture = Miaou_core.Tui_capture
 module Fibers = Miaou_helpers.Fiber_runtime
 open LTerm_geom
@@ -43,9 +44,9 @@ let feed_keys = Key_queue.feed_keys
 let get_screen_content () = Screen.get ()
 
 let render_page_with (type s) (module P : Tui_page.PAGE_SIG with type state = s)
-    (st : s) =
+    (ps : s Navigation.t) =
   let size = get_size () in
-  let base = P.view st ~focus:true ~size in
+  let base = P.view ps ~focus:true ~size in
   let base =
     match
       Miaou_internals.Modal_renderer.render_overlay
@@ -76,8 +77,8 @@ let render_page_with (type s) (module P : Tui_page.PAGE_SIG with type state = s)
 
 let render_only (type s) (module P : Tui_page.PAGE_SIG with type state = s) :
     unit =
-  let st = P.init () in
-  render_page_with (module P) st
+  let ps = P.init () in
+  render_page_with (module P) ps
 
 let max_iterations_ref = ref 20_000
 
@@ -106,20 +107,20 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                !max_iterations_ref
                !max_seconds_ref)
       in
-      let rec loop iteration (st : P.state) : [`Quit | `SwitchTo of string] =
+      let rec loop iteration (ps : P.pstate) : [`Quit | `SwitchTo of string] =
         exceed_guard iteration ;
-        render_page_with (module P) st ;
+        render_page_with (module P) ps ;
         match Key_queue.take () with
         | None -> (
             (try
                Printf.eprintf
                  "[driver][debug] No key in queue, refreshing page\n%!"
              with _ -> ()) ;
-            let st' = P.refresh st in
-            match P.next_page st' with
+            let ps' = P.refresh ps in
+            match Navigation.pending ps' with
             | Some "__QUIT__" -> `Quit
             | Some name -> `SwitchTo name
-            | None -> loop (iteration + 1) st')
+            | None -> loop (iteration + 1) ps')
         | Some k -> (
             (try
                Printf.eprintf
@@ -136,7 +137,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             if forced_switch then
               `SwitchTo (String.sub k 11 (String.length k - 11))
             else
-              let st' =
+              let ps' =
                 if Miaou_core.Modal_manager.has_active () then (
                   (try
                      Printf.eprintf
@@ -144,21 +145,19 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                        k
                    with _ -> ()) ;
                   Miaou_core.Modal_manager.handle_key k ;
-                  st)
+                  ps)
                 else
                   match k with
-                  | "Up" -> P.move st (-1)
-                  | "Down" -> P.move st 1
-                  | "Enter" -> P.enter st
-                  | "q" | "Q" -> st
-                  | _ -> P.handle_key st k ~size:(get_size ())
+                  | "Up" -> P.move ps (-1)
+                  | "Down" -> P.move ps 1
+                  | "q" | "Q" -> Navigation.quit ps
+                  | _ -> P.handle_key ps k ~size:(get_size ())
               in
-              render_page_with (module P) st' ;
-              if k = "q" || k = "Q" then `Quit
-              else
-                match P.next_page st' with
-                | Some name -> `SwitchTo name
-                | None -> loop (iteration + 1) st')
+              render_page_with (module P) ps' ;
+              match Navigation.pending ps' with
+              | Some "__QUIT__" -> `Quit
+              | Some name -> `SwitchTo name
+              | None -> loop (iteration + 1) ps')
       in
       set_page initial_page ;
       loop 0 (P.init ()))
@@ -174,8 +173,8 @@ module Stateful = struct
 
   let init (type s) (module P : Tui_page.PAGE_SIG with type state = s) : unit =
     with_page_scope (fun () ->
-        let st = ref (P.init ()) in
-        let render () = render_page_with (module P) !st in
+        let ps = ref (P.init ()) in
+        let render () = render_page_with (module P) !ps in
         let handle_modal_key k =
           if Miaou_core.Modal_manager.has_active () then
             Miaou_core.Modal_manager.handle_key k
@@ -185,23 +184,22 @@ module Stateful = struct
             handle_modal_key k ;
             render ())
           else
-            let new_st =
+            let new_ps =
               match k with
-              | "Up" -> P.move !st (-1)
-              | "Down" -> P.move !st 1
-              | "Enter" -> P.enter !st
-              | "q" | "Q" -> !st
-              | _ -> P.handle_key !st k ~size:(get_size ())
+              | "Up" -> P.move !ps (-1)
+              | "Down" -> P.move !ps 1
+              | "q" | "Q" -> Navigation.quit !ps
+              | _ -> P.handle_key !ps k ~size:(get_size ())
             in
-            st := new_st ;
+            ps := new_ps ;
             render ()
         in
         send_key_impl := handle_key ;
         (refresh_impl :=
            fun () ->
-             st := P.refresh !st ;
+             ps := P.refresh !ps ;
              render ()) ;
-        (next_page_impl := fun () -> P.next_page !st) ;
+        (next_page_impl := fun () -> Navigation.pending !ps) ;
         initialized := true ;
         render ())
 

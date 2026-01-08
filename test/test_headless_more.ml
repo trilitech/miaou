@@ -6,36 +6,34 @@ open LTerm_geom
 module Dummy = struct
   type state = int
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = 1
+  let init () = Miaou_core.Navigation.make 1
 
-  let update st _ = st
+  let update ps _ = ps
 
-  let view st ~focus:_ ~size =
-    Printf.sprintf "st=%d %dx%d" st size.rows size.cols
+  let view ps ~focus:_ ~size =
+    Printf.sprintf "st=%d %dx%d" ps.Miaou_core.Navigation.s size.rows size.cols
 
-  let move st _ = st
+  let move ps _ = ps
 
-  let refresh st = st
+  let refresh ps = ps
 
-  let enter st = st
+  let service_select ps _ = ps
 
-  let service_select st _ = st
+  let service_cycle ps _ = ps
 
-  let service_cycle st _ = st
-
-  let back st = st
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key st _ ~size:_ = st
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key st _ ~size:_ = st
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end

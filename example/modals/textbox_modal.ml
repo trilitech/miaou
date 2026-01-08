@@ -7,41 +7,44 @@
 
 type state = Miaou_widgets_input.Textbox_widget.t
 
+type pstate = state Miaou.Core.Navigation.t
+
 type msg = unit
 
 let init () =
-  Miaou_widgets_input.Textbox_widget.open_centered
-    ~width:40
-    ~initial:"Initial text"
-    ~placeholder:(Some "Type here...")
-    ()
+  Miaou.Core.Navigation.make
+    (Miaou_widgets_input.Textbox_widget.open_centered
+       ~width:40
+       ~initial:"Initial text"
+       ~placeholder:(Some "Type here...")
+       ())
 
-let update s _ = s
+let update ps _ = ps
 
-let view s ~focus:_ ~size:_ =
-  Miaou_widgets_input.Textbox_widget.render s ~focus:true
+let view ps ~focus:_ ~size:_ =
+  Miaou_widgets_input.Textbox_widget.render
+    ps.Miaou.Core.Navigation.s
+    ~focus:true
 
-let handle_key s key_str ~size:_ =
-  Miaou_widgets_input.Textbox_widget.handle_key s ~key:key_str
+let handle_key ps key_str ~size:_ =
+  Miaou.Core.Navigation.update
+    (fun s -> Miaou_widgets_input.Textbox_widget.handle_key s ~key:key_str)
+    ps
 
-let move s _ = s
+let move ps _ = ps
 
-let refresh s = s
+let refresh ps = ps
 
-let enter s = s
+let service_select ps _ = ps
 
-let service_select s _ = s
+let service_cycle ps _ = ps
 
-let service_cycle s _ = s
+let handle_modal_key ps _ ~size:_ = ps
 
-let handle_modal_key s _ ~size:_ = s
-
-let next_page _ = None
-
-let keymap (_ : state) = []
+let keymap (_ : pstate) = []
 
 let handled_keys () = []
 
-let back s = s
+let back ps = ps
 
 let has_modal _ = false

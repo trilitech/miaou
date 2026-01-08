@@ -5,37 +5,43 @@ open LTerm_geom
 module Page = struct
   type state = int
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = 0
+  let maybe_quit ps =
+    if ps.Miaou_core.Navigation.s > 2 then Miaou_core.Navigation.quit ps else ps
 
-  let update st _ = st
+  let init () = Miaou_core.Navigation.make 0
 
-  let view st ~focus:_ ~size =
-    Printf.sprintf "st=%d %dx%d" st size.rows size.cols
+  let update ps _ = ps
 
-  let move st delta = st + delta
+  let view ps ~focus:_ ~size =
+    Printf.sprintf "st=%d %dx%d" ps.Miaou_core.Navigation.s size.rows size.cols
 
-  let refresh st = st + 1
+  let move ps delta =
+    Miaou_core.Navigation.update (fun st -> st + delta) ps |> maybe_quit
 
-  let enter st = st
+  let refresh ps =
+    Miaou_core.Navigation.update (fun st -> st + 1) ps |> maybe_quit
 
-  let service_select st _ = st
+  let service_select ps _ = ps
 
-  let service_cycle st _ = st
+  let service_cycle ps _ = ps
 
-  let back st = st
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key st _ ~size:_ = st
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key st key ~size:_ =
-    if key = "q" then st else st + String.length key
-
-  let next_page st = if st > 2 then Some "__QUIT__" else None
+  let handle_key ps key ~size:_ =
+    if key = "q" then ps
+    else
+      Miaou_core.Navigation.update (fun st -> st + String.length key) ps
+      |> maybe_quit
 
   let has_modal _ = false
 end

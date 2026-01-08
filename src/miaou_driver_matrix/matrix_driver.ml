@@ -8,8 +8,13 @@
 [@@@warning "-32-34-37"]
 
 open Miaou_core
+module Narrow_modal = Miaou_core.Narrow_modal
+module Logger_capability = Miaou_interfaces.Logger_capability
 
 let available = true
+
+(* One-time narrow terminal warning flag *)
+let narrow_warned = ref false
 
 (* Debug overlay - shows FPS/TPS when MIAOU_OVERLAY is set *)
 let overlay_enabled =
@@ -57,7 +62,7 @@ let render_overlay_text ~loop_fps ~render_fps ~tps ~cols
 (* Pack page and state together to avoid GADT escaping issues *)
 type packed_state =
   | Packed :
-      (module Tui_page.PAGE_SIG with type state = 's) * 's
+      (module Tui_page.PAGE_SIG with type state = 's) * 's Navigation.t
       -> packed_state
 
 module Fibers = Miaou_helpers.Fiber_runtime
@@ -116,10 +121,13 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       (* Frame counter for periodic partial refresh (doesn't reset like tick_count) *)
       let frame_counter = ref 0 in
 
+      (* Track last size for narrow warning detection *)
+      let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
+
       (* Main loop - runs in main domain, handles input and effects *)
       let rec loop packed =
         let tick_start = Unix.gettimeofday () in
-        let (Packed ((module Page), state)) = packed in
+        let (Packed ((module Page), ps)) = packed in
 
         (* Get current terminal size *)
         let rows, cols = Matrix_terminal.size terminal in
@@ -132,8 +140,66 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           Matrix_buffer.mark_all_dirty buffer
         end ;
 
+        (* One-time narrow terminal warning (only once per session) *)
+        let prev_cols = !last_size.LTerm_geom.cols in
+        if
+          (cols < 80 && not !narrow_warned)
+          || (cols < 80 && prev_cols >= 80 && not !narrow_warned)
+        then (
+          (match Logger_capability.get () with
+          | Some logger ->
+              logger.logf
+                Warning
+                (Printf.sprintf
+                   "WIDTH_CROSSING: prev=%d new=%d (showing narrow modal)"
+                   prev_cols
+                   cols)
+          | None -> ()) ;
+          narrow_warned := true ;
+          Modal_manager.push
+            (module Narrow_modal.Page)
+            ~init:(Narrow_modal.Page.init ())
+            ~ui:
+              {
+                title = "Narrow terminal";
+                left = Some 2;
+                max_width = None;
+                dim_background = true;
+              }
+            ~commit_on:[]
+            ~cancel_on:[]
+            ~on_close:(fun (_ : Narrow_modal.Page.pstate) _ -> ()) ;
+          Modal_manager.set_consume_next_key () ;
+          let my_title = "Narrow terminal" in
+          Fibers.spawn (fun env ->
+              Eio.Time.sleep env#clock 5.0 ;
+              match Modal_manager.top_title_opt () with
+              | Some t when t = my_title -> Modal_manager.close_top `Cancel
+              | _ -> ())) ;
+        last_size := size ;
+
+        (* Build header lines for narrow terminal warning banner *)
+        let header_lines =
+          if cols < 80 then
+            [
+              Miaou_widgets_display.Widgets.warning_banner
+                ~cols
+                (Printf.sprintf
+                   "Narrow terminal: %d cols (< 80). Some UI may be truncated."
+                   cols);
+            ]
+          else []
+        in
+
         (* Render page view to ANSI string *)
-        let view_output = Page.view state ~focus:true ~size in
+        let view_output = Page.view ps ~focus:true ~size in
+
+        (* Prepend header lines if any *)
+        let view_output =
+          match header_lines with
+          | [] -> view_output
+          | lines -> String.concat "\n" lines ^ "\n" ^ view_output
+        in
 
         (* Check for modal state change *)
         let modal_active = Modal_manager.has_active () in
@@ -208,8 +274,8 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             Matrix_buffer.mark_all_dirty buffer ;
             loop packed
         | Matrix_input.Refresh ->
-            let state' = Page.service_cycle state 0 in
-            check_navigation (Packed ((module Page), state')) tick_start
+            let ps' = Page.service_cycle ps 0 in
+            check_navigation (Packed ((module Page), ps')) tick_start
         | Matrix_input.Idle ->
             (* No input and not time for refresh - maintain TPS and continue *)
             let elapsed = Unix.gettimeofday () -. tick_start in
@@ -230,14 +296,22 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                 "Key received: %S, modal_active=%b, has_modal=%b\n%!"
                 key
                 (Modal_manager.has_active ())
-                (Page.has_modal state) ;
+                (Page.has_modal ps) ;
               close_out oc) ;
             let _ = Matrix_input.drain_nav_keys input (Matrix_input.Key key) in
             (* Set modal size before handling keys *)
             Modal_manager.set_current_size rows cols ;
+            (* Helper: detect whether the transient narrow modal is currently active *)
+            let is_narrow_modal_active () =
+              match Modal_manager.top_title_opt () with
+              | Some t when t = "Narrow terminal" -> true
+              | _ -> false
+            in
             (* Check if modal is active - if so, send keys to modal instead of page *)
             if Modal_manager.has_active () then begin
-              Modal_manager.handle_key key ;
+              (* If the narrow modal is active, close it on any key as advertised *)
+              if is_narrow_modal_active () then Modal_manager.close_top `Cancel
+              else Modal_manager.handle_key key ;
               (* If modal was closed by Esc, drain any pending Esc keys to prevent
              double-navigation (modal close + page back) *)
               if
@@ -245,47 +319,30 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                 && not (Modal_manager.has_active ())
               then ignore (Matrix_input.drain_esc_keys input) ;
               (* After modal handles key, check if navigation requested *)
-              let state' = Page.service_cycle state 0 in
-              check_navigation (Packed ((module Page), state')) tick_start
+              let ps' = Page.service_cycle ps 0 in
+              check_navigation (Packed ((module Page), ps')) tick_start
             end
-            else if Page.has_modal state then begin
+            else if Page.has_modal ps then begin
               (* Page has its own modal - use page's modal key handler *)
-              let state' = Page.handle_modal_key state key ~size in
+              let ps' = Page.handle_modal_key ps key ~size in
               (* If modal was closed by Esc, drain any pending Esc keys *)
-              if (key = "Esc" || key = "Escape") && not (Page.has_modal state')
+              if (key = "Esc" || key = "Escape") && not (Page.has_modal ps')
               then ignore (Matrix_input.drain_esc_keys input) ;
-              check_navigation (Packed ((module Page), state')) tick_start
+              check_navigation (Packed ((module Page), ps')) tick_start
             end
             else
-              (* Handle keys like lambda-term:
-             - Enter: special handling via Page.enter
-             - Esc: special handling, then handle_key
-             - Navigation keys (arrows, Tab): always handle_key
-             - Other keys: keymap first, then handle_key *)
-              let state' =
-                if key = "Enter" then
-                  (* Enter: call Page.enter like lambda-term does *)
-                  Page.enter state
-                else if key = "Esc" || key = "Escape" then
-                  (* Esc: use handle_key for page-specific behavior *)
-                  Page.handle_key state key ~size
-                else if
-                  key = "Up" || key = "Down" || key = "Left" || key = "Right"
-                  || key = "Tab" || key = "Shift-Tab"
-                then
-                  (* Navigation keys: always use handle_key *)
-                  Page.handle_key state key ~size
-                else
-                  (* Other keys: try keymap first, fall back to handle_key *)
-                  let keymap = Page.keymap state in
-                  let keymap_match =
-                    List.find_opt (fun (k, _, _) -> k = key) keymap
-                  in
-                  match keymap_match with
-                  | Some (_, transformer, _) -> transformer state
-                  | None -> Page.handle_key state key ~size
+              (* All keys go through handle_key - Enter, Esc, navigation, etc.
+                 Pages use Navigation.goto/back/quit for navigation. *)
+              let ps' =
+                let keymap = Page.keymap ps in
+                let keymap_match =
+                  List.find_opt (fun (k, _, _) -> k = key) keymap
+                in
+                match keymap_match with
+                | Some (_, transformer, _) -> transformer ps
+                | None -> Page.handle_key ps key ~size
               in
-              check_navigation (Packed ((module Page), state')) tick_start
+              check_navigation (Packed ((module Page), ps')) tick_start
         | Matrix_input.Mouse (row, col) ->
             let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
             (* Set modal size before handling keys *)
@@ -293,19 +350,19 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             (* Check if modal is active - if so, send keys to modal instead of page *)
             if Modal_manager.has_active () then begin
               Modal_manager.handle_key mouse_key ;
-              let state' = Page.service_cycle state 0 in
-              check_navigation (Packed ((module Page), state')) tick_start
+              let ps' = Page.service_cycle ps 0 in
+              check_navigation (Packed ((module Page), ps')) tick_start
             end
-            else if Page.has_modal state then
+            else if Page.has_modal ps then
               (* Page has its own modal - use page's modal key handler *)
-              let state' = Page.handle_modal_key state mouse_key ~size in
-              check_navigation (Packed ((module Page), state')) tick_start
+              let ps' = Page.handle_modal_key ps mouse_key ~size in
+              check_navigation (Packed ((module Page), ps')) tick_start
             else
-              let state' = Page.handle_key state mouse_key ~size in
-              check_navigation (Packed ((module Page), state')) tick_start
+              let ps' = Page.handle_key ps mouse_key ~size in
+              check_navigation (Packed ((module Page), ps')) tick_start
       and check_navigation packed tick_start =
-        let (Packed ((module Page), state)) = packed in
-        let next = Page.next_page state in
+        let (Packed ((module Page), ps)) = packed in
+        let next = Navigation.pending ps in
         (* Debug: log navigation if MIAOU_DEBUG is set *)
         (if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
            match next with
@@ -330,7 +387,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             let elapsed = Unix.gettimeofday () -. tick_start in
             let sleep_time = tick_time_s -. elapsed in
             eio_sleep env sleep_time ;
-            loop (Packed ((module Page), state))
+            loop (Packed ((module Page), ps))
       in
 
       (* Start with initial page *)

@@ -28,11 +28,11 @@ let resolve_max_width = Miaou_internals.Modal_snapshot.resolve_max_width
 type frame =
   | Frame : {
       p : (module Tui_page.PAGE_SIG with type state = 's);
-      mutable st : 's;
+      mutable st : 's Navigation.t;
       ui : ui;
       commit_on : string list;
       cancel_on : string list;
-      on_close : 's -> outcome -> unit;
+      on_close : 's Navigation.t -> outcome -> unit;
     }
       -> frame
 
@@ -69,8 +69,8 @@ let current_cols () = !current_size.LTerm_geom.cols
 let get_current_size () =
   (!current_size.LTerm_geom.rows, !current_size.LTerm_geom.cols)
 
-let push (type s) (module P : Tui_page.PAGE_SIG with type state = s) ~(init : s)
-    ~ui ~commit_on ~cancel_on ~on_close =
+let push (type s) (module P : Tui_page.PAGE_SIG with type state = s)
+    ~(init : s Navigation.t) ~ui ~commit_on ~cancel_on ~on_close =
   (* Replace any existing frame with the same title to avoid duplicate overlays. *)
   dprintf
     "[DEBUG] Modal_manager.push: title='%s', current_stack_size=%d\n%!"
@@ -216,7 +216,7 @@ let alert (type s) (module P : Tui_page.PAGE_SIG with type state = s) ~init
     (module P)
     ~init
     ~ui
-    ~on_close:(fun (_ : s) -> function `Commit | `Cancel -> ())
+    ~on_close:(fun (_ : s Navigation.t) -> function `Commit | `Cancel -> ())
 
 let confirm (type s) (module P : Tui_page.PAGE_SIG with type state = s) ~init
     ?(title = "Confirm") ?left ?max_width ?(dim_background = true) ~on_result ()

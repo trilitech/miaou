@@ -9,35 +9,33 @@ module LogCap = Miaou_interfaces.Logger_capability
 module Dummy_page = struct
   type state = unit
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = ()
+  let init () = Miaou_core.Navigation.make ()
 
-  let update st _ = st
+  let update ps _ = ps
 
-  let view _ ~focus:_ ~size:_ = "page"
+  let view _ps ~focus:_ ~size:_ = "page"
 
-  let move st _ = st
+  let move ps _ = ps
 
-  let refresh st = st
+  let refresh ps = ps
 
-  let enter st = st
+  let service_select ps _ = ps
 
-  let service_select st _ = st
+  let service_cycle ps _ = ps
 
-  let service_cycle st _ = st
-
-  let back st = st
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key st _ ~size:_ = st
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key st _ ~size:_ = st
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end
@@ -178,7 +176,12 @@ let () =
                 Narrow.update s dummy_msg |> fun s ->
                 Narrow.move s 1 |> Narrow.refresh |> fun s ->
                 Narrow.service_select s 0 |> fun s ->
-                Narrow.service_cycle s 1 |> Narrow.enter |> Narrow.back
+                Narrow.service_cycle s 1 |> fun s ->
+                Narrow.handle_key
+                  s
+                  "Enter"
+                  ~size:{LTerm_geom.rows = 10; cols = 40}
+                |> Narrow.back
               in
               check bool "contains text" true (String.length rendered > 0) ;
               check bool "no modal" false (Narrow.has_modal advanced) ;
@@ -186,7 +189,7 @@ let () =
                 bool
                 "no next page"
                 true
-                (Option.is_none (Narrow.next_page msg)) ;
+                (Option.is_none (Miaou_core.Navigation.pending msg)) ;
               check int "empty keymap" 0 (List.length (Narrow.keymap msg)));
           test_case "capabilities" `Quick test_capabilities;
           test_case "logger capability" `Quick test_logger_capability;

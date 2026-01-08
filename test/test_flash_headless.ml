@@ -13,36 +13,41 @@ let test_flash_bus () =
 module Dummy_page = struct
   type state = int
 
+  type pstate = state Miaou_core.Navigation.t
+
   type msg = unit
 
-  let init () = 0
+  let init () = Miaou_core.Navigation.make 0
 
-  let update st _ = st
+  let update ps _ = ps
 
-  let view st ~focus:_ ~size =
-    LTerm_geom.(Printf.sprintf "state=%d size=%dx%d" st size.rows size.cols)
+  let view ps ~focus:_ ~size =
+    LTerm_geom.(
+      Printf.sprintf
+        "state=%d size=%dx%d"
+        ps.Miaou_core.Navigation.s
+        size.rows
+        size.cols)
 
-  let move st _ = st
+  let move ps _ = ps
 
-  let refresh st = st
+  let refresh ps = ps
 
-  let enter st = st
+  let service_select ps _ = ps
 
-  let service_select st _ = st
+  let service_cycle ps _ = ps
 
-  let service_cycle st _ = st
-
-  let back st = st
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key st _ ~size:_ = st
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key st key ~size:_ = if key = "inc" then st + 1 else st
-
-  let next_page _ = None
+  let handle_key ps key ~size:_ =
+    if key = "inc" then Miaou_core.Navigation.update (fun st -> st + 1) ps
+    else ps
 
   let has_modal _ = false
 end

@@ -14,36 +14,35 @@ module Placeholder_page : Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
+  type pstate = state Navigation.t
+
   let init () =
-    "No page registered.\n\
-     Register your own page in Miaou_core.Registry (e.g. \"main\") and run \
-     again with --page <name> or MIAOU_RUNNER_PAGE set."
+    Navigation.make
+      "No page registered.\n\
+       Register your own page in Miaou_core.Registry (e.g. \"main\") and run \
+       again with --page <name> or MIAOU_RUNNER_PAGE set."
 
-  let update s _ = s
+  let update ps _ = ps
 
-  let view s ~focus:_ ~size:_ = s
+  let view ps ~focus:_ ~size:_ = ps.Navigation.s
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
-
-  let back s = s
+  let back ps = ps
 
   let keymap _ = []
 
   let handled_keys () = []
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_key s _ ~size:_ = s
-
-  let next_page _ = None
+  let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = false
 end

@@ -13,43 +13,43 @@
 [@@@warning "-32-34-37-69"]
 
 module type PAGE_SIG = sig
+  (** The page's own state type (no next_page field needed). *)
   type state
 
   type msg
 
-  val init : unit -> state
+  (** Wrapped state with navigation support. *)
+  type pstate = state Navigation.t
 
-  val update : state -> msg -> state
+  val init : unit -> pstate
 
-  val view : state -> focus:bool -> size:LTerm_geom.size -> string
+  val update : pstate -> msg -> pstate
+
+  val view : pstate -> focus:bool -> size:LTerm_geom.size -> string
 
   (* Driver-callable helpers, keeping msg abstract *)
-  val move : state -> int -> state
+  val move : pstate -> int -> pstate
 
-  val refresh : state -> state
+  val refresh : pstate -> pstate
 
-  val enter : state -> state
+  val service_select : pstate -> int -> pstate
 
-  val service_select : state -> int -> state
+  val service_cycle : pstate -> int -> pstate
 
-  val service_cycle : state -> int -> state
+  val back : pstate -> pstate
 
-  val back : state -> state
-
-  val keymap : state -> (string * (state -> state) * string) list
+  val keymap : pstate -> (string * (pstate -> pstate) * string) list
 
   val handled_keys : unit -> Keys.t list
 
   (* When a modal is active, pages can handle raw key strings here *)
-  val handle_modal_key : state -> string -> size:LTerm_geom.size -> state
+  val handle_modal_key : pstate -> string -> size:LTerm_geom.size -> pstate
 
-  val handle_key : state -> string -> size:LTerm_geom.size -> state
-
-  (* If Some page name is returned, the driver should switch to that page *)
-  val next_page : state -> string option
+  (* Generic key handler - includes Enter, Esc, and all other keys *)
+  val handle_key : pstate -> string -> size:LTerm_geom.size -> pstate
 
   (* Return true if the page currently has an active modal overlay that
-    should consume most input. When true, the driver will avoid routing
-    navigation keys (Up/Down/Left/Right/NextPage) to the background page. *)
-  val has_modal : state -> bool
+     should consume most input. When true, the driver will avoid routing
+     navigation keys (Up/Down/Left/Right/NextPage) to the background page. *)
+  val has_modal : pstate -> bool
 end

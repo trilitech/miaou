@@ -38,8 +38,12 @@ let rec with_fit layout pager ~focus ~win ~k =
     if next_win = win then k rendered win
     else with_fit layout pager ~focus ~win:next_win ~k
 
+module Navigation = Miaou.Core.Navigation
+
 module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   type state = {pager : Pager.t}
+
+  type pstate = state Navigation.t
 
   type msg = unit
 
@@ -54,52 +58,54 @@ module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let body = MU.markdown_to_ansi markdown in
     let lines = String.split_on_char '\n' body in
     let pager = Pager.open_lines ~title lines in
-    {pager}
+    Navigation.make {pager}
 
-  let update s (_ : msg) = s
+  let update ps (_ : msg) = ps
 
-  let view s ~focus:_ ~size =
+  let view ps ~focus:_ ~size =
     let layout = layout_from_size size in
     with_fit
       layout
-      s.pager
+      ps.Navigation.s.pager
       ~focus:true
       ~win:layout.base_win
       ~k:(fun rendered _ -> rendered)
 
-  let handle_key s key_str ~size =
+  let handle_key ps key_str ~size =
     let layout = layout_from_size size in
     let win =
-      with_fit layout s.pager ~focus:true ~win:layout.base_win ~k:(fun _ win ->
-          win)
+      with_fit
+        layout
+        ps.Navigation.s.pager
+        ~focus:true
+        ~win:layout.base_win
+        ~k:(fun _ win -> win)
     in
     match key_str with
     | "Esc" | "Escape" | "Enter" ->
-        let pager, _ = Pager.handle_key ~win s.pager ~key:"Esc" in
-        {pager}
+        let pager, _ = Pager.handle_key ~win ps.Navigation.s.pager ~key:"Esc" in
+        Navigation.update (fun _ -> {pager}) ps
     | _ ->
-        let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
-        {pager}
+        let pager, _ =
+          Pager.handle_key ~win ps.Navigation.s.pager ~key:key_str
+        in
+        Navigation.update (fun _ -> {pager}) ps
 
-  let move s _ = s
+  let move ps _ = ps
 
-  let refresh s = s
+  let refresh ps = ps
 
-  let enter s = s
+  let service_select ps _ = ps
 
-  let service_select s _ = s
+  let service_cycle ps _ = ps
 
-  let service_cycle s _ = s
+  let handle_modal_key ps _ ~size:_ = ps
 
-  let handle_modal_key s _ ~size:_ = s
-
-  let next_page _ = None
-
-  let keymap (_ : state) = []
+  let keymap (_ : pstate) = []
 
   let handled_keys () = []
 
-  let back s = s
+  let back ps = ps
 
   let has_modal _ = false
 end

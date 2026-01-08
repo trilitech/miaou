@@ -73,41 +73,56 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   type msg = P.msg
 
-  let init = P.init
+  type pstate = state Miaou.Core.Navigation.t
 
-  let update = P.update
+  let init () = Miaou.Core.Navigation.make (P.init ())
 
-  let view = P.view
+  let update ps msg = Miaou.Core.Navigation.update (fun s -> P.update s msg) ps
 
-  let move = P.move
+  let view ps ~focus ~size = P.view ps.Miaou.Core.Navigation.s ~focus ~size
 
-  let refresh = P.refresh
+  let move ps delta = Miaou.Core.Navigation.update (fun s -> P.move s delta) ps
 
-  let enter = P.enter
+  let refresh ps = Miaou.Core.Navigation.update P.refresh ps
 
-  let service_select = P.service_select
+  let service_select ps idx =
+    Miaou.Core.Navigation.update (fun s -> P.service_select s idx) ps
 
-  let service_cycle = P.service_cycle
+  let service_cycle ps delta =
+    Miaou.Core.Navigation.update (fun s -> P.service_cycle s delta) ps
 
-  let handle_modal_key = P.handle_modal_key
+  let handle_modal_key ps key_str ~size =
+    Miaou.Core.Navigation.update
+      (fun s -> P.handle_modal_key s key_str ~size)
+      ps
 
-  let next_page = P.next_page
-
-  let keymap = P.keymap
+  let keymap ps =
+    List.map
+      (fun (key, f, help) ->
+        (key, (fun ps -> Miaou.Core.Navigation.update f ps), help))
+      (P.keymap ps.Miaou.Core.Navigation.s)
 
   let handled_keys = P.handled_keys
 
-  let back = P.back
+  let back ps =
+    let s' = P.back ps.Miaou.Core.Navigation.s in
+    match P.next_page s' with
+    | Some target -> Miaou.Core.Navigation.goto target ps
+    | None -> Miaou.Core.Navigation.back ps
 
-  let has_modal = P.has_modal
+  let has_modal ps = P.has_modal ps.Miaou.Core.Navigation.s
 
   let show_tutorial () =
     Tutorial_modal.show ~title:P.tutorial_title ~markdown:P.tutorial_markdown ()
 
-  let handle_key s key_str ~size =
+  let handle_key ps key_str ~size =
     match Miaou.Core.Keys.of_string key_str with
     | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "t" ->
         show_tutorial () ;
-        s
-    | _ -> P.handle_key s key_str ~size
+        ps
+    | _ -> (
+        let s' = P.handle_key ps.Miaou.Core.Navigation.s key_str ~size in
+        match P.next_page s' with
+        | Some target -> Miaou.Core.Navigation.goto target {ps with s = s'}
+        | None -> {ps with s = s'})
 end

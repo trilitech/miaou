@@ -61,7 +61,8 @@ let clear_and_render (type a)
         }
       ~commit_on:[]
       ~cancel_on:[]
-      ~on_close:(fun (_ : Narrow_modal.Page.state) _ -> ()) ;
+      ~on_close:(fun (_ : Narrow_modal.Page.state Miaou_core.Navigation.t) _ ->
+        ()) ;
     Modal_manager.set_consume_next_key () ;
     let my_title = "Narrow terminal" in
     Fibers.spawn (fun env ->

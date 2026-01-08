@@ -48,11 +48,11 @@ val clear : unit -> unit
 *)
 val push :
   (module Tui_page.PAGE_SIG with type state = 's) ->
-  init:'s ->
+  init:'s Navigation.t ->
   ui:ui ->
   commit_on:string list ->
   cancel_on:string list ->
-  on_close:('s -> outcome -> unit) ->
+  on_close:('s Navigation.t -> outcome -> unit) ->
   unit
 
 val handle_key : string -> unit
@@ -80,9 +80,9 @@ val handle_key : string -> unit
 *)
 val push_default :
   (module Tui_page.PAGE_SIG with type state = 's) ->
-  init:'s ->
+  init:'s Navigation.t ->
   ui:ui ->
-  on_close:('s -> outcome -> unit) ->
+  on_close:('s Navigation.t -> outcome -> unit) ->
   unit
 
 val set_current_size : int -> int -> unit
@@ -160,7 +160,7 @@ val close_top : outcome -> unit
 
 val alert :
   (module Tui_page.PAGE_SIG with type state = 's) ->
-  init:'s ->
+  init:'s Navigation.t ->
   ?title:string ->
   ?left:int ->
   ?max_width:max_width_spec ->
@@ -170,7 +170,7 @@ val alert :
 
 val confirm :
   (module Tui_page.PAGE_SIG with type state = 's) ->
-  init:'s ->
+  init:'s Navigation.t ->
   ?title:string ->
   ?left:int ->
   ?max_width:max_width_spec ->
@@ -181,24 +181,24 @@ val confirm :
 
 val confirm_with_extract :
   (module Tui_page.PAGE_SIG with type state = 's) ->
-  init:'s ->
+  init:'s Navigation.t ->
   ?title:string ->
   ?left:int ->
   ?max_width:max_width_spec ->
   ?dim_background:bool ->
-  extract:('s -> 'a option) ->
+  extract:('s Navigation.t -> 'a option) ->
   on_result:('a option -> unit) ->
   unit ->
   unit
 
 val prompt :
   (module Tui_page.PAGE_SIG with type state = 's) ->
-  init:'s ->
+  init:'s Navigation.t ->
   ?title:string ->
   ?left:int ->
   ?max_width:max_width_spec ->
   ?dim_background:bool ->
-  extract:('s -> 'a option) ->
+  extract:('s Navigation.t -> 'a option) ->
   on_result:('a option -> unit) ->
   unit ->
   unit
