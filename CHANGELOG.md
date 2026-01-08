@@ -7,6 +7,270 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes (2026-01-08)
+
+#### ⚠️ PAGE_SIG Navigation API Rewrite
+
+**Impact:** All page implementations must be updated. This is a significant API change.
+
+**What changed:**
+
+The `next_page` field and `enter` function have been removed from `PAGE_SIG`. Instead, pages now use the `Navigation` module for all navigation, and all handlers work with `pstate` (which wraps state in `Navigation.t`).
+
+**Old API (removed):**
+```ocaml
+module type PAGE_SIG = sig
+  type state
+  type msg
+
+  val init : unit -> state
+  val next_page : state -> string option  (* REMOVED *)
+  val enter : state -> state               (* REMOVED *)
+
+  val update : state -> msg -> state
+  val view : state -> focus:bool -> size:LTerm_geom.size -> string
+  val move : state -> int -> state
+  val refresh : state -> state
+  val service_select : state -> int -> state
+  val service_cycle : state -> int -> state
+  val back : state -> state
+  val keymap : state -> (string * (state -> state) * string) list
+  val handled_keys : unit -> Keys.t list
+  val handle_modal_key : state -> string -> size:LTerm_geom.size -> state
+  val handle_key : state -> string -> size:LTerm_geom.size -> state
+  val has_modal : state -> bool
+end
+```
+
+**New API:**
+```ocaml
+module type PAGE_SIG = sig
+  type state  (* Your page's own state - no next_page field needed *)
+  type msg
+  type pstate = state Navigation.t  (* Wrapped state with navigation *)
+
+  val init : unit -> pstate
+  val update : pstate -> msg -> pstate
+  val view : pstate -> focus:bool -> size:LTerm_geom.size -> string
+  val move : pstate -> int -> pstate
+  val refresh : pstate -> pstate
+  val service_select : pstate -> int -> pstate
+  val service_cycle : pstate -> int -> pstate
+  val back : pstate -> pstate
+  val keymap : pstate -> (string * (pstate -> pstate) * string) list
+  val handled_keys : unit -> Keys.t list
+  val handle_modal_key : pstate -> string -> size:LTerm_geom.size -> pstate
+  val handle_key : pstate -> string -> size:LTerm_geom.size -> pstate
+  val has_modal : pstate -> bool
+end
+```
+
+**Migration guide:**
+
+1. **Remove `next_page` from your state type:**
+```ocaml
+(* Before *)
+type state = {
+  items : string list;
+  cursor : int;
+  next_page : string option;  (* REMOVE THIS *)
+}
+
+(* After *)
+type state = {
+  items : string list;
+  cursor : int;
+}
+```
+
+2. **Add the `pstate` type alias:**
+```ocaml
+type pstate = state Navigation.t
+```
+
+3. **Update `init` to wrap state:**
+```ocaml
+(* Before *)
+let init () = { items = []; cursor = 0; next_page = None }
+
+(* After *)
+let init () = Navigation.make { items = []; cursor = 0 }
+```
+
+4. **Remove `next_page` and `enter` functions** (they no longer exist).
+
+5. **Update all handlers to use `pstate` and Navigation functions:**
+```ocaml
+(* Before *)
+let handle_key s key ~size =
+  match key with
+  | "q" -> { s with next_page = Some "__QUIT__" }
+  | "Esc" -> { s with next_page = Some "__BACK__" }
+  | "Enter" -> { s with next_page = Some "details" }
+  | "j" -> { s with cursor = s.cursor + 1 }
+  | _ -> s
+
+(* After *)
+let handle_key ps key ~size =
+  match key with
+  | "q" -> Navigation.quit ps
+  | "Esc" -> Navigation.back ps
+  | "Enter" -> Navigation.goto "details" ps
+  | "j" -> Navigation.update (fun s -> { s with cursor = s.cursor + 1 }) ps
+  | _ -> ps
+```
+
+6. **Update state transformations to use `Navigation.update`:**
+```ocaml
+(* Before *)
+let refresh s = { s with items = load_items () }
+
+(* After *)
+let refresh ps = Navigation.update (fun s -> { s with items = load_items () }) ps
+```
+
+7. **Update `view` to access inner state:**
+```ocaml
+(* Before *)
+let view s ~focus ~size = render_items s.items s.cursor
+
+(* After *)
+let view ps ~focus ~size =
+  let s = ps.s in  (* Access inner state via .s field *)
+  render_items s.items s.cursor
+```
+
+**Navigation module reference:**
+- `Navigation.make : 'a -> 'a t` - Wrap state with no pending navigation
+- `Navigation.goto : string -> 'a t -> 'a t` - Navigate to a named page
+- `Navigation.back : 'a t -> 'a t` - Go back (equivalent to `goto "__BACK__"`)
+- `Navigation.quit : 'a t -> 'a t` - Quit application (equivalent to `goto "__QUIT__"`)
+- `Navigation.update : ('a -> 'a) -> 'a t -> 'a t` - Modify inner state
+- `Navigation.pending : 'a t -> string option` - Check pending navigation (used by framework)
+
+**Compiler errors you'll see:**
+```
+Error: This expression has type state but an expression was expected of type
+         state Navigation.t
+
+Error: Unbound value next_page
+
+Error: Unbound value enter
+```
+
+**Why this change?**
+- Eliminates the error-prone `next_page` field that LLM agents frequently forgot to propagate
+- Clear, named navigation functions instead of magic strings in a field
+- Pure functional style with no hidden side effects
+- Framework handles navigation automatically - pages just call `Navigation.goto`
+
+### Added (2026-01-08)
+
+#### Modal Navigation Helpers
+
+Modal `on_close` callbacks can now request navigation without using refs or checking state in `service_cycle`:
+
+```ocaml
+(* Before - error-prone pattern requiring manual ref and service_cycle check *)
+let nav_ref = ref None in
+Modal_manager.push
+  (module My_modal)
+  ~init:(My_modal.init ())
+  ~ui:{ title = "Choose"; ... }
+  ~commit_on:["Enter"]
+  ~cancel_on:["Esc"]
+  ~on_close:(fun state outcome ->
+    match outcome with
+    | `Commit -> nav_ref := Some "next_page"
+    | `Cancel -> ()) ;
+
+(* Then in service_cycle: *)
+let service_cycle ps _ =
+  match !nav_ref with
+  | Some page ->
+      nav_ref := None ;
+      Navigation.goto page ps
+  | None -> ps
+
+(* After - direct API call *)
+Modal_manager.push
+  (module My_modal)
+  ~init:(My_modal.init ())
+  ~ui:{ title = "Choose"; ... }
+  ~commit_on:["Enter"]
+  ~cancel_on:["Esc"]
+  ~on_close:(fun _state outcome ->
+    match outcome with
+    | `Commit -> Modal_manager.set_pending_navigation "next_page"
+    | `Cancel -> ())
+
+(* No service_cycle code needed - framework handles it automatically *)
+```
+
+New functions:
+- `Modal_manager.set_pending_navigation : string -> unit` - Request navigation from modal callback
+- `Modal_manager.take_pending_navigation : unit -> string option` - Used by framework
+
+#### Auto-Refresh Before Service Cycle
+
+Drivers now automatically call `Page.refresh` before `Page.service_cycle`. This means:
+
+- Pages no longer need to manually call `refresh` in `service_cycle`
+- Consistent behavior across all drivers (Matrix, Lambda-term, SDL)
+- The pattern `Page.service_cycle (Page.refresh ps) 0` is now handled by the framework
+
+```ocaml
+(* Before - manual refresh in service_cycle *)
+let service_cycle ps _ =
+  let ps = refresh ps in  (* Manual refresh call *)
+  (* ... check refs, etc. *)
+  ps
+
+(* After - just handle service logic *)
+let service_cycle ps _ =
+  (* refresh is already called by the driver *)
+  ps
+```
+
+#### Pager Widget Enhancements
+
+- **Wrap toggle**: Press **`w`** to toggle word wrap on/off in the pager
+- **Line truncation**: Long lines are truncated with visual indicator when wrap is off
+- Default behavior changed to wrap=on for better readability
+
+#### Narrow Terminal Warning
+
+Both Matrix and Lambda-term drivers now show consistent narrow terminal warnings:
+
+- **Warning banner** displayed when terminal width < 80 columns
+- **One-time modal** appears on first detection (auto-dismisses after 5 seconds)
+- **Any key dismisses** the modal immediately
+- Warning only shown once per session (not repeatedly on resize)
+
+### Changed (2026-01-08)
+
+#### Driver Architecture Improvements
+
+- **Periodic partial refresh**: Matrix driver performs full buffer refresh every ~2 seconds to catch rendering artifacts
+- **Region-based dirty marking**: More efficient partial updates in Matrix driver
+- **Terminal cleanup reliability**: Improved cleanup on exit to restore terminal state
+- **Screen content preservation**: Exit screen content saved for debugging
+
+#### Shared Driver Modules
+
+Common functionality extracted into shared modules:
+- `terminal_raw.ml` - Raw terminal mode handling
+- `input_parser.ml` - ANSI escape sequence parsing
+
+This reduces code duplication between Matrix and Lambda-term drivers.
+
+### Fixed (2026-01-08)
+
+- Modal close no longer causes double-navigation with Esc key
+- Matrix driver now drains pending Esc keys after modal close
+- Fiber scheduling improved in Matrix driver (uses `Eio.Time.sleep`)
+- File pager uses proper Eio-based fiber scheduling
+
 ### Added (2026-01-05)
 
 #### High-Performance Matrix Terminal Driver
