@@ -22,12 +22,14 @@ type t
     starts a background fiber that appends new lines on change.
 
     @param poll_interval seconds between polls when inotify is unavailable
+    @param title custom title to display instead of the file path
     @return [Error msg] if the runtime is not initialized or the file cannot
     be read. *)
 val open_file :
   ?follow:bool ->
   ?notify_render:(unit -> unit) ->
   ?poll_interval:float ->
+  ?title:string ->
   string ->
   (t, string) result
 

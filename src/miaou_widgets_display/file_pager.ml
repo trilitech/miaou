@@ -130,13 +130,17 @@ let start_tail_watcher (fp : t) (ts : tail_state) =
 
 let pager (fp : t) = fp.pager
 
-let open_file ?(follow = false) ?notify_render ?(poll_interval = 0.25) path =
+let open_file ?(follow = false) ?notify_render ?(poll_interval = 0.25) ?title
+    path =
   match Fibers.env_opt () with
   | None -> runtime_error
   | Some env -> (
       try
         let lines = read_all_lines env path in
-        let pager = Pager.open_lines ~title:path ?notify_render lines in
+        let display_title = Option.value title ~default:path in
+        let pager =
+          Pager.open_lines ~title:display_title ?notify_render lines
+        in
         let notify_cb =
           match notify_render with
           | Some f -> f
