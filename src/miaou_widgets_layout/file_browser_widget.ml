@@ -68,6 +68,20 @@ let textbox_handle_key tb ~key = Textbox.handle_key tb ~key
 
 let textbox_render tb = Textbox.render tb ~focus:true
 
+let key_hints w =
+  let hidden_hint = if w.show_hidden then "hide hidden" else "show hidden" in
+  [
+    ("↑/↓", "navigate");
+    ("PgUp/PgDn", "page");
+    ("Space", "select");
+    ("Enter", "open/confirm");
+    ("Backspace", "parent");
+    ("Tab", "edit path");
+    ("h", hidden_hint);
+    ("n", "new directory");
+    ("Esc", "cancel");
+  ]
+
 (* Global state to handle async updates from modal callbacks *)
 let pending_path_update : string option ref = ref None
 

@@ -20,7 +20,8 @@
   help_hint
   capability
   lib_tui
-  narrow_modal)
+  narrow_modal
+  file_browser_modal)
  (instrumentation
   (backend bisect_ppx))
  (libraries

@@ -15,6 +15,7 @@ module Table_widget = Miaou_widgets_display.Table_widget
 module Textbox_widget = Miaou_widgets_input.Textbox_widget
 module Select_widget = Miaou_widgets_input.Select_widget
 module File_browser_widget = Miaou_widgets_layout.File_browser_widget
+module File_browser_modal = File_browser_modal
 module Pane_layout = Miaou_widgets_layout.Pane_layout
 module Pager_widget = Miaou_widgets_display.Pager_widget
 module Tree_widget = Miaou_widgets_display.Tree_widget
