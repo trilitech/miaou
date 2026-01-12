@@ -73,6 +73,8 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   type msg = P.msg
 
+  type key_binding = state Miaou.Core.Tui_page.key_binding_desc
+
   type pstate = state Miaou.Core.Navigation.t
 
   let init () = Miaou.Core.Navigation.make (P.init ())
@@ -98,8 +100,13 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let keymap ps =
     List.map
-      (fun (key, f, help) ->
-        (key, (fun ps -> Miaou.Core.Navigation.update f ps), help))
+      (fun (key, action, help) ->
+        {
+          Miaou.Core.Tui_page.key;
+          action = Miaou.Core.Navigation.update action;
+          help;
+          display_only = false;
+        })
       (P.keymap ps.Miaou.Core.Navigation.s)
 
   let handled_keys = P.handled_keys

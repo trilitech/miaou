@@ -43,6 +43,8 @@ module Navigation = Miaou.Core.Navigation
 module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   type state = {pager : Pager.t}
 
+  type key_binding = state Miaou.Core.Tui_page.key_binding_desc
+
   type pstate = state Navigation.t
 
   type msg = unit

@@ -34,7 +34,7 @@ module Inner = struct
       Vsection.render
         ~size:{size with LTerm_geom.rows = min 20 size.LTerm_geom.rows}
         ~header:["Vsection layout"; "Child area shown between rulers"]
-        ~footer:["Footer area"; "Esc returns, t opens tutorial"]
+        ~content_footer:["Footer area"; "Esc returns, t opens tutorial"]
         ~child:(fun inner ->
           Printf.sprintf "Inner area: %d x %d" inner.rows inner.cols)
     in

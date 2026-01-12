@@ -9,6 +9,8 @@ type state = Miaou_widgets_input.Textbox_widget.t
 
 type pstate = state Miaou.Core.Navigation.t
 
+type key_binding = state Miaou.Core.Tui_page.key_binding_desc
+
 type msg = unit
 
 let init () =

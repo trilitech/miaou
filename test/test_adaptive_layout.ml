@@ -3,6 +3,8 @@ open Alcotest
 module Adaptive_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
+
   type pstate = state Miaou_core.Navigation.t
 
   type msg = unit

@@ -6,6 +6,8 @@ module Headless = Lib_miaou_internal.Headless_driver
 module Page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = int
 
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
+
   type pstate = state Miaou_core.Navigation.t
 
   type msg = unit

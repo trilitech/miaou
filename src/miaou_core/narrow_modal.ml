@@ -14,12 +14,7 @@ module Page : PAGE_SIG = struct
 
   type pstate = state Navigation.t
 
-  type key_binding = {
-    key : string;
-    action : pstate -> pstate;
-    help : string;
-    display_only : bool;
-  }
+  type key_binding = state Tui_page.key_binding_desc
 
   let handle_modal_key ps _ ~size:_ = ps
 

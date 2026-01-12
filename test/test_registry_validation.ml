@@ -3,6 +3,8 @@ open Alcotest
 module Good_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
+
   type pstate = state Miaou_core.Navigation.t
 
   type msg = unit
@@ -23,7 +25,10 @@ module Good_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let back ps = ps
 
-  let keymap _ = [("a", Fun.id, "action")]
+  let keymap _ : key_binding list =
+    [
+      {key = "a"; action = (fun ps -> ps); help = "action"; display_only = false};
+    ]
 
   let handled_keys () = [Miaou_core.Keys.Char "a"; Miaou_core.Keys.Enter]
 
@@ -36,6 +41,8 @@ end
 
 module Bad_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
+
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
 
   type pstate = state Miaou_core.Navigation.t
 
@@ -57,7 +64,10 @@ module Bad_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let back ps = ps
 
-  let keymap _ = [("C-q", Fun.id, "quit")]
+  let keymap _ : key_binding list =
+    [
+      {key = "C-q"; action = (fun ps -> ps); help = "quit"; display_only = false};
+    ]
 
   (* This page tries to handle a global key (C-q = Quit) *)
   let handled_keys () = [Miaou_core.Keys.Control "q"]
@@ -71,6 +81,8 @@ end
 
 module Conflicting_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
+
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
 
   type pstate = state Miaou_core.Navigation.t
 
@@ -92,7 +104,15 @@ module Conflicting_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let back ps = ps
 
-  let keymap _ = [("a", Fun.id, "other action")]
+  let keymap _ : key_binding list =
+    [
+      {
+        key = "a";
+        action = (fun ps -> ps);
+        help = "other action";
+        display_only = false;
+      };
+    ]
 
   (* This page handles same key as Good_page *)
   let handled_keys () = [Miaou_core.Keys.Char "a"]

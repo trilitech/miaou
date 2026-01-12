@@ -16,6 +16,8 @@ and state = {cursor : int}
 
 and pstate = state Navigation.t
 
+type key_binding = state Miaou.Core.Tui_page.key_binding_desc
+
 type msg = Move of int
 
 let launcher_page_name = Demo_shared.Demo_config.launcher_page_name

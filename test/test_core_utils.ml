@@ -9,6 +9,8 @@ module LogCap = Miaou_interfaces.Logger_capability
 module Dummy_page = struct
   type state = unit
 
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
+
   type pstate = state Miaou_core.Navigation.t
 
   type msg = unit
@@ -76,11 +78,32 @@ let test_registry () =
 
 let test_key_handler_stack () =
   let called = ref false in
-  let st, h = KHS.push KHS.empty [("a", (fun () -> called := true), "help")] in
+  let st, h =
+    KHS.push
+      KHS.empty
+      [
+        ( "a",
+          {
+            action = Some (fun () -> called := true);
+            help = "help";
+            display_only = false;
+          } );
+      ]
+  in
   let handled, st' = KHS.dispatch st "a" in
   check bool "handled" true handled ;
   check bool "action called" true !called ;
-  let st'' = fst (KHS.push st' ~delegate:false [("b", (fun () -> ()), "hb")]) in
+  let st'' =
+    fst
+      (KHS.push
+         st'
+         ~delegate:false
+         [
+           ( "b",
+             {action = Some (fun () -> ()); help = "hb"; display_only = false}
+           );
+         ])
+  in
   let handled_b, _ = KHS.dispatch st'' "c" in
   check bool "delegate stops" false handled_b ;
   let st = KHS.pop st h |> KHS.pop_top |> KHS.clear in
@@ -88,8 +111,9 @@ let test_key_handler_stack () =
 
 let test_key_handler_listing () =
   let action () = () in
-  let st, _ = KHS.push KHS.empty [("x", action, "hx")] in
-  let st, _ = KHS.push st ~delegate:false [("y", action, "hy")] in
+  let binding help = {KHS.action = Some action; help; display_only = false} in
+  let st, _ = KHS.push KHS.empty [("x", binding "hx")] in
+  let st, _ = KHS.push st ~delegate:false [("y", binding "hy")] in
   let keys = KHS.top_keys st in
   check bool "top has y" true (List.mem "y" keys) ;
   let bindings = KHS.top_bindings st in

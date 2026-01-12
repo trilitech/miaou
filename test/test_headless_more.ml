@@ -6,6 +6,8 @@ open LTerm_geom
 module Dummy = struct
   type state = int
 
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
+
   type pstate = state Miaou_core.Navigation.t
 
   type msg = unit

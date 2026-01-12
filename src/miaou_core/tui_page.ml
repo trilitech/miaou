@@ -12,6 +12,15 @@
 
 [@@@warning "-32-34-37-69"]
 
+type 'state key_binding_desc = {
+  key : string;
+  action : 'state Navigation.t -> 'state Navigation.t;
+  help : string;
+  display_only : bool;
+}
+
+type 'state key_binding = 'state key_binding_desc
+
 module type PAGE_SIG = sig
   (** The page's own state type (no next_page field needed). *)
   type state
@@ -21,12 +30,7 @@ module type PAGE_SIG = sig
   (** Key binding description.
       [display_only] lets you show reserved keys (e.g., "?") in the footer without
       expecting them to be dispatched to [action]. *)
-  type key_binding = {
-    key : string;
-    action : state Navigation.t -> state Navigation.t;
-    help : string;
-    display_only : bool;
-  }
+  type key_binding = state key_binding_desc
 
   (** Wrapped state with navigation support. *)
   type pstate = state Navigation.t

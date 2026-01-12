@@ -1129,6 +1129,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     module Page : PAGE_SIG = struct
                       type state = unit
 
+                      type key_binding = state key_binding_desc
+
                       type pstate = state Navigation.t
 
                       type msg = unit

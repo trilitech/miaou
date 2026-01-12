@@ -6,12 +6,16 @@ module LG = LTerm_geom
 module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
   type state = unit
 
+  type key_binding = state Miaou_core.Tui_page.key_binding_desc
+
   type pstate = state Miaou_core.Navigation.t
 
   type msg = unit
 
   module Consuming_modal : Miaou_core.Tui_page.PAGE_SIG = struct
     type state = unit
+
+    type key_binding = state Miaou_core.Tui_page.key_binding_desc
 
     type pstate = state Miaou_core.Navigation.t
 

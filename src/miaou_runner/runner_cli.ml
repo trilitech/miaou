@@ -14,6 +14,8 @@ module Placeholder_page : Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
+  type key_binding = state Tui_page.key_binding_desc
+
   type pstate = state Navigation.t
 
   let init () =
