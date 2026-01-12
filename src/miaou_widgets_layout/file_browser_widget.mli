@@ -155,6 +155,10 @@ val textbox_handle_key :
   key:string ->
   Miaou_widgets_input.Textbox_widget.t
 
+(** Key hints for footer/help display.
+    Includes navigation, selection, edit path, hidden toggle, parent, cancel. *)
+val key_hints : t -> (string * string) list
+
 (** Render textbox (wrapper around Textbox_widget.render). *)
 val textbox_render : Miaou_widgets_input.Textbox_widget.t -> string
 
