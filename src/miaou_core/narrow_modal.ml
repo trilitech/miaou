@@ -12,7 +12,12 @@ module Page : PAGE_SIG = struct
 
   type msg = unit
 
-  type key_binding = Tui_page.key_binding
+  type key_binding = {
+    key : string;
+    action : pstate -> pstate;
+    help : string;
+    display_only : bool;
+  }
 
   type pstate = state Navigation.t
 
