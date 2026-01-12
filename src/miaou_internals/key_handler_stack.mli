@@ -20,10 +20,12 @@
 
 type action = unit -> unit
 
+type binding = {action : action option; help : string; display_only : bool}
+
 type frame = {
   id : int;
   delegate : bool;  (** if true, unhandled keys bubble to next frame *)
-  bindings : (string, action * string) Hashtbl.t;  (** key -> (action * help) *)
+  bindings : (string, binding) Hashtbl.t;  (** key -> binding *)
 }
 
 (** opaque stack *)
@@ -34,7 +36,7 @@ val empty : t
 (** reference id for later pop *)
 type handle = int
 
-val push : t -> ?delegate:bool -> (string * action * string) list -> t * handle
+val push : t -> ?delegate:bool -> (string * binding) list -> t * handle
 
 val pop : t -> handle -> t
 

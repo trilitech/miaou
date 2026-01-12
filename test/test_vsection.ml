@@ -10,7 +10,11 @@ let () =
       "child"
     in
     let _out =
-      Miaou_widgets_layout.Vsection.render ~size ~header ~footer ~child
+      Miaou_widgets_layout.Vsection.render
+        ~size
+        ~header
+        ~content_footer:footer
+        ~child
     in
     check int "inner rows" 15 !seen
   in
@@ -24,7 +28,11 @@ let () =
       "child"
     in
     let _out =
-      Miaou_widgets_layout.Vsection.render ~size ~header ~footer ~child
+      Miaou_widgets_layout.Vsection.render
+        ~size
+        ~header
+        ~content_footer:footer
+        ~child
     in
     check int "clamp to 1" 1 !seen
   in
