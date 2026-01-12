@@ -163,6 +163,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     render tick. This avoids depending on SIGWINCH being available at
     compile-time across different platforms. *)
         let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
+        (* Cache the last base view seen when a modal is active so we don't keep
+           re-rendering the background on every modal keystroke (reduces flicker). *)
+        let modal_base_ref : string option ref = ref None in
         (* FPS tracker for debug overlay *)
         let fps_tracker = create_fps_tracker () in
         (* Portable size detection used by render and key handlers.
@@ -294,9 +297,22 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                 Buffer.add_string buf wrapped_footer ;
                 Buffer.contents buf
           in
+          (* Keep a stable base frame while a modal is open to avoid repainting
+             the entire background on each modal refresh. *)
+          let base_for_modal =
+            if Modal_manager.has_active () then (
+              match !modal_base_ref with
+              | Some b -> b
+              | None ->
+                  modal_base_ref := Some main_out ;
+                  main_out)
+            else (
+              modal_base_ref := None ;
+              main_out)
+          in
           let out =
             Driver_common.Modal_utils.render_with_modal_overlay
-              ~view:main_out
+              ~view:base_for_modal
               ~rows:size.rows
               ~cols:size.cols
           in
