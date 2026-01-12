@@ -8,11 +8,13 @@
 
 type action = unit -> unit
 
+type binding = {action : action option; help : string; display_only : bool}
+
 type frame = {
   id : int;
   delegate : bool;
       (* If true, keys not handled here bubble down to lower frames *)
-  bindings : (string, action * string) Hashtbl.t;
+  bindings : (string, binding) Hashtbl.t;
 }
 
 type t = {frames : frame list; next_id : int}
@@ -24,7 +26,7 @@ type handle = int
 let push st ?(delegate = true) bindings =
   let id = st.next_id in
   let tbl = Hashtbl.create 17 in
-  List.iter (fun (k, a, help) -> Hashtbl.replace tbl k (a, help)) bindings ;
+  List.iter (fun (k, b) -> Hashtbl.replace tbl k b) bindings ;
   let fr = {id; delegate; bindings = tbl} in
   ({frames = fr :: st.frames; next_id = id + 1}, id)
 
@@ -51,14 +53,14 @@ let top_keys st =
 let top_bindings st =
   match st.frames with
   | [] -> []
-  | f :: _ -> Hashtbl.fold (fun k (_a, h) acc -> (k, h) :: acc) f.bindings []
+  | f :: _ -> Hashtbl.fold (fun k b acc -> (k, b.help) :: acc) f.bindings []
 
 let all_bindings st =
   let rec gather acc = function
     | [] -> acc
     | f :: rest ->
         let pairs =
-          Hashtbl.fold (fun k (_a, h) acc -> (k, h) :: acc) f.bindings []
+          Hashtbl.fold (fun k b acc -> (k, b.help) :: acc) f.bindings []
         in
         gather (pairs @ acc) rest
   in
@@ -70,9 +72,12 @@ let dispatch st key =
     | [] -> (false, st)
     | f :: rest -> (
         match Hashtbl.find_opt f.bindings key with
-        | Some (a, _) ->
-            a () ;
-            (true, st)
+        | Some b -> (
+            match b.action with
+            | Some a when not b.display_only ->
+                a () ;
+                (true, st)
+            | _ -> if f.delegate then loop rest else (false, st))
         | None -> if f.delegate then loop rest else (false, st))
   in
   loop st.frames

@@ -8,7 +8,7 @@
 
 module Helpers = Miaou_helpers.Helpers
 
-let render ~size ~(header : string list) ~(footer : string list)
+let render ~size ~(header : string list) ~(content_footer : string list)
     ~(child : LTerm_geom.size -> string) : string =
   let rows = size.LTerm_geom.rows in
   let cols = size.LTerm_geom.cols in
@@ -19,7 +19,7 @@ let render ~size ~(header : string list) ~(footer : string list)
   in
   let header_rows = List.length header in
   (* two separators around child *)
-  let footer_rows = List.length footer in
+  let footer_rows = List.length content_footer in
   let seps = 2 in
   let inner_rows =
     let avail = rows - header_rows - footer_rows - seps in
@@ -43,5 +43,5 @@ let render ~size ~(header : string list) ~(footer : string list)
       take inner_rows child_lines
   in
   let child_out = Helpers.concat_lines child_lines_adjusted in
-  let parts = header @ [sep] @ [child_out] @ [sep] @ footer in
+  let parts = header @ [sep] @ [child_out] @ [sep] @ content_footer in
   Helpers.concat_lines parts

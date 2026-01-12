@@ -10,6 +10,16 @@ module type PAGE_SIG = sig
 
   type msg
 
+  (** Key binding description.
+      [display_only] lets you show reserved keys (e.g., "?") in the footer without
+      expecting them to be dispatched to [action]. *)
+  type key_binding = {
+    key : string;
+    action : state Navigation.t -> state Navigation.t;
+    help : string;
+    display_only : bool;
+  }
+
   (** Wrapped state with navigation support.
       Pages use [Navigation.goto], [Navigation.back], [Navigation.quit]
       to navigate, and [Navigation.update] to modify inner state. *)
@@ -32,13 +42,16 @@ module type PAGE_SIG = sig
 
   val back : pstate -> pstate
 
-  (* Unified keymap: pure description for stack-based dispatcher.
-     Each entry: (key, state transformer, short help). *)
-  val keymap : pstate -> (string * (pstate -> pstate) * string) list
+  (* Unified keymap: pure description for stack-based dispatcher and footer/help
+     display. Footer hints are auto-generated from this keymap; pages should not
+     render their own keymap footer. Reserved keys like "?" are intercepted by
+     the driver but can still appear here with [display_only = true] so they show
+     up in the footer/help overlay without being dispatched. *)
+  val keymap : pstate -> key_binding list
 
   (* Declare which keys this page handles (for conflict detection).
      Pages should list all keys they handle, using Keys.t variants.
-     This enables compile-time checking and auto-generated help. *)
+     This enables compile-time checking; it is not used for footer rendering. *)
   val handled_keys : unit -> Keys.t list
 
   (* When a modal is active, pages can handle raw key strings here (e.g., "a", "Backspace", "Left"). *)

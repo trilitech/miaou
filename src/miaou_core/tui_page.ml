@@ -18,6 +18,16 @@ module type PAGE_SIG = sig
 
   type msg
 
+  (** Key binding description.
+      [display_only] lets you show reserved keys (e.g., "?") in the footer without
+      expecting them to be dispatched to [action]. *)
+  type key_binding = {
+    key : string;
+    action : state Navigation.t -> state Navigation.t;
+    help : string;
+    display_only : bool;
+  }
+
   (** Wrapped state with navigation support. *)
   type pstate = state Navigation.t
 
@@ -38,7 +48,7 @@ module type PAGE_SIG = sig
 
   val back : pstate -> pstate
 
-  val keymap : pstate -> (string * (pstate -> pstate) * string) list
+  val keymap : pstate -> key_binding list
 
   val handled_keys : unit -> Keys.t list
 

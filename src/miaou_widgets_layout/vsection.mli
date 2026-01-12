@@ -7,6 +7,6 @@
 val render :
   size:LTerm_geom.size ->
   header:string list ->
-  footer:string list ->
+  content_footer:string list ->
   child:(LTerm_geom.size -> string) ->
   string

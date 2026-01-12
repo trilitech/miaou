@@ -794,11 +794,13 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                   (* Try keymap first, fall back to handle_key *)
                   let keymap = P.keymap ps in
                   let keymap_match =
-                    List.find_opt (fun (key, _, _) -> key = k) keymap
+                    List.find_opt
+                      (fun (kb : P.key_binding) -> kb.key = k)
+                      keymap
                   in
                   match keymap_match with
-                  | Some (_, transformer, _) -> transformer ps
-                  | None -> P.handle_key ps k ~size
+                  | Some kb when not kb.display_only -> kb.action ps
+                  | _ -> P.handle_key ps k ~size
               in
               (* Run service_cycle after handling key, like other drivers *)
               let ps' = P.service_cycle ps' 0 in

@@ -848,8 +848,18 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   let ks = Khs.pop key_stack h in
                   let bindings =
                     List.map
-                      (fun (k, fn, desc) ->
-                        (k, (fun () -> pending_update := Some fn), desc))
+                      (fun (kb : Page.key_binding) ->
+                        let action =
+                          if kb.display_only then None
+                          else Some (fun () -> pending_update := Some kb.action)
+                        in
+                        ( kb.key,
+                          Khs.
+                            {
+                              action;
+                              help = kb.help;
+                              display_only = kb.display_only;
+                            } ))
                       merged
                   in
                   let ks', h' = Khs.push ks bindings in
@@ -1272,8 +1282,14 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
         let init_stack =
           let bindings =
             List.map
-              (fun (k, fn, desc) ->
-                (k, (fun () -> pending_update := Some fn), desc))
+              (fun (kb : Page.key_binding) ->
+                let action =
+                  if kb.display_only then None
+                  else Some (fun () -> pending_update := Some kb.action)
+                in
+                ( kb.key,
+                  Khs.{action; help = kb.help; display_only = kb.display_only}
+                ))
               (Page.keymap ps0)
           in
           let key_stack, handle = Khs.push Khs.empty bindings in

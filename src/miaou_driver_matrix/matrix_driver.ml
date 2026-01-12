@@ -336,11 +336,13 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
               let ps' =
                 let keymap = Page.keymap ps in
                 let keymap_match =
-                  List.find_opt (fun (k, _, _) -> k = key) keymap
+                  List.find_opt
+                    (fun (kb : Page.key_binding) -> kb.key = key)
+                    keymap
                 in
                 match keymap_match with
-                | Some (_, transformer, _) -> transformer ps
-                | None -> Page.handle_key ps key ~size
+                | Some kb when not kb.display_only -> kb.action ps
+                | _ -> Page.handle_key ps key ~size
               in
               check_navigation (Packed ((module Page), ps')) tick_start
         | Matrix_input.Mouse (row, col) ->
