@@ -74,9 +74,38 @@ let render_overlay_ansi ~loop_fps ~render_fps ~tps ~cols =
   let len = String.length text in
   let start_col = cols - len - 1 in
   if start_col > 0 then
-    (* Move to row 1, col start_col, dim style, print, reset *)
-    Printf.sprintf "\027[1;%dH\027[2;38;5;245m%s\027[0m" start_col text
+    (* Move to row 1, col start_col, dim style, print, reset, clear rest of line *)
+    Printf.sprintf "\027[1;%dH\027[2;38;5;245m%s\027[0m\027[K" start_col text
   else ""
+
+(* Split lines while preserving a trailing empty line when the input ends with '\n'.
+   This keeps row counts consistent for incremental re-rendering. *)
+let split_lines_preserve s =
+  let lines = String.split_on_char '\n' s in
+  if String.length s > 0 && s.[String.length s - 1] = '\n' then
+    Array.of_list (lines @ [""])
+  else Array.of_list lines
+
+(* Render only the lines that changed compared to the previous frame.
+   Uses absolute cursor positioning + ESC[K to clear rest of line, avoiding
+   a full-screen wipe that causes flicker over slow SSH links. *)
+let render_diff ~rows last_lines next_lines =
+  let buf = Buffer.create 1024 in
+  let last_len = Array.length last_lines in
+  let next_len = Array.length next_lines in
+  let max_lines = min rows (max last_len next_len) in
+  for row = 0 to max_lines - 1 do
+    let prev = if row < last_len then Some last_lines.(row) else None in
+    let next = if row < next_len then Some next_lines.(row) else None in
+    if prev <> next then (
+      Buffer.add_string buf (Printf.sprintf "\027[%d;1H" (row + 1)) ;
+      match next with
+      | Some line ->
+          Buffer.add_string buf line ;
+          Buffer.add_string buf "\027[K"
+      | None -> Buffer.add_string buf "\027[K")
+  done ;
+  Buffer.contents buf
 
 module LT = LTerm
 
@@ -129,6 +158,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
 
         (* Cache the last rendered frame to avoid unnecessary redraws (reduces flicker). *)
         let last_out_ref = ref "" in
+        let last_lines_ref : string array ref = ref [||] in
         (* Track last known terminal size and detect changes by polling on each
     render tick. This avoids depending on SIGWINCH being available at
     compile-time across different platforms. *)
@@ -210,7 +240,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           if
             size.LTerm_geom.rows <> !last_size.LTerm_geom.rows
             || size.LTerm_geom.cols <> !last_size.LTerm_geom.cols
-          then last_out_ref := "" ;
+          then (
+            last_out_ref := "" ;
+            last_lines_ref := [||]) ;
           (* Publish current size to modal machinery for overlays. *)
           Modal_manager.set_current_size
             size.LTerm_geom.rows
@@ -295,8 +327,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           let full_out = out_trimmed ^ "\n" in
           if full_out <> !last_out_ref then (
             record_render fps_tracker ;
-            (* Use full clear (ESC[2J]) then home (ESC[H]) to keep previous behavior. *)
-            print_string ("\027[2J\027[H" ^ full_out) ;
+            let next_lines = split_lines_preserve full_out in
+            let diff =
+              render_diff ~rows:size.LTerm_geom.rows !last_lines_ref next_lines
+            in
+            (* Move cursor home first to avoid depending on previous position. *)
+            print_string ("\027[H" ^ diff) ;
             (* Render debug overlay if enabled *)
             if Lazy.force overlay_enabled then
               print_string
@@ -306,6 +342,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                    ~tps:fps_tracker.current_tps
                    ~cols:size.LTerm_geom.cols) ;
             Stdlib.flush stdout ;
+            last_lines_ref := next_lines ;
             last_out_ref := full_out)
           else () ;
           (* Update last_size at end of render tick so next iteration compares
