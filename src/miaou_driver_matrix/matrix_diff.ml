@@ -120,7 +120,10 @@ let compute buffer =
     ~end_col:cols
     ~cols
 
-(* Compute diff atomically with buffer lock held - thread-safe for two-domain architecture *)
+(* Compute diff atomically with buffer lock held - thread-safe for two-domain architecture.
+   Also clears the dirty flag while holding the lock to prevent race conditions where
+   new writes could set dirty=true between when we release the lock and when clear_dirty
+   would have been called. *)
 let compute_atomic buffer =
   Matrix_buffer.with_read_lock buffer (fun () ->
       let rows = Matrix_buffer.rows_unlocked buffer in
@@ -139,6 +142,8 @@ let compute_atomic buffer =
       in
       (* Swap buffers while still holding the lock *)
       Matrix_buffer.swap_unlocked buffer ;
+      (* Clear dirty flag while still holding the lock to prevent race with new writes *)
+      Matrix_buffer.clear_dirty_unlocked buffer ;
       changes)
 
 (* Compute diff for a specific region *)

@@ -28,11 +28,9 @@ let do_render t =
   Matrix_ansi_writer.reset t.writer ;
 
   (* Compute diff atomically - holds lock during read to prevent torn reads.
-     This also swaps the buffers while holding the lock. *)
+     This also swaps the buffers and clears the dirty flag while holding the lock
+     to prevent race conditions with new writes. *)
   let changes = Matrix_diff.compute_atomic t.buffer in
-
-  (* Clear dirty flag after atomic read+swap *)
-  Matrix_buffer.clear_dirty t.buffer ;
 
   (* Generate ANSI output *)
   let ansi = Matrix_ansi_writer.render t.writer changes in

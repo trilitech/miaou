@@ -206,6 +206,9 @@ let swap_unlocked (t : t) =
   t.front <- t.back ;
   t.back <- tmp
 
+(* Clear dirty without locking - for use inside with_read_lock after swap *)
+let clear_dirty_unlocked (t : t) = Atomic.set t.dirty false
+
 (* Generate SGR sequence for a style - used for dump_to_string *)
 let style_to_sgr style =
   let open Matrix_cell in

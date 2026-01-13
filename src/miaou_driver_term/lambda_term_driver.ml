@@ -78,13 +78,10 @@ let render_overlay_ansi ~loop_fps ~render_fps ~tps ~cols =
     Printf.sprintf "\027[1;%dH\027[2;38;5;245m%s\027[0m\027[K" start_col text
   else ""
 
-(* Split lines while preserving a trailing empty line when the input ends with '\n'.
-   This keeps row counts consistent for incremental re-rendering. *)
-let split_lines_preserve s =
-  let lines = String.split_on_char '\n' s in
-  if String.length s > 0 && s.[String.length s - 1] = '\n' then
-    Array.of_list (lines @ [""])
-  else Array.of_list lines
+(* Split lines for incremental re-rendering.
+   String.split_on_char already preserves trailing empty elements when input ends
+   with '\n' (e.g., "a\nb\n" -> ["a"; "b"; ""]). *)
+let split_lines_preserve s = Array.of_list (String.split_on_char '\n' s)
 
 (* Render only the lines that changed compared to the previous frame.
    Uses absolute cursor positioning + ESC[K to clear rest of line, avoiding

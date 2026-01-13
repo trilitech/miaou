@@ -128,6 +128,9 @@ val cols_unlocked : t -> int
 (** Swap buffers without locking - use inside [with_read_lock]. *)
 val swap_unlocked : t -> unit
 
+(** Clear dirty flag without locking - use inside [with_read_lock]. *)
+val clear_dirty_unlocked : t -> unit
+
 (** {2 Debug/Exit Support} *)
 
 (** Dump front buffer to string with ANSI formatting.
