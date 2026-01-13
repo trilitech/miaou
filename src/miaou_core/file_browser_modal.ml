@@ -90,7 +90,7 @@ let open_modal ?(title = "Select path") ?path ?dirs_only ?require_writable
         Modal_manager.close_top `Cancel ;
         ps')
       else
-        match File_browser_widget.get_selection browser' with
+        match File_browser_widget.get_pending_selection browser' with
         | Some path ->
             on_select path ;
             Modal_manager.close_top `Commit ;

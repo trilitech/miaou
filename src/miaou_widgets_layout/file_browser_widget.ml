@@ -74,7 +74,7 @@ let key_hints w =
     ("↑/↓", "navigate");
     ("PgUp/PgDn", "page");
     ("Space", "select");
-    ("Enter", "open/confirm");
+    ("Enter", "open");
     ("Backspace", "parent");
     ("Tab", "edit path");
     ("h", hidden_hint);
@@ -214,6 +214,8 @@ let reset_cancelled w = {w with cancelled = false}
 
 let get_current_path w = w.current_path
 
+let get_pending_selection w = w.pending_selection
+
 let get_selected_entry w =
   let entries =
     list_entries_with_parent
@@ -259,6 +261,14 @@ let current_input w =
 let handle_key w ~key =
   (* Apply any pending path updates first *)
   let w = apply_pending_updates w in
+  let selection_for_entry w e =
+    let target =
+      if e.name = ".." then Filename.dirname w.current_path
+      else if e.name = "." then w.current_path
+      else Filename.concat w.current_path e.name
+    in
+    if e.is_dir && not w.select_dirs then None else Some target
+  in
   let entries =
     list_entries_with_parent
       w.current_path
@@ -282,25 +292,30 @@ let handle_key w ~key =
           {
             w with
             cursor = List_nav.move_cursor ~total ~cursor:w.cursor ~delta:1;
+            pending_selection = None;
           }
       | "PageUp" ->
           {
             w with
             cursor =
               List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up;
+            pending_selection = None;
           }
       | "PageDown" ->
           {
             w with
             cursor =
               List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
+            pending_selection = None;
           }
       | "Space" ->
-          {
-            w with
-            cursor =
-              List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
-          }
+          (* Explicitly select current entry without navigating. *)
+          let pending =
+            match List.nth_opt entries w.cursor with
+            | None -> None
+            | Some e -> selection_for_entry w e
+          in
+          {w with pending_selection = pending}
       | "n" ->
           if not (is_writable w.current_path) then
             {w with path_error = Some "Not writable"}
@@ -336,10 +351,14 @@ let handle_key w ~key =
           match List.nth_opt entries w.cursor with
           | Some entry when entry.name = ".." ->
               let parent = Filename.dirname w.current_path in
-              {w with current_path = parent; cursor = 0}
+              {
+                w with
+                current_path = parent;
+                cursor = 0;
+                pending_selection = None;
+              }
           | Some entry when entry.name = "." ->
-              (* Treat dot as an explicit selection of the current directory. *)
-              {w with pending_selection = Some w.current_path}
+              {w with pending_selection = None}
           | Some entry ->
               let target = Filename.concat w.current_path entry.name in
               let sys = Miaou_interfaces.System.require () in
@@ -348,7 +367,13 @@ let handle_key w ~key =
               in
               if is_dir then
                 let new_path = normalize_start target in
-                {w with current_path = new_path; cursor = 0; path_error = None}
+                {
+                  w with
+                  current_path = new_path;
+                  cursor = 0;
+                  path_error = None;
+                  pending_selection = None;
+                }
               else w
           | _ -> w)
       | "Left" | "Backspace" ->
@@ -615,7 +640,7 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
       ("↑/↓", "navigate");
       ("PgUp/PgDn", "page");
       ("Space", "select");
-      ("Enter", "confirm");
+      ("Enter", "open");
       ("Esc", "cancel");
       ("Backspace", "parent");
       ("Tab", "edit path");

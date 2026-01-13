@@ -107,6 +107,10 @@ val reset_cancelled : t -> t
 (** Get the current directory path. *)
 val get_current_path : t -> string
 
+(** Pending selection set by explicit confirm actions (e.g., space or path entry).
+    Use this to decide whether to commit the selection (e.g., in a modal). *)
+val get_pending_selection : t -> string option
+
 (** Get the selected path.
 
     Returns [Some path] if a valid directory is selected and passes filters
