@@ -347,7 +347,7 @@ let handle_key w ~key =
           }
       | "Esc" -> {w with cancelled = true}
       | "Enter" -> (
-          (* Navigate into selected directory *)
+          (* Navigate into subdirectories, select current dir or files *)
           match List.nth_opt entries w.cursor with
           | Some entry when entry.name = ".." ->
               let parent = Filename.dirname w.current_path in
@@ -358,7 +358,8 @@ let handle_key w ~key =
                 pending_selection = None;
               }
           | Some entry when entry.name = "." ->
-              {w with pending_selection = None}
+              (* Select the current directory *)
+              {w with pending_selection = selection_for_entry w entry}
           | Some entry ->
               let target = Filename.concat w.current_path entry.name in
               let sys = Miaou_interfaces.System.require () in
@@ -366,6 +367,7 @@ let handle_key w ~key =
                 entry.is_dir || try sys.is_directory target with _ -> false
               in
               if is_dir then
+                (* Navigate into subdirectory *)
                 let new_path = normalize_start target in
                 {
                   w with
@@ -374,7 +376,31 @@ let handle_key w ~key =
                   path_error = None;
                   pending_selection = None;
                 }
-              else w
+              else
+                (* Fallback: if is_directory failed, try to list it. 
+                   If we can list it, it's browseable, so treat as directory. *)
+                let works_as_dir =
+                  match
+                    list_entries
+                      target
+                      ~dirs_only:false
+                      ~show_hidden:w.show_hidden
+                  with
+                  | Ok _ -> true
+                  | Error _ -> false
+                in
+                if works_as_dir then
+                  {
+                    w with
+                    current_path = target;
+                    (* Skip normalize_start as it might fail is_directory check *)
+                    cursor = 0;
+                    path_error = None;
+                    pending_selection = None;
+                  }
+                else
+                  (* Select the file *)
+                  {w with pending_selection = selection_for_entry w entry}
           | _ -> w)
       | "Left" | "Backspace" ->
           let parent = Filename.dirname w.current_path in
