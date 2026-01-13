@@ -28,13 +28,11 @@ let handle_key ps key_str ~size:_ =
   Miaou.Core.Navigation.update
     (fun s ->
       let s' = FB.handle_key s ~key:key_str in
-      if key_str = "Enter" then
-        match FB.get_selected_entry s' with
-        | Some e when (not e.is_dir) || e.name = "." ->
-            Miaou.Core.Modal_manager.close_top `Commit ;
-            s'
-        | _ -> s'
-      else s')
+      match FB.get_pending_selection s' with
+      | Some _ ->
+          Miaou.Core.Modal_manager.close_top `Commit ;
+          s'
+      | None -> s')
     ps
 
 let move ps _ = ps
