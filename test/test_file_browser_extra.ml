@@ -49,13 +49,17 @@ let test_autocomplete_and_history () =
 let test_enter_enters_directory () =
   Miaou_interfaces.System.set (make_stub ~writable:true) ;
   let w = FB.open_centered ~path:"/root" ~dirs_only:false () in
-  (* Cursor defaults to parent entry; ensure it appears and works. *)
-  let first =
-    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 6; cols = 40}
-  in
-  check bool "parent entry present" true (String.contains first '.') ;
+  (* Cursor defaults to current dir entry; parent entry should still exist. *)
+  (match FB.get_selected_entry {w with FB.cursor = 1} with
+  | Some e -> check string "parent entry present" ".." e.FB.name
+  | None -> fail "expected parent entry") ;
   let w' = FB.handle_key w ~key:"Enter" in
-  check string "navigated to parent" "/" w'.FB.current_path ;
+  check string "stays on current" "/root" w'.FB.current_path ;
+  check
+    string
+    "enter selects current dir"
+    "/root"
+    (Option.value ~default:"" (FB.get_selection w')) ;
   check int "cursor reset" 0 w'.FB.cursor ;
   let w_dir = {w with FB.cursor = 2} |> FB.handle_key ~key:"Enter" in
   check string "navigated into dir" "/root/dir1" w_dir.FB.current_path
@@ -118,28 +122,28 @@ let test_selection_matches_cursor () =
   let w =
     FB.open_centered ~path:"/root" ~dirs_only:false ~select_dirs:true ()
   in
-  (* Parent entry index 0, dot entry index 1, first real entry index 2. *)
+  (* Current dir index 0, parent entry index 1, first real entry index 2. *)
   let w = {w with FB.cursor = 2} in
   check
     string
     "cursor aligned with selection"
     "/root/dir1"
     (Option.value ~default:"" (FB.get_selection w)) ;
-  (* Dot entry selects the current directory. *)
-  let w_dot = {w with FB.cursor = 1} in
+  (* Current entry selects the current directory. *)
+  let w_dot = {w with FB.cursor = 0} in
   check
     string
-    "dot selects current"
+    "current entry selects current dir"
     "/root"
     (Option.value ~default:"" (FB.get_selection w_dot)) ;
-  (* Enter on dot should keep selection and not navigate. *)
+  (* Enter on current entry should keep selection and not navigate. *)
   let w_dot_enter = FB.handle_key w_dot ~key:"Enter" in
   check
     string
-    "dot enter selects current"
+    "enter selects current dir"
     "/root"
     (Option.value ~default:"" (FB.get_selection w_dot_enter)) ;
-  check string "dot enter stays put" "/root" w_dot_enter.FB.current_path
+  check string "enter stays put" "/root" w_dot_enter.FB.current_path
 
 let test_browse_dirs_when_not_selectable () =
   Miaou_interfaces.System.set (make_stub ~writable:true) ;

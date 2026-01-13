@@ -193,15 +193,13 @@ let list_entries_with_parent path ~dirs_only ~show_hidden =
     if cache.cached_path <> path then Hashtbl.clear cache.cached_writable ;
     let entries = list_entries_safe path ~dirs_only ~show_hidden in
     let parent = Filename.dirname path in
-    let with_parent =
-      if parent = path then entries else {name = ".."; is_dir = true} :: entries
-    in
-    (* Add a dot entry to allow explicitly selecting the current directory,
-       directly below the parent entry when present. *)
     let result =
-      match with_parent with
-      | p :: rest when p.name = ".." -> p :: {name = "."; is_dir = true} :: rest
-      | lst -> {name = "."; is_dir = true} :: lst
+      let with_parent =
+        if parent = path then entries
+        else {name = ".."; is_dir = true} :: entries
+      in
+      (* Always include the current directory entry first so Enter selects it by default. *)
+      {name = "."; is_dir = true} :: with_parent
     in
     (* Update cache *)
     cache.cached_path <- path ;
@@ -664,7 +662,13 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
             | Ok bytes -> "  (" ^ human_bytes bytes ^ ")"
             | Error _ -> ""
         in
-        let plain = if e.is_dir then e.name ^ "/" else e.name ^ size_suffix in
+        let name_for_display =
+          match e.name with "." -> w.current_path | _ -> e.name
+        in
+        let plain =
+          if e.is_dir then name_for_display ^ "/"
+          else name_for_display ^ size_suffix
+        in
         let clipped = plain |> truncate in
         let colored = if e.is_dir then W.fg 12 clipped else clipped in
         let label = if w.mode = EditingPath then W.dim colored else colored in
