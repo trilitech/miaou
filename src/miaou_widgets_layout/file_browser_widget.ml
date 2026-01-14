@@ -438,6 +438,9 @@ let handle_key w ~key =
             create_dir_on_enter = false;
             history_idx = None;
           }
+      | " ", Some tb ->
+          (* Space in edit mode: insert space, never set pending_selection *)
+          {w with textbox = Some (textbox_handle_key tb ~key:" ")}
       | ("Up" | "Down"), Some tb ->
           let len = List.length w.history in
           if len = 0 then w
