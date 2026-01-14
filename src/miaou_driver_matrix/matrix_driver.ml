@@ -249,9 +249,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                 ~cols
                 ops) ;
 
-        (* On modal OPEN, do synchronous clear+render to avoid overlay artifacts.
-           On modal CLOSE, just let diff handle it - no clear needed. *)
-        if modal_just_changed && modal_active then begin
+        (* On modal state change (open OR close), do synchronous clear+render.
+           This prevents artifacts when modal closes and underlying content has changed. *)
+        if modal_just_changed then begin
           Matrix_buffer.mark_all_dirty buffer ;
           Matrix_terminal.write terminal "\027[2J\027[H" ;
           Matrix_render_loop.force_render render_loop
