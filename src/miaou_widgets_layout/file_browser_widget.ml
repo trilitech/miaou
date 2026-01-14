@@ -723,7 +723,9 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
         let clipped = plain |> truncate in
         let colored = if e.is_dir then W.fg 12 clipped else clipped in
         let label = if w.mode = EditingPath then W.dim colored else colored in
-        if i = w.cursor then Palette.selection_bg (Palette.selection_fg label)
+        (* Only show selection highlight in Browsing mode *)
+        if w.mode = Browsing && i = w.cursor then
+          Palette.selection_bg (Palette.selection_fg label)
         else label)
       slice
   in
