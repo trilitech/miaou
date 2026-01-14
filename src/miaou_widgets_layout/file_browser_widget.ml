@@ -308,7 +308,7 @@ let handle_key w ~key =
               List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
             pending_selection = None;
           }
-      | "Space" ->
+      | " " ->
           (* Explicitly select current entry without navigating. *)
           let pending =
             match List.nth_opt entries w.cursor with
@@ -438,9 +438,6 @@ let handle_key w ~key =
             create_dir_on_enter = false;
             history_idx = None;
           }
-      | "Space", Some tb ->
-          (* Explicitly handle Space to insert it into textbox, not select files *)
-          {w with textbox = Some (textbox_handle_key tb ~key:"Space")}
       | ("Up" | "Down"), Some tb ->
           let len = List.length w.history in
           if len = 0 then w
