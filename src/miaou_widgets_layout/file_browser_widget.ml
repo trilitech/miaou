@@ -232,15 +232,24 @@ let get_selection w =
   match w.pending_selection with
   | Some p -> Some p
   | None -> (
-      match get_selected_entry w with
-      | None -> Some w.current_path
-      | Some e ->
-          let target =
-            if e.name = ".." then Filename.dirname w.current_path
-            else if e.name = "." then w.current_path
-            else Filename.concat w.current_path e.name
-          in
-          if e.is_dir && not w.select_dirs then None else Some target)
+      match w.mode with
+      | EditingPath -> (
+          (* In edit mode, return the textbox content as the selection *)
+          match w.textbox with
+          | Some tb ->
+              let path = textbox_get_text tb in
+              if path = "" then Some w.current_path else Some path
+          | None -> Some w.current_path)
+      | Browsing -> (
+          match get_selected_entry w with
+          | None -> Some w.current_path
+          | Some e ->
+              let target =
+                if e.name = ".." then Filename.dirname w.current_path
+                else if e.name = "." then w.current_path
+                else Filename.concat w.current_path e.name
+              in
+              if e.is_dir && not w.select_dirs then None else Some target))
 
 let is_editing w = match w.mode with EditingPath -> true | Browsing -> false
 
