@@ -11,6 +11,7 @@ type t = {
   tps_cap : int;
   tick_time_ms : float;
   debug : bool;
+  enable_mouse : bool;
 }
 
 let time_of_rate rate =
@@ -26,6 +27,7 @@ let default =
     tps_cap;
     tick_time_ms = time_of_rate tps_cap;
     debug = false;
+    enable_mouse = true;
   }
 
 let load () =
@@ -50,10 +52,18 @@ let load () =
     | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
     | _ -> false
   in
+  let enable_mouse =
+    match Sys.getenv_opt "MIAOU_ENABLE_MOUSE" with
+    | Some ("0" | "false" | "FALSE" | "no" | "NO") -> false
+    | _ -> true
+  in
   {
     fps_cap;
     frame_time_ms = time_of_rate fps_cap;
     tps_cap;
     tick_time_ms = time_of_rate tps_cap;
     debug;
+    enable_mouse;
   }
+
+let with_mouse_disabled config = {config with enable_mouse = false}

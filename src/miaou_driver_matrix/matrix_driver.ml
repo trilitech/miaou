@@ -70,11 +70,13 @@ module Fibers = Miaou_helpers.Fiber_runtime
 let eio_sleep env seconds =
   if seconds > 0.001 then Eio.Time.sleep env#clock seconds
 
-let run (initial_page : (module Tui_page.PAGE_SIG)) :
+let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `SwitchTo of string] =
   Fibers.with_page_switch (fun env _page_sw ->
       (* Load configuration *)
-      let config = Matrix_config.load () in
+      let config =
+        match config with Some c -> c | None -> Matrix_config.load ()
+      in
       let tick_time_s = config.tick_time_ms /. 1000.0 in
 
       (* Setup terminal *)
@@ -101,7 +103,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
 
       (* Enter raw mode and enable mouse *)
       Matrix_terminal.enter_raw terminal ;
-      Matrix_terminal.enable_mouse terminal ;
+      if config.enable_mouse then Matrix_terminal.enable_mouse terminal ;
 
       (* Hide cursor *)
       Matrix_terminal.write terminal Matrix_ansi_writer.cursor_hide ;

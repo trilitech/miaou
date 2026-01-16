@@ -47,6 +47,14 @@ MIAOU_DRIVER=term    # Lambda-Term fallback
 MIAOU_DRIVER=sdl     # SDL2 graphics (requires tsdl packages)
 ```
 
+**Mouse tracking**: By default, MIAOU enables mouse tracking for terminal interaction. This interferes with traditional copy/paste in some terminals. To disable mouse tracking and allow normal copy/paste:
+```sh
+MIAOU_ENABLE_MOUSE=0  # Disable mouse tracking (allows copy/paste)
+MIAOU_ENABLE_MOUSE=no # Alternative syntax
+```
+
+For programmatic control from OCaml code, see [`docs/MOUSE_CONTROL.md`](./docs/MOUSE_CONTROL.md).
+
 The SDL2 backend (`miaou-driver-sdl` package) requires Tsdl + Tsdl_ttf + Tsdl_image. Run with `MIAOU_DRIVER=sdl dune exec -- miaou.demo-sdl`. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if auto-detection fails.
 
 **SDL-Enhanced Widgets**: Chart widgets (sparkline, line chart), image viewer, and QR code widgets automatically use native SDL rendering when the SDL backend is active, providing smooth anti-aliased graphics instead of text approximation. See [`src/miaou_widgets_display/SDL_CHARTS_README.md`](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details.
