@@ -107,7 +107,9 @@ let test_search_execute () =
   check bool "offset changed" true (p.offset > 0)
 
 let test_follow_mode_behavior () =
-  let win = 3 in
+  (* Use win=8 to account for header/footer space (4 lines reserved).
+     With 5 content lines, body_win = 8 - 4 = 4, so offset = 5 - 4 = 1 *)
+  let win = 8 in
   let p =
     Pager.open_lines
       ~title:"follow"
@@ -117,9 +119,11 @@ let test_follow_mode_behavior () =
   (* Enable follow mode *)
   let p, _ = Pager.handle_key p ~win ~key:"f" in
   check bool "follow enabled" true p.follow ;
-  check int "jumped to bottom" (List.length p.lines - win) p.offset ;
+  (* After fix, handle_key reserves 4 lines for header/footer: body_win = 8 - 4 = 4 *)
+  let body_win = max 1 (win - 4) in
+  check int "jumped to bottom" (List.length p.lines - body_win) p.offset ;
   (* Verify render shows [follow] indicator *)
-  let rendered = Pager.render ~win:3 p ~focus:true in
+  let rendered = Pager.render ~win p ~focus:true in
   check bool "follow indicator shown" true (String.contains rendered '[') ;
   let has_follow_label =
     try
@@ -133,14 +137,20 @@ let test_follow_mode_behavior () =
   check bool "follow disabled after scroll" false p.follow
 
 let test_follow_tracks_appends () =
-  let win = 3 in
+  let win = 8 in
   let p = Pager.open_lines ~title:"follow" ["l1"; "l2"] in
   Pager.start_streaming p ;
   let p, _ = Pager.handle_key p ~win ~key:"f" in
   check bool "follow enabled" true p.follow ;
   Pager.append_lines_batched p ["l3"] ;
   Pager.flush_pending_if_needed ~force:true p ;
-  check int "offset stays at bottom" (List.length p.lines - win) p.offset ;
+  (* After fix, handle_key reserves 4 lines for header/footer *)
+  let body_win = max 1 (win - 4) in
+  check
+    int
+    "offset stays at bottom"
+    (max 0 (List.length p.lines - body_win))
+    p.offset ;
   let rendered = Pager.render ~win p ~focus:true in
   check bool "latest line visible" true (String.contains rendered '3')
 
