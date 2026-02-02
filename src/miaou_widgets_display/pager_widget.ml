@@ -61,6 +61,8 @@ type t = {
   mutable input_pos : int;
   mutable notify_render : (unit -> unit) option;
       (* optional callback to request a UI render when content changes *)
+  mutable cursor_mode : bool; (* whether cursor mode is enabled *)
+  mutable cursor : int; (* current cursor line, 0-indexed *)
 }
 
 let default_win = 20
@@ -136,7 +138,7 @@ let build_body_buffer ~wrap ~cols lines =
   Buffer.contents buf
 
 (* Generate help modal content *)
-let help_content ~streaming ~wrap ~follow =
+let help_content ~streaming ~wrap ~follow ~cursor_mode =
   let open Widgets in
   let hint k v = dim (fg 242 k) ^ ": " ^ v in
   let lines =
@@ -151,6 +153,9 @@ let help_content ~streaming ~wrap ~follow =
       hint
         "w"
         (if wrap then "Disable line wrapping" else "Enable line wrapping");
+      hint
+        "c"
+        (if cursor_mode then "Disable cursor mode" else "Enable cursor mode");
     ]
   in
   let lines =
@@ -251,6 +256,8 @@ let open_lines ?title ?notify_render lines =
     input_buffer = "";
     input_pos = 0;
     notify_render;
+    cursor_mode = false;
+    cursor = 0;
   }
 
 let open_text ?title ?notify_render s =
@@ -259,6 +266,51 @@ let open_text ?title ?notify_render s =
 let set_offset t o = {t with offset = o}
 
 let set_search t s = {t with search = s; offset = 0}
+
+(* Cursor mode APIs ------------------------------------------------------ *)
+
+let set_cursor_mode t enabled =
+  t.cursor_mode <- enabled ;
+  (* When enabling cursor mode, ensure cursor is within bounds *)
+  if enabled then t.cursor <- clamp 0 (max 0 (List.length t.lines - 1)) t.cursor ;
+  t
+
+let cursor_mode t = t.cursor_mode
+
+let get_cursor_line t = t.cursor
+
+(* Ensure cursor is visible by adjusting offset if needed *)
+let ensure_cursor_visible t ~win =
+  let total = List.length t.lines in
+  if total = 0 then ()
+  else
+    let max_offset = max_offset_for ~total ~win in
+    (* If cursor is above visible area, scroll up *)
+    if t.cursor < t.offset then t.offset <- t.cursor
+    (* If cursor is below visible area, scroll down *)
+    else if t.cursor >= t.offset + win then
+      t.offset <- clamp 0 max_offset (t.cursor - win + 1)
+
+let set_cursor t line =
+  let total = List.length t.lines in
+  t.cursor <- clamp 0 (max 0 (total - 1)) line ;
+  ensure_cursor_visible t ~win:t.last_win ;
+  t
+
+let cursor_up ?(n = 1) t =
+  if not t.cursor_mode then t
+  else (
+    t.cursor <- max 0 (t.cursor - n) ;
+    ensure_cursor_visible t ~win:t.last_win ;
+    t)
+
+let cursor_down ?(n = 1) t =
+  if not t.cursor_mode then t
+  else
+    let total = List.length t.lines in
+    t.cursor <- min (max 0 (total - 1)) (t.cursor + n) ;
+    ensure_cursor_visible t ~win:t.last_win ;
+    t
 
 (* Append APIs ----------------------------------------------------------- *)
 let append_lines_follow t =
@@ -674,25 +726,49 @@ let render ?cols ~win (t : t) ~focus : string =
       (match t.search with Some s -> "Some('" ^ s ^ "')" | None -> "None")
       t.is_regex
       (List.length slice) ;
-    match t.search with
-    | None -> slice
-    | Some q ->
-        debug
-          "[PAGER] Highlighting search query: '%s' in %d lines\n"
-          q
-          (List.length slice) ;
-        List.map
-          (Widgets.highlight_matches ~is_regex:t.is_regex ~query:(Some q))
-          slice
+    (* Apply search highlighting *)
+    let slice =
+      match t.search with
+      | None -> slice
+      | Some q ->
+          debug
+            "[PAGER] Highlighting search query: '%s' in %d lines\n"
+            q
+            (List.length slice) ;
+          List.map
+            (Widgets.highlight_matches ~is_regex:t.is_regex ~query:(Some q))
+            slice
+    in
+    (* Apply cursor highlighting if in cursor mode *)
+    if t.cursor_mode && focus then
+      let cursor_indicator =
+        if Lazy.force Widgets.use_ascii_borders then "> " else "▸ "
+      in
+      let no_cursor_prefix = "  " in
+      List.mapi
+        (fun i line ->
+          let line_idx = start + i in
+          if line_idx = t.cursor then
+            (* Highlight the cursor line with background color and indicator *)
+            Widgets.bg 236 (cursor_indicator ^ line)
+          else no_cursor_prefix ^ line)
+        slice
+    else slice
   in
   let title = match t.title with Some s -> s | None -> "Pager" in
   let status =
     let pos =
-      Printf.sprintf "%d-%d/%d" (start + 1) stop (List.length t.lines)
+      if t.cursor_mode then
+        Printf.sprintf "L%d %d-%d/%d" (t.cursor + 1) (start + 1) stop
+          (List.length t.lines)
+      else Printf.sprintf "%d-%d/%d" (start + 1) stop (List.length t.lines)
     in
     let wrap_indicator = if wrap then " [wrap]" else "" in
+    let cursor_indicator = if t.cursor_mode then " [cursor]" else "" in
     let mode = if t.follow then " [follow]" else "" in
-    Widgets.dim (Widgets.fg Colors.status_dim (pos ^ wrap_indicator ^ mode))
+    Widgets.dim
+      (Widgets.fg Colors.status_dim
+         (pos ^ wrap_indicator ^ cursor_indicator ^ mode))
   in
   (* Show search input prompt when in search edit mode *)
   let search_prompt =
@@ -729,11 +805,17 @@ let render ?cols ~win (t : t) ~focus : string =
       match t.input_mode with
       | `Search_edit -> [("Enter", "search"); ("Esc", "cancel")]
       | _ ->
+          let nav_hint =
+            if t.cursor_mode then "move cursor" else "scroll"
+          in
           let base =
-            [("Up/Down", "scroll"); ("PgUp/PgDn", "page"); ("/", "search")]
+            [("Up/Down", nav_hint); ("PgUp/PgDn", "page"); ("/", "search")]
           in
           let base = base @ [("n/p", "next/prev")] in
           let base = base @ [("w", if wrap then "unwrap" else "wrap")] in
+          let base =
+            base @ [("c", if t.cursor_mode then "scroll mode" else "cursor mode")]
+          in
           let base = base @ [("?", "help")] in
           if t.streaming then
             base @ [("f", if t.follow then "unfollow" else "follow")]
@@ -751,6 +833,7 @@ let render ?cols ~win (t : t) ~focus : string =
     | `Help ->
         let help_lines =
           help_content ~streaming:t.streaming ~wrap ~follow:t.follow
+            ~cursor_mode:t.cursor_mode
         in
         let modal_width = min (cols - 4) 50 in
         overlay_modal_centered ~cols ~rows:win body help_lines modal_width
@@ -843,19 +926,8 @@ let handle_nav_key t ~key ~win ~total ~page =
     t.follow <- at_or_past_bottom && t.streaming ;
     t
   in
+  (* Common keys that work in both cursor and non-cursor modes *)
   match key with
-  | "Up" -> Some (with_auto_follow t (t.offset - 1), true)
-  | "Down" -> Some (with_auto_follow t (t.offset + 1), true)
-  | "Page_up" -> Some (with_auto_follow t (t.offset - page), true)
-  | "Page_down" -> Some (with_auto_follow t (t.offset + page), true)
-  | "g" ->
-      t.offset <- 0 ;
-      t.follow <- false ;
-      Some (t, true)
-  | "G" ->
-      t.offset <- max_offset ;
-      t.follow <- t.streaming ;
-      Some (t, true)
   | ("f" | "F") when t.streaming ->
       t.follow <- not t.follow ;
       if t.follow then t.offset <- max_offset ;
@@ -871,30 +943,82 @@ let handle_nav_key t ~key ~win ~total ~page =
       Some (t, true)
   | "n" -> (
       let q = match t.search with Some s -> s | None -> "" in
-      match
-        find_next
-          t.lines
-          ~start:(min (total - 1) (t.offset + 1))
-          ~q
-          ~is_regex:t.is_regex
-      with
+      let start_pos =
+        if t.cursor_mode then min (total - 1) (t.cursor + 1)
+        else min (total - 1) (t.offset + 1)
+      in
+      match find_next t.lines ~start:start_pos ~q ~is_regex:t.is_regex with
       | None -> Some (t, true)
       | Some i ->
-          t.offset <- clamp 0 max_offset i ;
+          if t.cursor_mode then (
+            t.cursor <- i ;
+            ensure_cursor_visible t ~win)
+          else t.offset <- clamp 0 max_offset i ;
           Some (t, true))
   | "p" -> (
       let q = match t.search with Some s -> s | None -> "" in
-      match
-        find_prev t.lines ~start:(max 0 (t.offset - 1)) ~q ~is_regex:t.is_regex
-      with
+      let start_pos =
+        if t.cursor_mode then max 0 (t.cursor - 1)
+        else max 0 (t.offset - 1)
+      in
+      match find_prev t.lines ~start:start_pos ~q ~is_regex:t.is_regex with
       | None -> Some (t, true)
       | Some i ->
-          t.offset <- clamp 0 max_offset i ;
+          if t.cursor_mode then (
+            t.cursor <- i ;
+            ensure_cursor_visible t ~win)
+          else t.offset <- clamp 0 max_offset i ;
           Some (t, true))
   | "?" ->
       t.input_mode <- `Help ;
       Some (t, true)
-  | _ -> None
+  | "c" ->
+      (* Toggle cursor mode *)
+      t.cursor_mode <- not t.cursor_mode ;
+      if t.cursor_mode then
+        (* Position cursor at current scroll position when enabling *)
+        t.cursor <- clamp 0 (max 0 (total - 1)) t.offset ;
+      Some (t, true)
+  | _ ->
+      (* Mode-specific navigation keys *)
+      if t.cursor_mode then
+        match key with
+        | "Up" | "k" ->
+            let _ = cursor_up t in
+            Some (t, true)
+        | "Down" | "j" ->
+            let _ = cursor_down t in
+            Some (t, true)
+        | "Page_up" ->
+            let _ = cursor_up ~n:page t in
+            Some (t, true)
+        | "Page_down" ->
+            let _ = cursor_down ~n:page t in
+            Some (t, true)
+        | "g" ->
+            t.cursor <- 0 ;
+            ensure_cursor_visible t ~win ;
+            Some (t, true)
+        | "G" ->
+            t.cursor <- max 0 (total - 1) ;
+            ensure_cursor_visible t ~win ;
+            Some (t, true)
+        | _ -> None
+      else
+        match key with
+        | "Up" -> Some (with_auto_follow t (t.offset - 1), true)
+        | "Down" -> Some (with_auto_follow t (t.offset + 1), true)
+        | "Page_up" -> Some (with_auto_follow t (t.offset - page), true)
+        | "Page_down" -> Some (with_auto_follow t (t.offset + page), true)
+        | "g" ->
+            t.offset <- 0 ;
+            t.follow <- false ;
+            Some (t, true)
+        | "G" ->
+            t.offset <- max_offset ;
+            t.follow <- t.streaming ;
+            Some (t, true)
+        | _ -> None
 
 let handle_key ?win (t : t) ~key : t * bool =
   debug
