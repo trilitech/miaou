@@ -53,6 +53,8 @@ type t = {
       (* minimum interval between flushes in milliseconds *)
   mutable last_win : int;
       (* last render window height to keep follow anchored *)
+  mutable last_body_win : int;
+      (* last body window height (excluding header/footer) for cursor visibility *)
   mutable last_cols : int; (* last render window width for wrap calculations *)
   mutable search : string option;
   mutable is_regex : bool;
@@ -249,6 +251,7 @@ let open_lines ?title ?notify_render lines =
     flush_interval_ms = 200;
     (* default: 200ms -> conservative flush rate *)
     last_win = default_win;
+    last_body_win = default_win - 4;  (* conservative estimate for header/footer *)
     last_cols = 80;
     search = None;
     is_regex = false;
@@ -280,8 +283,9 @@ let cursor_mode t = t.cursor_mode
 let get_cursor_line t = t.cursor
 
 (* Ensure cursor is visible by adjusting offset if needed *)
-let ensure_cursor_visible t ~win =
+let ensure_cursor_visible t =
   let total = List.length t.lines in
+  let win = max 1 t.last_body_win in
   if total = 0 then ()
   else
     let max_offset = max_offset_for ~total ~win in
@@ -294,14 +298,14 @@ let ensure_cursor_visible t ~win =
 let set_cursor t line =
   let total = List.length t.lines in
   t.cursor <- clamp 0 (max 0 (total - 1)) line ;
-  ensure_cursor_visible t ~win:t.last_win ;
+  ensure_cursor_visible t ;
   t
 
 let cursor_up ?(n = 1) t =
   if not t.cursor_mode then t
   else (
     t.cursor <- max 0 (t.cursor - n) ;
-    ensure_cursor_visible t ~win:t.last_win ;
+    ensure_cursor_visible t ;
     t)
 
 let cursor_down ?(n = 1) t =
@@ -309,7 +313,7 @@ let cursor_down ?(n = 1) t =
   else
     let total = List.length t.lines in
     t.cursor <- min (max 0 (total - 1)) (t.cursor + n) ;
-    ensure_cursor_visible t ~win:t.last_win ;
+    ensure_cursor_visible t ;
     t
 
 (* Append APIs ----------------------------------------------------------- *)
@@ -708,6 +712,7 @@ let render ?cols ~win (t : t) ~focus : string =
   let header_lines = match t.input_mode with `Search_edit -> 2 | _ -> 1 in
   let footer_lines = if focus then 2 else 1 in
   let body_win = max 1 (win - header_lines - footer_lines) in
+  t.last_body_win <- body_win ;
   let start, count = visible_slice_wrapped ~win:body_win ~cols ~wrap t in
   let stop = start + count in
   let body_lines =
@@ -750,7 +755,8 @@ let render ?cols ~win (t : t) ~focus : string =
           let line_idx = start + i in
           if line_idx = t.cursor then
             (* Highlight the cursor line with background color and indicator *)
-            Widgets.bg 236 (cursor_indicator ^ line)
+            (* Add reset at end to prevent bleeding into next line *)
+            Widgets.bg 236 (cursor_indicator ^ line) ^ "\027[0m"
           else no_cursor_prefix ^ line)
         slice
     else slice
@@ -952,7 +958,7 @@ let handle_nav_key t ~key ~win ~total ~page =
       | Some i ->
           if t.cursor_mode then (
             t.cursor <- i ;
-            ensure_cursor_visible t ~win)
+            ensure_cursor_visible t)
           else t.offset <- clamp 0 max_offset i ;
           Some (t, true))
   | "p" -> (
@@ -966,7 +972,7 @@ let handle_nav_key t ~key ~win ~total ~page =
       | Some i ->
           if t.cursor_mode then (
             t.cursor <- i ;
-            ensure_cursor_visible t ~win)
+            ensure_cursor_visible t)
           else t.offset <- clamp 0 max_offset i ;
           Some (t, true))
   | "?" ->
@@ -997,11 +1003,11 @@ let handle_nav_key t ~key ~win ~total ~page =
             Some (t, true)
         | "g" ->
             t.cursor <- 0 ;
-            ensure_cursor_visible t ~win ;
+            ensure_cursor_visible t ;
             Some (t, true)
         | "G" ->
             t.cursor <- max 0 (total - 1) ;
-            ensure_cursor_visible t ~win ;
+            ensure_cursor_visible t ;
             Some (t, true)
         | _ -> None
       else

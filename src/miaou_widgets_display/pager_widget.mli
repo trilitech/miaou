@@ -60,6 +60,7 @@ type t = {
   mutable last_flush : float;
   mutable flush_interval_ms : int;
   mutable last_win : int;
+  mutable last_body_win : int;
   mutable last_cols : int;
   mutable search : string option;
   mutable is_regex : bool;
