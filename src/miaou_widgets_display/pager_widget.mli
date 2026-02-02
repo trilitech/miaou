@@ -67,6 +67,8 @@ type t = {
   mutable input_buffer : string;
   mutable input_pos : int;
   mutable notify_render : (unit -> unit) option;
+  mutable cursor_mode : bool;  (** Whether cursor mode is enabled *)
+  mutable cursor : int;  (** Current cursor line (0-indexed) *)
 }
 
 (** {1 Creation} *)
@@ -188,6 +190,50 @@ val flush_pending_if_needed : ?force:bool -> t -> unit
     @return New pager with updated offset
 *)
 val set_offset : t -> int -> t
+
+(** {1 Cursor Mode} *)
+
+(** Enable or disable cursor mode.
+
+    When cursor mode is enabled, a visible cursor highlights the current line
+    and can be moved independently of scrolling. The view automatically scrolls
+    to keep the cursor visible.
+
+    {b Cursor Mode vs Scroll Mode:}
+    - In scroll mode (default): Up/Down scroll the viewport
+    - In cursor mode: Up/Down move the cursor, viewport follows
+
+    Cursor mode is useful for selecting specific lines (e.g., for fold/unfold
+    operations in JSON viewers).
+
+    @param enabled Whether to enable cursor mode
+*)
+val set_cursor_mode : t -> bool -> t
+
+(** Check if cursor mode is enabled. *)
+val cursor_mode : t -> bool
+
+(** Move cursor up by n lines (cursor mode only).
+    Scrolls the view if needed to keep cursor visible.
+
+    @param n Number of lines to move (default: 1)
+*)
+val cursor_up : ?n:int -> t -> t
+
+(** Move cursor down by n lines (cursor mode only).
+    Scrolls the view if needed to keep cursor visible.
+
+    @param n Number of lines to move (default: 1)
+*)
+val cursor_down : ?n:int -> t -> t
+
+(** Get current cursor line (0-indexed). *)
+val get_cursor_line : t -> int
+
+(** Set cursor to a specific line (0-indexed).
+    Scrolls the view if needed to keep cursor visible.
+*)
+val set_cursor : t -> int -> t
 
 (** {1 Search} *)
 
