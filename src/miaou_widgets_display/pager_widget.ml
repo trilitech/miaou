@@ -285,7 +285,8 @@ let get_cursor_line t = t.cursor
 (* Ensure cursor is visible by adjusting offset if needed *)
 let ensure_cursor_visible t =
   let total = List.length t.lines in
-  let win = max 1 t.last_body_win in
+  (* Use body_win - 1 to keep cursor at least 1 line from bottom edge *)
+  let win = max 1 (t.last_body_win - 1) in
   if total = 0 then ()
   else
     let max_offset = max_offset_for ~total ~win in
