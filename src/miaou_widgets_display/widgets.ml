@@ -245,7 +245,8 @@ let highlight_matches ~(is_regex : bool) ~(query : string option)
           (String.length line) ;
       if q = "" then line
       else
-        let hl s = ansi "1;33;4" s in
+        (* Use black text on bright yellow background for high visibility *)
+        let hl s = ansi "0;30;103" s in
         let apply_with (rex : Str.regexp) : string =
           let len = String.length line in
           let buf = Buffer.create (len + 32) in
