@@ -7,9 +7,11 @@
   matrix_diff
   matrix_ansi_parser
   matrix_ansi_writer
+  matrix_io
   matrix_input
   matrix_terminal
   matrix_render_loop
+  matrix_main_loop
   matrix_config
   matrix_driver)
  (instrumentation
