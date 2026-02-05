@@ -33,17 +33,25 @@ module Inner = struct
 
   let update s _ = s
 
-  let render_slot ring slot_id label ~size:_ =
-    let focused = FR.is_focused ring slot_id in
-    let marker = if focused then "> " else "  " in
-    let text = marker ^ label in
-    if focused then W.green (W.bold text) else text
+  let render_slot child_ring slot_id label ~size:_ =
+    match child_ring with
+    | Some ring ->
+        let focused = FR.is_focused ring slot_id in
+        let marker = if focused then "> " else "  " in
+        let text = marker ^ label in
+        if focused then W.green (W.bold text) else text
+    | None -> "  " ^ label
 
-  let render_panel ring title slots labels ~size =
-    let is_active_panel = List.exists (fun id -> FR.is_focused ring id) slots in
-    let header = if is_active_panel then W.bold title else W.dim title in
+  let render_panel ~panel_selected ~child_ring title slots labels ~size =
+    let header =
+      if panel_selected then W.green (W.bold ("[ " ^ title ^ " ]"))
+      else W.dim ("  " ^ title)
+    in
     let items =
-      List.map2 (fun id label -> render_slot ring id label ~size) slots labels
+      List.map2
+        (fun id label -> render_slot child_ring id label ~size)
+        slots
+        labels
     in
     let hint =
       W.dim (Printf.sprintf "%dx%d" size.LTerm_geom.cols size.LTerm_geom.rows)
@@ -52,18 +60,35 @@ module Inner = struct
 
   let view s ~focus:_ ~size =
     let header = W.titleize "Focus Ring (Esc returns, t opens tutorial)" in
-    let ring = FR.active s.focus in
+    let parent = FR.active (FR.exit s.focus) in
+    let in_child = FR.in_child s.focus in
+    let active_child = FR.active_child_id s.focus in
     let scope_info =
-      match FR.active_child_id s.focus with
-      | Some id -> W.green (Printf.sprintf "Scope: %s" id)
-      | None -> W.dim "Scope: parent (Enter to drill down)"
+      match active_child with
+      | Some id -> W.green (Printf.sprintf "Scope: %s (Esc to go back)" id)
+      | None -> W.dim "Scope: parent (Tab to switch, Enter to drill down)"
     in
     let panel_h = max 8 (size.LTerm_geom.rows - 6) in
     let panel_size = {LTerm_geom.cols = size.LTerm_geom.cols; rows = panel_h} in
+    let sidebar_selected = FR.is_focused parent "sidebar" in
+    let main_selected = FR.is_focused parent "main" in
+    let sidebar_ring =
+      if in_child && active_child = Some "sidebar" then Some (FR.active s.focus)
+      else None
+    in
+    let main_ring =
+      if in_child && active_child = Some "main" then Some (FR.active s.focus)
+      else None
+    in
     let sidebar_child =
       {
         Flex.render =
-          render_panel ring "Sidebar" sidebar_slots ["Search"; "Filter"; "Tree"];
+          render_panel
+            ~panel_selected:sidebar_selected
+            ~child_ring:sidebar_ring
+            "Sidebar"
+            sidebar_slots
+            ["Search"; "Filter"; "Tree"];
         basis = Flex.Px 25;
         cross = None;
       }
@@ -71,7 +96,12 @@ module Inner = struct
     let main_child =
       {
         Flex.render =
-          render_panel ring "Main Panel" main_slots ["Editor"; "Preview"];
+          render_panel
+            ~panel_selected:main_selected
+            ~child_ring:main_ring
+            "Main Panel"
+            main_slots
+            ["Editor"; "Preview"];
         basis = Flex.Fill;
         cross = None;
       }
@@ -85,7 +115,7 @@ module Inner = struct
     in
     let panel_block = Flex.render panels ~size:panel_size in
     let controls =
-      W.dim "Tab: cycle • Enter: enter scope • Esc: exit scope / return"
+      W.dim "Tab: cycle panels • Enter: enter scope • Esc: exit scope / return"
     in
     String.concat "\n" [header; scope_info; ""; panel_block; ""; controls]
 
