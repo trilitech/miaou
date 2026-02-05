@@ -275,6 +275,11 @@
  (modules test_input_parser)
  (libraries alcotest miaou-core.driver-common unix))
 
+(test
+ (name test_direct_page)
+ (modules test_direct_page)
+ (libraries alcotest miaou-core.core))
+
 ; Interactive test for multiline modal title issue
 ; Run with: dune exec test/modal_multiline_test.exe
 
