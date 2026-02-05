@@ -5,9 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.5] - 2026-02-05
+
+### Added
+
+- **Focus Ring widget** (`Miaou_internals.Focus_ring`) for named-slot focus hierarchy:
+  - Type-safe focus management with string-keyed slots
+  - Automatic wrap-around navigation (next/prev)
+  - `handle_key` returns `Handled | `Bubble` for composable key dispatch
+  - Ideal for forms, toolbars, and multi-widget layouts
+
+- **Focus Container widget** (`Miaou_internals.Focus_container`) for GADT-based focus management:
+  - Type-safe heterogeneous widget containers using extensible GADTs
+  - No `Obj.magic` - full type safety with witness pattern
+  - Nested container support for complex UI hierarchies
+  - Generic focus traversal across different widget types
+
+- **Box Widget** (`Miaou_widgets_layout.Box_widget`) for border-decorated containers:
+  - Five border styles: `Single`, `Double`, `Rounded`, `Heavy`, `Ascii`
+  - Optional colored borders with 256-color support
+  - Configurable padding (top, bottom, left, right)
+  - Nested box support for complex layouts
+  - Automatic ASCII fallback via `MIAOU_TUI_UNICODE_BORDERS=false`
+
+- **Direct_page** (`Miaou.Core.Direct_page`) for simplified page development:
+  - Only 3 required functions vs 13 in PAGE_SIG: `init`, `view`, `on_key`
+  - Navigation via OCaml 5 effects: `Direct_page.navigate`, `go_back`, `quit`
+  - `With_defaults` functor provides sensible defaults for optional functions
+  - Reduces boilerplate significantly for simple pages
+
+- **Grid Layout** (`Miaou_widgets_layout.Grid_layout`) for CSS-grid-like layouts:
+  - Row and column track definitions with `Fr`, `Px`, `Auto` sizing
+  - `grid_area` placement for precise cell positioning
+  - Gap support (row_gap, column_gap)
+  - Span support for multi-cell items
+  - Automatic content fitting
+
+### Fixed
+
+- **Flex layout column alignment** - Short/empty lines in row layouts now properly padded to allocated width, preventing subsequent columns from bleeding into earlier column areas
+
 ## [0.2.0] - 2026-02-05
 
 ### Added
+
+- **Web driver** (`miaou-driver-web`) for browser-based terminal rendering:
+  - xterm.js terminal emulation over WebSocket
+  - Controller/viewer architecture for shared sessions
+  - Password authentication support
+  - 60 FPS configurable refresh rate
 
 - **Path-based roles for web driver** with explicit URL routing:
   - `/ws` — controller WebSocket (returns 409 if slot already taken)
