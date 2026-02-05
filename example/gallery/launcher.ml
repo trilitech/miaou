@@ -318,6 +318,13 @@ let demos =
           "demo_braille"
           (module Braille_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "Direct Page";
+      open_demo =
+        goto
+          "demo_direct_page"
+          (module Direct_page_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let init () = Navigation.make {cursor = 0}

@@ -16,6 +16,7 @@
   tui_capture
   tui_logger
   tui_page
+  direct_page
   workflow
   help_hint
   capability

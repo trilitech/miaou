@@ -32,6 +32,7 @@
   pager_demo
   system_monitor_demo
   braille_demo
+  direct_page_demo
   ; Core miaou
   miaou
   miaou-core.lib_miaou_internal))
