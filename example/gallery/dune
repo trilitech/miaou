@@ -56,3 +56,10 @@
  (package miaou)
  (modules main_matrix)
  (libraries gallery miaou-runner.tui miaou-core.helpers eio_main))
+
+(executable
+ (name main_web)
+ (public_name miaou.demo-web)
+ (package miaou-driver-web)
+ (modules main_web)
+ (libraries gallery miaou-driver-web.driver miaou-core.helpers eio_main))

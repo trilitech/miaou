@@ -1,0 +1,24 @@
+(library
+ (name miaou_driver_web)
+ (public_name miaou-driver-web.driver)
+ (modules web_websocket web_assets web_driver)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file static/index.html)
+  (file static/client.js))
+ (instrumentation
+  (backend bisect_ppx))
+ (libraries
+  miaou-core.core
+  miaou-core.helpers
+  miaou-core.interfaces
+  miaou-core.internals
+  miaou-core.widgets.display
+  miaou-driver-matrix.driver
+  digestif
+  base64
+  yojson
+  eio
+  eio_main
+  eio.unix))
