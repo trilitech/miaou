@@ -56,28 +56,28 @@ let extract_path request_line =
   | _ :: path :: _ -> path
   | _ -> "/"
 
-(* Send an HTTP response and close the connection *)
-let serve_response bw ~status ~content_type body =
+(* Send an HTTP response directly to a flow *)
+let serve_response conn ~status ~content_type body =
   let len = String.length body in
-  Eio.Buf_write.string
-    bw
-    (Printf.sprintf
-       "%s\r\n\
-        Content-Type: %s\r\n\
-        Content-Length: %d\r\n\
-        Connection: close\r\n\
-        \r\n"
-       status
-       content_type
-       len) ;
-  Eio.Buf_write.string bw body
+  let headers =
+    Printf.sprintf
+      "%s\r\n\
+       Content-Type: %s\r\n\
+       Content-Length: %d\r\n\
+       Connection: close\r\n\
+       \r\n"
+      status
+      content_type
+      len
+  in
+  Eio.Flow.copy_string (headers ^ body) conn
 
-let serve_200 bw ~content_type body =
-  serve_response bw ~status:"HTTP/1.1 200 OK" ~content_type body
+let serve_200 conn ~content_type body =
+  serve_response conn ~status:"HTTP/1.1 200 OK" ~content_type body
 
-let serve_404 bw =
+let serve_404 conn =
   serve_response
-    bw
+    conn
     ~status:"HTTP/1.1 404 Not Found"
     ~content_type:"text/plain"
     "Not Found"
@@ -108,7 +108,8 @@ let parse_client_message events ~current_rows ~current_cols msg =
 exception Tui_done of [`Quit | `SwitchTo of string]
 
 (* Run the TUI over an established WebSocket connection *)
-let run_tui (env : Eio_unix.Stdenv.base) config ws br bw initial_page =
+let run_tui (env : Eio_unix.Stdenv.base) config ws br initial_page =
+  Printf.eprintf "[web] WebSocket TUI session starting\n%!" ;
   let events = Eio.Stream.create 256 in
   let current_rows = ref 24 in
   let current_cols = ref 80 in
@@ -127,9 +128,17 @@ let run_tui (env : Eio_unix.Stdenv.base) config ws br bw initial_page =
       ~writer
       ~write:(Output_buffer.write output)
   in
+  let flush_count = ref 0 in
   let flush_output () =
     match Output_buffer.take output with
-    | Some data -> Web_websocket.send_text ws bw data
+    | Some data ->
+        incr flush_count ;
+        if !flush_count <= 3 then
+          Printf.eprintf
+            "[web] Flushing %d bytes (frame #%d)\n%!"
+            (String.length data)
+            !flush_count ;
+        Web_websocket.send_text ws data
     | None -> ()
   in
   let io : Matrix_io.t =
@@ -166,30 +175,48 @@ let run_tui (env : Eio_unix.Stdenv.base) config ws br bw initial_page =
     Eio.Switch.run (fun sw ->
         (* WebSocket reader fiber *)
         Eio.Fiber.fork ~sw (fun () ->
-            let rec loop () =
-              match Web_websocket.recv_text ws br bw with
-              | None -> Eio.Stream.add events Matrix_io.Quit
-              | Some msg ->
-                  parse_client_message events ~current_rows ~current_cols msg ;
-                  loop ()
-            in
-            loop ()) ;
+            try
+              let rec loop () =
+                match Web_websocket.recv_text ws br with
+                | None ->
+                    Printf.eprintf "[web] WebSocket closed by client\n%!" ;
+                    Eio.Stream.add events Matrix_io.Quit
+                | Some msg ->
+                    Printf.eprintf "[web] Client msg: %s\n%!" msg ;
+                    parse_client_message events ~current_rows ~current_cols msg ;
+                    loop ()
+              in
+              loop ()
+            with exn ->
+              Printf.eprintf
+                "[web] Reader fiber error: %s\n%!"
+                (Printexc.to_string exn) ;
+              Eio.Stream.add events Matrix_io.Quit) ;
         (* Output flusher fiber: drains the thread-safe buffer over WebSocket *)
         Eio.Fiber.fork ~sw (fun () ->
-            let rec loop () =
-              flush_output () ;
-              Eio.Time.sleep env#clock 0.016 ;
+            try
+              let rec loop () =
+                flush_output () ;
+                Eio.Time.sleep env#clock 0.016 ;
+                loop ()
+              in
               loop ()
-            in
-            loop ()) ;
+            with exn ->
+              Printf.eprintf
+                "[web] Flusher fiber error: %s\n%!"
+                (Printexc.to_string exn)) ;
         (* Start the render domain and run the shared main loop *)
+        Printf.eprintf "[web] Starting render loop and main loop\n%!" ;
         Matrix_render_loop.start render_loop ;
         let result = Matrix_main_loop.run ctx ~env initial_page in
+        Printf.eprintf "[web] Main loop exited\n%!" ;
         Matrix_render_loop.shutdown render_loop ;
         flush_output () ;
-        Web_websocket.close ws bw ;
+        Web_websocket.close ws ;
         raise (Tui_done result))
-  with Tui_done result -> result
+  with Tui_done result ->
+    Printf.eprintf "[web] TUI session ended\n%!" ;
+    result
 
 let run ?(config = None) ?(port = 8080)
     (initial_page : (module Tui_page.PAGE_SIG)) : [`Quit | `SwitchTo of string]
@@ -210,31 +237,44 @@ let run ?(config = None) ?(port = 8080)
         let conn, _addr = Eio.Net.accept ~sw:page_sw socket in
         let is_ws = ref false in
         let ws_result = ref `Quit in
-        begin try
-          Eio.Buf_write.with_flow conn (fun bw ->
-              let br = Eio.Buf_read.of_flow ~max_size:(1024 * 1024) conn in
-              let request_line = Eio.Buf_read.line br in
-              let headers = Web_websocket.parse_headers br in
-              let path = extract_path request_line in
-              match path with
-              | "/" ->
-                  serve_200 bw ~content_type:"text/html" Web_assets.index_html
-              | "/client.js" ->
-                  serve_200
-                    bw
-                    ~content_type:"application/javascript"
-                    Web_assets.client_js
-              | "/ws" -> (
-                  match Web_websocket.upgrade headers bw with
-                  | None -> serve_404 bw
-                  | Some ws ->
-                      is_ws := true ;
-                      ws_result := run_tui env config ws br bw initial_page)
-              | _ -> serve_404 bw)
-        with
-        | Eio.Io _ -> ()
-        | End_of_file -> ()
-        end ;
+        (try
+           let br = Eio.Buf_read.of_flow ~max_size:(1024 * 1024) conn in
+           let request_line = Eio.Buf_read.line br in
+           let headers = Web_websocket.parse_headers br in
+           let path = extract_path request_line in
+           Printf.eprintf "[web] %s\n%!" request_line ;
+           (match path with
+           | "/" ->
+               serve_200 conn ~content_type:"text/html" Web_assets.index_html
+           | "/client.js" ->
+               serve_200
+                 conn
+                 ~content_type:"application/javascript"
+                 Web_assets.client_js
+           | "/ws" -> (
+               let write s =
+                 Eio.Flow.copy_string
+                   s
+                   (conn :> Eio.Flow.sink_ty Eio.Resource.t)
+               in
+               match Web_websocket.upgrade headers ~write with
+               | None ->
+                   Printf.eprintf "[web] WebSocket upgrade failed\n%!" ;
+                   serve_404 conn
+               | Some ws ->
+                   Printf.eprintf "[web] WebSocket upgraded\n%!" ;
+                   is_ws := true ;
+                   ws_result := run_tui env config ws br initial_page)
+           | _ -> serve_404 conn) ;
+           if not !is_ws then try Eio.Flow.close conn with _ -> ()
+         with
+        | Eio.Io _ as exn ->
+            Printf.eprintf "[web] I/O error: %s\n%!" (Printexc.to_string exn)
+        | End_of_file -> Printf.eprintf "[web] Connection closed (EOF)\n%!"
+        | exn ->
+            Printf.eprintf
+              "[web] Unexpected error: %s\n%!"
+              (Printexc.to_string exn)) ;
         if !is_ws then !ws_result else accept_loop ()
       in
       accept_loop ())

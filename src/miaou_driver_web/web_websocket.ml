@@ -5,9 +5,12 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-(** Minimal WebSocket (RFC 6455) implementation for Eio. *)
+(** Minimal WebSocket (RFC 6455) implementation for Eio.
 
-type t = {mutable closed : bool}
+    Uses direct flow writes instead of Buf_write to avoid buffering issues
+    with the WebSocket protocol upgrade. *)
+
+type t = {mutable closed : bool; write : string -> unit}
 
 let websocket_magic = "258EAFA5-E914-47DA-95CA-5AB5DC085B11"
 
@@ -37,7 +40,7 @@ let parse_headers br =
   in
   loop ()
 
-let upgrade headers bw =
+let upgrade headers ~write =
   let is_upgrade =
     match Hashtbl.find_opt headers "upgrade" with
     | Some v -> String.lowercase_ascii v = "websocket"
@@ -47,25 +50,18 @@ let upgrade headers bw =
   match (is_upgrade, ws_key) with
   | true, Some key ->
       let accept = accept_key key in
-      Eio.Buf_write.string bw "HTTP/1.1 101 Switching Protocols\r\n" ;
-      Eio.Buf_write.string bw "Upgrade: websocket\r\n" ;
-      Eio.Buf_write.string bw "Connection: Upgrade\r\n" ;
-      Eio.Buf_write.string
-        bw
-        (Printf.sprintf "Sec-WebSocket-Accept: %s\r\n" accept) ;
-      Eio.Buf_write.string bw "\r\n" ;
-      Some {closed = false}
+      let response =
+        Printf.sprintf
+          "HTTP/1.1 101 Switching Protocols\r\n\
+           Upgrade: websocket\r\n\
+           Connection: Upgrade\r\n\
+           Sec-WebSocket-Accept: %s\r\n\
+           \r\n"
+          accept
+      in
+      write response ;
+      Some {closed = false; write}
   | _ -> None
-
-let server_handshake br bw =
-  (* Read the request line *)
-  let request_line = Eio.Buf_read.line br in
-  (* Must be a GET request *)
-  if not (String.length request_line >= 3 && String.sub request_line 0 3 = "GET")
-  then None
-  else
-    let headers = parse_headers br in
-    upgrade headers bw
 
 (* WebSocket frame opcodes *)
 let _opcode_continuation = 0x0
@@ -80,24 +76,28 @@ let opcode_ping = 0x9
 
 let opcode_pong = 0xA
 
-(* Write a WebSocket frame (server frames are NOT masked) *)
-let write_frame bw ~opcode payload =
+(* Build a WebSocket frame as a string (server frames are NOT masked) *)
+let build_frame ~opcode payload =
   let len = String.length payload in
+  let buf = Buffer.create (len + 10) in
   (* FIN bit + opcode *)
-  Eio.Buf_write.uint8 bw (0x80 lor opcode) ;
+  Buffer.add_uint8 buf (0x80 lor opcode) ;
   (* Payload length (no mask bit for server) *)
-  if len < 126 then Eio.Buf_write.uint8 bw len
+  if len < 126 then Buffer.add_uint8 buf len
   else if len < 65536 then begin
-    Eio.Buf_write.uint8 bw 126 ;
-    Eio.Buf_write.BE.uint16 bw len
+    Buffer.add_uint8 buf 126 ;
+    Buffer.add_uint16_be buf len
   end
   else begin
-    Eio.Buf_write.uint8 bw 127 ;
-    (* Write 64-bit length as two 32-bit writes *)
-    Eio.Buf_write.BE.uint32 bw 0l ;
-    Eio.Buf_write.BE.uint32 bw (Int32.of_int len)
+    Buffer.add_uint8 buf 127 ;
+    (* Write 64-bit length *)
+    Buffer.add_int32_be buf 0l ;
+    Buffer.add_int32_be buf (Int32.of_int len)
   end ;
-  if len > 0 then Eio.Buf_write.string bw payload
+  if len > 0 then Buffer.add_string buf payload ;
+  Buffer.contents buf
+
+let write_frame t ~opcode payload = t.write (build_frame ~opcode payload)
 
 (* Read a WebSocket frame, returns (opcode, payload) *)
 let read_frame br =
@@ -130,10 +130,9 @@ let read_frame br =
   in
   (opcode, payload)
 
-let send_text t bw msg =
-  if not t.closed then write_frame bw ~opcode:opcode_text msg
+let send_text t msg = if not t.closed then write_frame t ~opcode:opcode_text msg
 
-let rec recv_text t br bw =
+let rec recv_text t br =
   if t.closed then None
   else
     match read_frame br with
@@ -146,21 +145,21 @@ let rec recv_text t br bw =
     | opcode, _payload when opcode = opcode_close ->
         t.closed <- true ;
         (* Send close frame back *)
-        (try write_frame bw ~opcode:opcode_close "" with _ -> ()) ;
+        (try write_frame t ~opcode:opcode_close "" with _ -> ()) ;
         None
     | opcode, payload when opcode = opcode_ping ->
         (* Respond with pong *)
-        (try write_frame bw ~opcode:opcode_pong payload with _ -> ()) ;
-        recv_text t br bw
+        (try write_frame t ~opcode:opcode_pong payload with _ -> ()) ;
+        recv_text t br
     | opcode, _payload when opcode = opcode_pong ->
         (* Ignore pong *)
-        recv_text t br bw
+        recv_text t br
     | _opcode, payload -> Some payload
 
-let close t bw =
+let close t =
   if not t.closed then begin
     t.closed <- true ;
-    try write_frame bw ~opcode:opcode_close "" with _ -> ()
+    try write_frame t ~opcode:opcode_close "" with _ -> ()
   end
 
 let is_closed t = t.closed
