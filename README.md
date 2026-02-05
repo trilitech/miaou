@@ -23,11 +23,12 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines and [SECURI
 Features at a glance
 --------------------
 - State-view-handlers page lifecycle with modal support and capability injection
-- Ready-to-use widgets: tables, file browsers, pagers, modal forms, panes, text boxes, palette helpers, charts (sparkline, line, bar), image viewer, QR code generator, etc.
-- Three rendering backends: Matrix (default, high-performance), Lambda-Term (stable), SDL2 (experimental graphics)
+- **Direct_page**: Simplified page development with only 3 required functions using OCaml 5 effects
+- Ready-to-use widgets: tables, file browsers, pagers, modal forms, panes, text boxes, palette helpers, charts (sparkline, line, bar), image viewer, QR code generator, box containers, focus ring, grid/flex layouts, etc.
+- Four rendering backends: Matrix (default, high-performance), Lambda-Term (stable), SDL2 (experimental graphics), Web (xterm.js)
 - Headless driver for tests/CI
 - Debug overlay for performance monitoring (`MIAOU_OVERLAY=1`)
-- Example demo with system monitoring, chart visualization, and image display capabilities
+- Example demo gallery with 30+ widget showcases
 
 Projects using MIAOU
 --------------------
@@ -37,7 +38,7 @@ Projects using MIAOU
 Backends
 --------
 
-MIAOU supports three rendering backends:
+MIAOU supports four rendering backends:
 
 1. **Matrix (Default)**: Terminal driver with cell-based double buffering and diff-based rendering. Uses OCaml 5 Domains for parallelism: render domain runs at 60 FPS while main domain handles input at 30 TPS. Only changed cells are written to terminal. Pure ANSI output with no lambda-term dependency.
 
@@ -45,11 +46,14 @@ MIAOU supports three rendering backends:
 
 3. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, pixel-perfect rendering, and full RGB color support.
 
+4. **Web (Experimental)**: Browser-based terminal via xterm.js over WebSocket. Supports controller/viewer architecture for shared sessions with optional password authentication.
+
 **Backend selection** (priority: Matrix > SDL > Lambda-Term):
 ```sh
 MIAOU_DRIVER=matrix  # Default - diff-based rendering
 MIAOU_DRIVER=term    # Lambda-Term fallback
 MIAOU_DRIVER=sdl     # SDL2 graphics (requires tsdl packages)
+MIAOU_DRIVER=web     # Web browser via xterm.js (requires miaou-driver-web)
 ```
 
 **Mouse tracking**: By default, MIAOU enables mouse tracking for terminal interaction. This interferes with traditional copy/paste in some terminals. To disable mouse tracking and allow normal copy/paste:
@@ -108,6 +112,7 @@ MIAOU is split into multiple opam packages to allow flexible installation:
 | `miaou-driver-matrix` | Matrix driver (default) | No |
 | `miaou-driver-term` | Lambda-Term driver | No |
 | `miaou-driver-sdl` | SDL2 driver | Yes |
+| `miaou-driver-web` | Web driver (xterm.js over WebSocket) | No |
 | `miaou-runner` | Runner with backend selection | No (SDL optional) |
 
 **For terminal-only applications** (no SDL2 dependency):
@@ -129,10 +134,11 @@ The libraries use package-prefixed public names:
 - `miaou-core.widgets.display` → `Miaou_widgets_display`
 - `miaou-core.widgets.layout` → `Miaou_widgets_layout`
 - `miaou-core.widgets.input` → `Miaou_widgets_input`
-- `miaou-core.internals` → `Miaou_internals`
+- `miaou-core.internals` → `Miaou_internals` (Focus_ring, Focus_container, Direct_page)
 - `miaou-driver-matrix.driver` → `Miaou_driver_matrix`
 - `miaou-driver-term.driver` → `Miaou_driver_term`
 - `miaou-driver-sdl.driver` → `Miaou_driver_sdl`
+- `miaou-driver-web.driver` → `Miaou_driver_web`
 
 ### Example dune stanza
 
@@ -610,9 +616,10 @@ MIAOU is intentionally experimental. The library splits responsibilities into th
 
 - **Core:** Public API, page lifecycle, modal manager, driver-facing helpers. Includes a capability system for abstracting side-effects.
 - **Widgets:** Reusable UI widgets including:
-  - **Layout:** tables, panes, file browser, progress bars
-  - **Input:** textboxes, selectors, modal forms
-  - **Display:** sparkline charts, line charts, bar charts, image viewer, QR code generator, pager, tree view, description lists
+  - **Layout:** tables, panes, file browser, progress bars, box containers, flex layout, grid layout
+  - **Input:** textboxes, selectors, modal forms, checkboxes, radio buttons, switches, buttons
+  - **Display:** sparkline charts, line charts, bar charts, image viewer, QR code generator, pager, tree view, description lists, breadcrumbs, tabs, toast notifications
+  - **Focus management:** Focus Ring (named slots), Focus Container (GADT-based heterogeneous)
   - Some widgets support SDL-enhanced rendering
 - **Internals:** Renderer and implementation details that are not part of the public API.
 
@@ -654,9 +661,15 @@ Further reading
 	  - Image display: `image_widget`, `qr_code_widget`
 	  - SDL-enhanced versions: `*_widget_sdl` modules for anti-aliased graphics
 	  - See [SDL Charts README](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details
-	- Layout (panes, vsection, progress, file browser): [src/miaou_widgets_layout/](./src/miaou_widgets_layout/)
-	- Input (textbox, select): [src/miaou_widgets_input/](./src/miaou_widgets_input/)
-- Internals (renderer, modal machinery internals): [src/miaou_internals/](./src/miaou_internals/)
+	- Layout (panes, vsection, progress, file browser, box, flex, grid): [src/miaou_widgets_layout/](./src/miaou_widgets_layout/)
+	  - `box_widget` - Border-decorated containers with 5 styles
+	  - `flex_layout` - Flexbox-style row/column layouts
+	  - `grid_layout` - CSS-grid-like layouts with Fr/Px/Auto tracks
+	- Input (textbox, select, checkbox, radio, switch, button): [src/miaou_widgets_input/](./src/miaou_widgets_input/)
+- Internals (renderer, modal machinery, focus management): [src/miaou_internals/](./src/miaou_internals/)
+	- `focus_ring` - Named-slot focus hierarchy
+	- `focus_container` - GADT-based heterogeneous focus management
+	- `direct_page` - Simplified page development with effects
 
 
 ## Project home
