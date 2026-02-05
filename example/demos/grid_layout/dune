@@ -1,0 +1,15 @@
+(library
+ (name grid_layout_demo)
+ (modules page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
+ (libraries demo_shared miaou miaou-core.lib_miaou_internal))
+
+(executable
+ (name main)
+ (public_name miaou.grid_layout-demo)
+ (package miaou)
+ (modules main)
+ (libraries grid_layout_demo miaou-runner.tui miaou-core.helpers eio_main))

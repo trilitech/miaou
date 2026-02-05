@@ -197,6 +197,13 @@ let demos =
           (module Flex_layout_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
+      title = "Grid Layout";
+      open_demo =
+        goto
+          "demo_grid"
+          (module Grid_layout_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
       title = "Link";
       open_demo =
         goto "demo_link" (module Link_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
