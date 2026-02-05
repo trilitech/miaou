@@ -33,6 +33,18 @@
   miaou-driver-sdl.driver
   miaou-driver-matrix.driver))
 
+(library
+ (name miaou_runner_web)
+ (public_name miaou-driver-web.runner)
+ (modules runner_web)
+ (instrumentation
+  (backend bisect_ppx))
+ (libraries
+  miaou_runner_common
+  miaou-driver-term.driver
+  miaou-driver-matrix.driver
+  miaou-driver-web.driver))
+
 (executable
  (name miaou_runner_tui_main)
  (public_name miaou-runner-tui)

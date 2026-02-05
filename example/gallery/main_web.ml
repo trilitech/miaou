@@ -24,4 +24,4 @@ let () =
     (module Gallery.Launcher : Miaou.Core.Tui_page.PAGE_SIG)
   in
   Miaou.Core.Registry.register launcher_name page ;
-  ignore (Miaou_driver_web.Web_driver.run ~port page)
+  ignore (Miaou_runner_web.Runner_web.run ~port page)

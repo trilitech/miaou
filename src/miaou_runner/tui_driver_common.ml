@@ -37,13 +37,14 @@ let current_page : (module PAGE_SIG) option ref = ref None
 let set_page (page_module : (module PAGE_SIG)) =
   current_page := Some page_module
 
-let backend_choice ~sdl_available ~matrix_available =
+let backend_choice ~sdl_available ~matrix_available ~web_available =
   match Sys.getenv_opt "MIAOU_DRIVER" with
   | Some v -> (
       match String.lowercase_ascii (String.trim v) with
       | "matrix" when matrix_available -> `Matrix
       | "sdl" when sdl_available -> `Sdl
       | "term" | "lambda-term" | "lambda_term" -> `Lambda_term
+      | "web" when web_available -> `Web
       | "html" when Html_driver.available -> `Html
       | _ -> `Matrix (* Default to matrix for unknown values too *))
   | None ->
@@ -52,7 +53,7 @@ let backend_choice ~sdl_available ~matrix_available =
       else if sdl_available then `Sdl
       else `Lambda_term
 
-let run ~term_backend ~sdl_backend ~matrix_backend
+let run ~term_backend ~sdl_backend ~matrix_backend ~web_backend
     (initial_page : (module PAGE_SIG)) : outcome =
   Widgets.set_backend `Terminal ;
   (* Page stack for __BACK__ navigation *)
@@ -63,6 +64,7 @@ let run ~term_backend ~sdl_backend ~matrix_backend
         backend_choice
           ~sdl_available:sdl_backend.available
           ~matrix_available:matrix_backend.available
+          ~web_available:web_backend.available
       with
       | `Matrix ->
           Widgets.set_backend `Terminal ;
@@ -70,6 +72,9 @@ let run ~term_backend ~sdl_backend ~matrix_backend
       | `Sdl ->
           Widgets.set_backend `Sdl ;
           sdl_backend.run page
+      | `Web ->
+          Widgets.set_backend `Terminal ;
+          web_backend.run page
       | `Html ->
           Widgets.set_backend `Terminal ;
           Html_driver.run page

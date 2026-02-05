@@ -5,7 +5,7 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-let run page =
+let run ?(enable_mouse = true) ?(port = 8080) page =
   let term_backend =
     {
       Miaou_runner_common.Tui_driver_common.available =
@@ -15,22 +15,29 @@ let run page =
   in
   let sdl_backend =
     {
-      Miaou_runner_common.Tui_driver_common.available =
-        Miaou_driver_sdl.Sdl_driver.available;
-      run = (fun page -> Miaou_driver_sdl.Sdl_driver.run page);
+      Miaou_runner_common.Tui_driver_common.available = false;
+      run = (fun _ -> `Quit);
     }
+  in
+  let matrix_config =
+    if enable_mouse then None
+    else
+      Some
+        (Miaou_driver_matrix.Matrix_config.load ()
+        |> Miaou_driver_matrix.Matrix_config.with_mouse_disabled)
   in
   let matrix_backend =
     {
       Miaou_runner_common.Tui_driver_common.available =
         Miaou_driver_matrix.Matrix_driver.available;
-      run = Miaou_driver_matrix.Matrix_driver.run;
+      run = Miaou_driver_matrix.Matrix_driver.run ~config:matrix_config;
     }
   in
   let web_backend =
     {
-      Miaou_runner_common.Tui_driver_common.available = false;
-      run = (fun _ -> `Quit);
+      Miaou_runner_common.Tui_driver_common.available =
+        Miaou_driver_web.Web_driver.available;
+      run = Miaou_driver_web.Web_driver.run ~port;
     }
   in
   Miaou_runner_common.Tui_driver_common.run
