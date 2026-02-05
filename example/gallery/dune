@@ -60,7 +60,7 @@
 (executable
  (name main_web)
  (public_name miaou.demo-web)
- (package miaou-driver-web)
+ (package miaou)
  (modules main_web)
  (preprocess
   (pps ppx_blob))
