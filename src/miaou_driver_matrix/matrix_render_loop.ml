@@ -11,7 +11,7 @@ type t = {
   config : Matrix_config.t;
   buffer : Matrix_buffer.t;
   writer : Matrix_ansi_writer.t;
-  terminal : Matrix_terminal.t;
+  write : string -> unit;
   shutdown_flag : bool Atomic.t;
   mutable render_domain : unit Domain.t option;
   mutable last_frame_time : float;
@@ -23,8 +23,8 @@ type t = {
 }
 
 let do_render t =
-  (* Reset terminal style and writer state to ensure consistency *)
-  Matrix_terminal.write t.terminal "\027[0m" ;
+  (* Reset style to ensure consistency *)
+  t.write "\027[0m" ;
   Matrix_ansi_writer.reset t.writer ;
 
   (* Compute diff atomically - holds lock during read to prevent torn reads.
@@ -35,8 +35,8 @@ let do_render t =
   (* Generate ANSI output *)
   let ansi = Matrix_ansi_writer.render t.writer changes in
 
-  (* Write to terminal *)
-  if String.length ansi > 0 then Matrix_terminal.write t.terminal ansi ;
+  (* Write to output sink *)
+  if String.length ansi > 0 then t.write ansi ;
 
   (* Update frame timing *)
   t.last_frame_time <- Unix.gettimeofday () ;
@@ -73,13 +73,13 @@ let render_loop_fn t =
     if sleep_time > 0.0 then Thread.delay sleep_time
   done
 
-let create ~config ~buffer ~writer ~terminal =
+let create ~config ~buffer ~writer ~write =
   let now = Unix.gettimeofday () in
   {
     config;
     buffer;
     writer;
-    terminal;
+    write;
     shutdown_flag = Atomic.make false;
     render_domain = None;
     last_frame_time = now;

@@ -13,7 +13,7 @@
 
     Architecture:
     - Main domain: Input handling, state updates, writes to back buffer
-    - Render domain: Reads buffers, computes diff, writes to terminal
+    - Render domain: Reads buffers, computes diff, writes via output sink
 
     The buffer uses mutex synchronization for thread safety.
 *)
@@ -25,12 +25,12 @@ type t
     @param config Configuration (FPS cap, debug mode)
     @param buffer Double buffer for diff computation
     @param writer ANSI writer for output generation
-    @param terminal Terminal for output *)
+    @param write Output sink: sends ANSI string to terminal or WebSocket *)
 val create :
   config:Matrix_config.t ->
   buffer:Matrix_buffer.t ->
   writer:Matrix_ansi_writer.t ->
-  terminal:Matrix_terminal.t ->
+  write:(string -> unit) ->
   t
 
 (** Start the render domain. Call once after setup. *)

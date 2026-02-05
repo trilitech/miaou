@@ -11,15 +11,6 @@
     into events. Adapted from term_event_reader.ml with simplified interface.
 *)
 
-(** Input events. *)
-type event =
-  | Key of string  (** Named key or character *)
-  | Mouse of int * int  (** Click at (row, col), 1-indexed *)
-  | Resize  (** Terminal was resized *)
-  | Refresh  (** Time for service_cycle - rate limited to ~1/sec *)
-  | Idle  (** No input, not time for refresh - just keep rendering *)
-  | Quit  (** Exit signal received *)
-
 (** Input reader state. *)
 type t
 
@@ -29,12 +20,12 @@ val create : Matrix_terminal.t -> t
 (** Poll for next event with timeout.
     Returns Refresh on timeout if no input available.
     @param timeout_ms Maximum time to wait in milliseconds. *)
-val poll : t -> timeout_ms:int -> event
+val poll : t -> timeout_ms:int -> Matrix_io.event
 
 (** Drain consecutive identical navigation keys from buffer.
     Call after receiving Up/Down/Left/Right/Tab to prevent scroll lag.
     Returns count of drained events. *)
-val drain_nav_keys : t -> event -> int
+val drain_nav_keys : t -> Matrix_io.event -> int
 
 (** Drain any pending Esc keys from buffer.
     Call after modal close to prevent double-Esc navigation.

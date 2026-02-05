@@ -1,21 +1,13 @@
-(******************************************************************************)
-(*                                                                            *)
-(* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
-(*                                                                            *)
-(******************************************************************************)
+(*****************************************************************************)
+(*                                                                           *)
+(* SPDX-License-Identifier: MIT                                              *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(*                                                                           *)
+(*****************************************************************************)
 
 (** Matrix driver input handling - uses shared Input_parser. *)
 
 module Parser = Miaou_driver_common.Input_parser
-
-type event =
-  | Key of string
-  | Mouse of int * int
-  | Resize
-  | Refresh  (** Time for service_cycle - rate limited *)
-  | Idle  (** No input, not time for refresh - just keep rendering *)
-  | Quit
 
 type t = {
   terminal : Matrix_terminal.t;
@@ -35,21 +27,21 @@ let create terminal =
   in
   {terminal; parser = Parser.create fd; exit_flag; last_refresh_time = 0.0}
 
-(** Convert Parser.key to matrix event *)
+(** Convert Parser.key to event *)
 let key_to_event = function
   | Parser.Mouse {row; col; release} ->
-      if release then Mouse (row, col) else Refresh
-  | Parser.Refresh -> Refresh
-  | key -> Key (Parser.key_to_string key)
+      if release then Matrix_io.Mouse (row, col) else Matrix_io.Refresh
+  | Parser.Refresh -> Matrix_io.Refresh
+  | key -> Matrix_io.Key (Parser.key_to_string key)
 
 let poll t ~timeout_ms:_ =
   (* Check exit flag *)
-  if Atomic.get t.exit_flag then Quit
+  if Atomic.get t.exit_flag then Matrix_io.Quit
   else if Matrix_terminal.resize_pending t.terminal then begin
     Matrix_terminal.clear_resize_pending t.terminal ;
-    Resize
+    Matrix_io.Resize
   end
-  else if Miaou_helpers.Render_notify.should_render () then Refresh
+  else if Miaou_helpers.Render_notify.should_render () then Matrix_io.Refresh
   else begin
     (* Try to read input with minimal timeout - let Eio handle actual timing
        to allow other fibers to run *)
@@ -60,24 +52,24 @@ let poll t ~timeout_ms:_ =
       let now = Unix.gettimeofday () in
       if now -. t.last_refresh_time >= refresh_interval then begin
         t.last_refresh_time <- now ;
-        Refresh
+        Matrix_io.Refresh
       end
-      else Idle
+      else Matrix_io.Idle
     end
     else
       match Parser.parse_key t.parser with
       | Some key -> key_to_event key
-      | None -> Idle
+      | None -> Matrix_io.Idle
   end
 
 (** Convert event to Parser.key for draining *)
 let event_to_parser_key = function
-  | Key "Up" -> Some Parser.Up
-  | Key "Down" -> Some Parser.Down
-  | Key "Left" -> Some Parser.Left
-  | Key "Right" -> Some Parser.Right
-  | Key "Tab" -> Some Parser.Tab
-  | Key "Delete" -> Some Parser.Delete
+  | Matrix_io.Key "Up" -> Some Parser.Up
+  | Matrix_io.Key "Down" -> Some Parser.Down
+  | Matrix_io.Key "Left" -> Some Parser.Left
+  | Matrix_io.Key "Right" -> Some Parser.Right
+  | Matrix_io.Key "Tab" -> Some Parser.Tab
+  | Matrix_io.Key "Delete" -> Some Parser.Delete
   | _ -> None
 
 (* Drain consecutive navigation keys to prevent scroll lag *)
