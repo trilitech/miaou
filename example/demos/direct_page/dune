@@ -5,7 +5,7 @@
   (pps ppx_blob))
  (preprocessor_deps
   (file README.md))
- (libraries demo_shared miaou miaou-core.lib_miaou_internal))
+ (libraries demo_shared miaou miaou-core.widgets.display))
 
 (executable
  (name main)
