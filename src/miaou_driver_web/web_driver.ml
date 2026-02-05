@@ -205,14 +205,21 @@ let parse_client_message events ~current_rows ~current_cols msg =
       | exception _ -> ())
   | exception _ -> ()
 
-exception Tui_done of [`Quit | `SwitchTo of string]
+exception Tui_done of ([`Quit | `SwitchTo of string] * (int * int))
 
-(* Run the TUI over an established WebSocket connection *)
-let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
+(* Run the TUI over an established WebSocket connection.
+   [~initial_size] can be passed to skip waiting for resize on page switch. *)
+let run_tui (env : Eio_unix.Stdenv.base) config session ws br
+    ?(initial_size : (int * int) option) initial_page =
   Printf.eprintf "[web] WebSocket TUI session starting\n%!" ;
   let events = Eio.Stream.create 256 in
-  let current_rows = ref 24 in
-  let current_cols = ref 80 in
+  let current_rows, current_cols =
+    match initial_size with
+    | Some (r, c) ->
+        Printf.eprintf "[web] Using passed size: %dx%d\n%!" r c ;
+        (ref r, ref c)
+    | None -> (ref 24, ref 80)
+  in
   let last_refresh = ref (Unix.gettimeofday ()) in
   let output = Output_buffer.create () in
   let config =
@@ -308,6 +315,37 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
               Printf.eprintf
                 "[web] Flusher fiber error: %s\n%!"
                 (Printexc.to_string exn)) ;
+        (* Wait briefly for the client to send initial dimensions.
+           On first connection the client sends resize after role assignment.
+           On page switch within the same connection, no resize is sent,
+           so we use a short timeout and fall back to default size. *)
+        Printf.eprintf "[web] Waiting for initial resize from client...\n%!" ;
+        let rec drain_until_resize_or_timeout deadline =
+          let now = Unix.gettimeofday () in
+          if now >= deadline then
+            Printf.eprintf
+              "[web] Resize timeout, using %dx%d\n%!"
+              !current_rows
+              !current_cols
+          else
+            match Eio.Stream.take_nonblocking events with
+            | Some Matrix_io.Resize ->
+                Printf.eprintf
+                  "[web] Got initial resize: %dx%d\n%!"
+                  !current_rows
+                  !current_cols ;
+                Matrix_buffer.resize
+                  buffer
+                  ~rows:!current_rows
+                  ~cols:!current_cols
+            | Some Matrix_io.Quit ->
+                raise (Tui_done (`Quit, (!current_rows, !current_cols)))
+            | Some _ -> drain_until_resize_or_timeout deadline
+            | None ->
+                Eio.Time.sleep env#clock 0.01 ;
+                drain_until_resize_or_timeout deadline
+        in
+        drain_until_resize_or_timeout (Unix.gettimeofday () +. 0.5) ;
         (* Hide cursor and clear the screen so old content from a previous
            page doesn't bleed through in xterm.js *)
         let init = Matrix_ansi_writer.cursor_hide ^ "\027[2J\027[H" in
@@ -323,10 +361,11 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
         let cleanup = Matrix_ansi_writer.cursor_show ^ "\027[0m" in
         Web_websocket.send_text ws cleanup ;
         Session.broadcast session cleanup ;
-        raise (Tui_done result))
-  with Tui_done result ->
+        let final_size = (!current_rows, !current_cols) in
+        raise (Tui_done (result, final_size)))
+  with Tui_done (result, size) ->
     Printf.eprintf "[web] TUI session ended\n%!" ;
-    result
+    (result, size)
 
 let run ?(config = None) ?(port = 8080) ?auth
     ?(controller_html = Web_assets.index_html)
@@ -412,9 +451,16 @@ let run ?(config = None) ?(port = 8080) ?auth
                      send_role_message ws "controller" ;
                      Eio.Fiber.fork ~sw:page_sw (fun () ->
                          let page_stack = ref [] in
-                         let rec page_loop current_page =
-                           let result =
-                             run_tui env config sess ws br current_page
+                         let rec page_loop ?initial_size current_page =
+                           let result, final_size =
+                             run_tui
+                               env
+                               config
+                               sess
+                               ws
+                               br
+                               ?initial_size
+                               current_page
                            in
                            match result with
                            | `Quit -> Web_websocket.close ws
@@ -423,12 +469,12 @@ let run ?(config = None) ?(port = 8080) ?auth
                                | [] -> Web_websocket.close ws
                                | prev :: rest ->
                                    page_stack := rest ;
-                                   page_loop prev)
+                                   page_loop ~initial_size:final_size prev)
                            | `SwitchTo next -> (
                                match Registry.find next with
                                | Some p ->
                                    page_stack := current_page :: !page_stack ;
-                                   page_loop p
+                                   page_loop ~initial_size:final_size p
                                | None ->
                                    Printf.eprintf
                                      "[web] Page %S not found, closing\n%!"
