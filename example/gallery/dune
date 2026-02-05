@@ -62,4 +62,15 @@
  (public_name miaou.demo-web)
  (package miaou-driver-web)
  (modules main_web)
- (libraries gallery miaou-driver-web.runner miaou-core.helpers eio_posix))
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file static/index.html)
+  (file static/viewer.html)
+  (file ../miaou_logo_small.png))
+ (libraries
+  gallery
+  miaou-driver-web.runner
+  miaou-driver-web.driver
+  miaou-core.helpers
+  eio_posix))

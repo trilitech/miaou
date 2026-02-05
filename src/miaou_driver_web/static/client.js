@@ -1,20 +1,22 @@
 // Miaou Web Terminal Client
-// Connects to the Miaou web driver via WebSocket and renders using xterm.js.
+// Composable factory: MiaouTerminal(container, options)
 
-(function () {
+window.MiaouTerminal = function (container, options) {
   'use strict';
 
-  var statusEl = document.getElementById('status');
-  var role = null;
+  options = options || {};
+  var wsPath = options.wsPath || '/ws';
+  var initialPassword = options.password || null;
+  var onRole = options.onRole || function () {};
+  var onStatusChange = options.onStatusChange || function () {};
+  var onAuthRequired = options.onAuthRequired || null;
 
-  function setStatus(msg, cls) {
-    statusEl.textContent = msg;
-    statusEl.className = cls || '';
-  }
+  var storageKey = 'miaou_password_' + wsPath;
+  var role = null;
+  var ws = null;
 
   // Map DOM KeyboardEvent to Miaou key string
   function mapKey(ev) {
-    // Ctrl combinations
     if (ev.ctrlKey && ev.key.length === 1) {
       return 'C-' + ev.key.toLowerCase();
     }
@@ -52,7 +54,7 @@
       case 'CapsLock':
       case 'NumLock':
       case 'ScrollLock':
-        return null; // Ignore modifier-only keys
+        return null;
       default:
         if (ev.key.length === 1) return ev.key;
         return null;
@@ -64,7 +66,7 @@
     cursorBlink: false,
     cursorStyle: 'block',
     scrollback: 0,
-    disableStdin: true, // We handle input ourselves
+    disableStdin: true,
     convertEol: false,
     theme: {
       background: '#1e1e1e',
@@ -74,79 +76,97 @@
 
   var fitAddon = new window.FitAddon.FitAddon();
   term.loadAddon(fitAddon);
-  term.open(document.getElementById('terminal'));
+  term.open(container);
   fitAddon.fit();
 
-  // Connect WebSocket
-  var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var ws = new WebSocket(protocol + '//' + location.host + '/ws');
-
-  ws.onopen = function () {
-    // Don't set status yet — wait for the role message from the server
-    if (role === null) {
-      setStatus('Connected', 'connected');
+  function buildWsUrl(password) {
+    var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var url = protocol + '//' + location.host + wsPath;
+    if (password) {
+      url += '?password=' + encodeURIComponent(password);
     }
-  };
+    return url;
+  }
 
-  ws.onmessage = function (event) {
-    // First message should be a role assignment
-    if (role === null) {
-      try {
-        var msg = JSON.parse(event.data);
-        if (msg.type === 'role') {
-          role = msg.role;
-          if (role === 'controller') {
-            setStatus('Connected', 'connected');
-            // Send initial terminal size
-            var dims = fitAddon.proposeDimensions();
-            if (dims) {
-              ws.send(JSON.stringify({
-                type: 'resize',
-                rows: dims.rows,
-                cols: dims.cols
-              }));
-            }
-          } else {
-            setStatus('Connected (read-only viewer)', 'viewer');
-          }
-          return;
-        }
-      } catch (e) {
-        // Not JSON, treat as ANSI data below
+  function connect(password) {
+    role = null;
+    var gotRole = false;
+    ws = new WebSocket(buildWsUrl(password));
+
+    ws.onopen = function () {
+      if (role === null) {
+        onStatusChange('connected', 'Connected');
       }
-    }
+    };
 
-    // Server sends raw ANSI data as text frames
-    term.write(event.data);
-  };
+    ws.onmessage = function (event) {
+      if (role === null) {
+        try {
+          var msg = JSON.parse(event.data);
+          if (msg.type === 'role') {
+            role = msg.role;
+            gotRole = true;
+            if (password) {
+              sessionStorage.setItem(storageKey, password);
+            }
+            onRole(role);
+            if (role === 'controller') {
+              onStatusChange('connected', 'Connected');
+              var dims = fitAddon.proposeDimensions();
+              if (dims) {
+                ws.send(JSON.stringify({
+                  type: 'resize',
+                  rows: dims.rows,
+                  cols: dims.cols
+                }));
+              }
+            } else {
+              onStatusChange('viewer', 'Connected (read-only viewer)');
+            }
+            return;
+          }
+        } catch (e) {
+          // Not JSON, treat as ANSI data below
+        }
+      }
+      term.write(event.data);
+    };
 
-  ws.onclose = function () {
-    setStatus('Disconnected', 'disconnected');
-  };
+    ws.onclose = function () {
+      onStatusChange('disconnected', 'Disconnected');
+      if (!gotRole) {
+        sessionStorage.removeItem(storageKey);
+        if (onAuthRequired) {
+          onAuthRequired(!!password, function (newPassword) {
+            connect(newPassword);
+          });
+        }
+      }
+    };
 
-  ws.onerror = function () {
-    setStatus('Connection error', 'disconnected');
-  };
+    ws.onerror = function () {
+      onStatusChange('disconnected', 'Connection error');
+    };
+  }
 
-  // Intercept all keyboard events and send to server
+  // Intercept keyboard events
   term.attachCustomKeyEventHandler(function (ev) {
     if (ev.type !== 'keydown') return false;
     if (role === 'viewer') return false;
-    if (ws.readyState !== WebSocket.OPEN) return false;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 
     var key = mapKey(ev);
     if (key) {
       ws.send(JSON.stringify({ type: 'key', key: key }));
     }
-    return false; // Prevent xterm.js from processing
+    return false;
   });
 
   // Handle mouse clicks
-  document.getElementById('terminal').addEventListener('mousedown', function (ev) {
+  container.addEventListener('mousedown', function (ev) {
     if (role === 'viewer') return;
-    if (ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
-    // Convert pixel coordinates to terminal cell coordinates
     var cellSize = fitAddon.proposeDimensions();
     if (!cellSize) return;
 
@@ -169,7 +189,7 @@
   window.addEventListener('resize', function () {
     fitAddon.fit();
     if (role === 'viewer') return;
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
       var dims = fitAddon.proposeDimensions();
       if (dims) {
         ws.send(JSON.stringify({
@@ -180,4 +200,15 @@
       }
     }
   });
-})();
+
+  // Initial connection
+  var saved = sessionStorage.getItem(storageKey);
+  connect(initialPassword || saved || '');
+
+  return {
+    term: term,
+    fitAddon: fitAddon,
+    reconnect: function (pw) { connect(pw); },
+    getRole: function () { return role; }
+  };
+};

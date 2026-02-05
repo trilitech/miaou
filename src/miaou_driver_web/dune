@@ -6,6 +6,7 @@
   (pps ppx_blob))
  (preprocessor_deps
   (file static/index.html)
+  (file static/viewer.html)
   (file static/client.js))
  (instrumentation
   (backend bisect_ppx))

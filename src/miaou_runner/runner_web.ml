@@ -5,7 +5,8 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-let run ?(enable_mouse = true) ?(port = 8080) page =
+let run ?(enable_mouse = true) ?(port = 8080) ?auth ?controller_html
+    ?viewer_html ?(extra_assets = []) page =
   let term_backend =
     {
       Miaou_runner_common.Tui_driver_common.available =
@@ -37,7 +38,13 @@ let run ?(enable_mouse = true) ?(port = 8080) page =
     {
       Miaou_runner_common.Tui_driver_common.available =
         Miaou_driver_web.Web_driver.available;
-      run = Miaou_driver_web.Web_driver.run ~port;
+      run =
+        Miaou_driver_web.Web_driver.run
+          ~port
+          ?auth
+          ?controller_html
+          ?viewer_html
+          ~extra_assets;
     }
   in
   Miaou_runner_common.Tui_driver_common.run

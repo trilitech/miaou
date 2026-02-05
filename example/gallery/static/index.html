@@ -3,16 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Miaou Web Terminal</title>
+  <title>Miaou Gallery</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #1e1e1e; overflow: hidden; }
-    #terminal { width: 100%; height: 100%; }
+    html, body { width: 100%; height: 100%; background: #1e1e1e; overflow: hidden;
+      display: flex; flex-direction: column; }
+    #header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 12px; background: #252525; border-bottom: 1px solid #333;
+      font-family: monospace; color: #d4d4d4; flex-shrink: 0;
+    }
+    #header img { height: 24px; }
+    #header .title { font-size: 15px; font-weight: bold; color: #eee; }
+    #header .badge {
+      font-size: 11px; padding: 2px 8px; border-radius: 3px;
+      background: #3a7; color: #fff; margin-left: auto;
+    }
+    #terminal { flex: 1; min-height: 0; }
     #status {
-      position: fixed; bottom: 0; left: 0; right: 0;
       background: #333; color: #aaa; padding: 2px 8px;
-      font-family: monospace; font-size: 12px; z-index: 10;
+      font-family: monospace; font-size: 12px; flex-shrink: 0;
     }
     #status.connected { color: #6a6; }
     #status.viewer { color: #aa6; }
@@ -23,33 +34,41 @@
       justify-content: center; align-items: center;
     }
     #password-overlay.visible { display: flex; }
-    #password-form {
+    #password-box {
       background: #2d2d2d; border: 1px solid #555; border-radius: 6px;
-      padding: 24px; min-width: 280px; font-family: monospace; color: #d4d4d4;
+      padding: 24px; min-width: 300px; font-family: monospace; color: #d4d4d4;
+      text-align: center;
     }
-    #password-form h2 { margin: 0 0 16px; font-size: 16px; color: #eee; }
-    #password-form input[type="password"] {
+    #password-box img { height: 48px; margin-bottom: 12px; }
+    #password-box h2 { margin: 0 0 16px; font-size: 16px; color: #eee; }
+    #password-box input[type="password"] {
       width: 100%; padding: 8px; background: #1e1e1e; border: 1px solid #555;
       border-radius: 3px; color: #d4d4d4; font-family: monospace; font-size: 14px;
       outline: none;
     }
-    #password-form input[type="password"]:focus { border-color: #888; }
-    #password-form button {
+    #password-box input[type="password"]:focus { border-color: #888; }
+    #password-box button {
       margin-top: 12px; width: 100%; padding: 8px; background: #444;
       border: 1px solid #666; border-radius: 3px; color: #ddd;
       font-family: monospace; font-size: 14px; cursor: pointer;
     }
-    #password-form button:hover { background: #555; }
+    #password-box button:hover { background: #555; }
     #password-error {
       color: #e66; font-size: 12px; margin-top: 8px; display: none;
     }
   </style>
 </head>
 <body>
+  <div id="header">
+    <img src="/logo.png" alt="Miaou">
+    <span class="title">Miaou Gallery</span>
+    <span class="badge">Controller</span>
+  </div>
   <div id="terminal"></div>
   <div id="status">Connecting...</div>
   <div id="password-overlay">
-    <div id="password-form">
+    <div id="password-box">
+      <img src="/logo.png" alt="Miaou">
       <h2>Password Required</h2>
       <form id="pw-form">
         <input type="password" id="pw-input" placeholder="Enter password" autocomplete="off">

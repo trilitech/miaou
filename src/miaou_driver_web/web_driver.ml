@@ -91,15 +91,49 @@ module Session = struct
     Mutex.unlock t.mutex
 end
 
+type auth = {
+  controller_password : string option;
+  viewer_password : string option;
+}
+
+type extra_asset = {path : string; content_type : string; body : string}
+
 let send_role_message ws role =
   let msg = Printf.sprintf {|{"type":"role","role":"%s"}|} role in
   Web_websocket.send_text ws msg
 
-(* Extract path from an HTTP request line like "GET /path HTTP/1.1" *)
+(* Extract path (without query string) from an HTTP request line like
+   "GET /path?key=val HTTP/1.1" *)
 let extract_path request_line =
-  match String.split_on_char ' ' request_line with
-  | _ :: path :: _ -> path
-  | _ -> "/"
+  let raw =
+    match String.split_on_char ' ' request_line with
+    | _ :: path :: _ -> path
+    | _ -> "/"
+  in
+  match String.split_on_char '?' raw with first :: _ -> first | [] -> "/"
+
+(* Extract a query parameter value from the raw URI in an HTTP request line.
+   Returns [Some value] for "?password=value" or [None] if missing. *)
+let extract_query_param request_line param =
+  let raw =
+    match String.split_on_char ' ' request_line with
+    | _ :: path :: _ -> path
+    | _ -> "/"
+  in
+  match String.split_on_char '?' raw with
+  | _ :: qs_parts -> (
+      let qs = String.concat "?" qs_parts in
+      let pairs = String.split_on_char '&' qs in
+      let prefix = param ^ "=" in
+      let plen = String.length prefix in
+      match
+        List.find_opt
+          (fun p -> String.length p >= plen && String.sub p 0 plen = prefix)
+          pairs
+      with
+      | Some pair -> Some (String.sub pair plen (String.length pair - plen))
+      | None -> None)
+  | _ -> None
 
 (* Send an HTTP response directly to a flow *)
 let serve_response conn ~status ~content_type body =
@@ -128,6 +162,25 @@ let serve_404 conn =
     ~status:"HTTP/1.1 404 Not Found"
     ~content_type:"text/plain"
     "Not Found"
+
+let serve_403 conn =
+  serve_response
+    conn
+    ~status:"HTTP/1.1 403 Forbidden"
+    ~content_type:"text/plain"
+    "Forbidden"
+
+let serve_409 conn msg =
+  serve_response
+    conn
+    ~status:"HTTP/1.1 409 Conflict"
+    ~content_type:"text/plain"
+    msg
+
+(* Check a supplied password against an expected password.
+   Returns [true] if no password is required or if it matches. *)
+let check_password ~expected ~supplied =
+  match expected with None -> true | Some exp -> supplied = Some exp
 
 (* Parse a JSON client message and push the corresponding event *)
 let parse_client_message events ~current_rows ~current_cols msg =
@@ -270,7 +323,9 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
     Printf.eprintf "[web] TUI session ended\n%!" ;
     result
 
-let run ?(config = None) ?(port = 8080)
+let run ?(config = None) ?(port = 8080) ?auth
+    ?(controller_html = Web_assets.index_html)
+    ?(viewer_html = Web_assets.viewer_html) ?(extra_assets = [])
     (initial_page : (module Tui_page.PAGE_SIG)) : [`Quit | `SwitchTo of string]
     =
   Fibers.with_page_switch (fun env page_sw ->
@@ -303,7 +358,10 @@ let run ?(config = None) ?(port = 8080)
            Printf.eprintf "[web] %s\n%!" request_line ;
            match path with
            | "/" -> (
-               serve_200 conn ~content_type:"text/html" Web_assets.index_html ;
+               serve_200 conn ~content_type:"text/html" controller_html ;
+               try Eio.Flow.close conn with _ -> ())
+           | "/viewer" -> (
+               serve_200 conn ~content_type:"text/html" viewer_html ;
                try Eio.Flow.close conn with _ -> ())
            | "/client.js" -> (
                serve_200
@@ -312,83 +370,131 @@ let run ?(config = None) ?(port = 8080)
                  Web_assets.client_js ;
                try Eio.Flow.close conn with _ -> ())
            | "/ws" -> (
-               let sink = (conn :> Eio.Flow.sink_ty Eio.Resource.t) in
-               let write s = Eio.Flow.write sink [Cstruct.of_string s] in
-               match Web_websocket.upgrade headers ~write with
-               | None -> (
-                   Printf.eprintf "[web] WebSocket upgrade failed\n%!" ;
-                   serve_404 conn ;
-                   try Eio.Flow.close conn with _ -> ())
-               | Some ws -> (
-                   match !session with
-                   | None ->
-                       (* First connection: this is the controller *)
-                       Printf.eprintf
-                         "[web] WebSocket upgraded (controller)\n%!" ;
-                       let sess = Session.create () in
-                       session := Some sess ;
-                       send_role_message ws "controller" ;
-                       (* Fork the controller's page_loop so accept_loop
-                          keeps running to accept viewer connections *)
-                       Eio.Fiber.fork ~sw:page_sw (fun () ->
-                           let page_stack = ref [] in
-                           let rec page_loop current_page =
-                             let result =
-                               run_tui env config sess ws br current_page
-                             in
-                             match result with
-                             | `Quit -> Web_websocket.close ws
-                             | `SwitchTo "__BACK__" -> (
-                                 match !page_stack with
-                                 | [] -> Web_websocket.close ws
-                                 | prev :: rest ->
-                                     page_stack := rest ;
-                                     page_loop prev)
-                             | `SwitchTo next -> (
-                                 match Registry.find next with
-                                 | Some p ->
-                                     page_stack := current_page :: !page_stack ;
-                                     page_loop p
-                                 | None ->
-                                     Printf.eprintf
-                                       "[web] Page %S not found, closing\n%!"
-                                       next ;
-                                     Web_websocket.close ws)
+               (* Controller WebSocket endpoint *)
+               let password = extract_query_param request_line "password" in
+               let required_password =
+                 match auth with
+                 | None -> None
+                 | Some a -> a.controller_password
+               in
+               if
+                 not
+                   (check_password
+                      ~expected:required_password
+                      ~supplied:password)
+               then begin
+                 Printf.eprintf "[web] Auth failed for /ws\n%!" ;
+                 serve_403 conn ;
+                 try Eio.Flow.close conn with _ -> ()
+               end
+               else if Option.is_some !session then begin
+                 Printf.eprintf "[web] Controller slot taken, returning 409\n%!" ;
+                 serve_409 conn "Controller slot already taken" ;
+                 try Eio.Flow.close conn with _ -> ()
+               end
+               else
+                 let sink = (conn :> Eio.Flow.sink_ty Eio.Resource.t) in
+                 let write s = Eio.Flow.write sink [Cstruct.of_string s] in
+                 match Web_websocket.upgrade headers ~write with
+                 | None -> (
+                     Printf.eprintf "[web] WebSocket upgrade failed\n%!" ;
+                     serve_404 conn ;
+                     try Eio.Flow.close conn with _ -> ())
+                 | Some ws ->
+                     Printf.eprintf "[web] WebSocket upgraded (controller)\n%!" ;
+                     let sess = Session.create () in
+                     session := Some sess ;
+                     send_role_message ws "controller" ;
+                     Eio.Fiber.fork ~sw:page_sw (fun () ->
+                         let page_stack = ref [] in
+                         let rec page_loop current_page =
+                           let result =
+                             run_tui env config sess ws br current_page
                            in
-                           (try page_loop initial_page
-                            with exn ->
-                              Printf.eprintf
-                                "[web] Controller error: %s\n%!"
-                                (Printexc.to_string exn)) ;
-                           (* Controller done: close all viewers, reset session *)
-                           Printf.eprintf
-                             "[web] Controller disconnected, closing viewers\n\
-                              %!" ;
-                           Session.close_all_viewers sess ;
-                           session := None ;
-                           try Eio.Flow.close conn with _ -> ())
-                   | Some sess ->
-                       (* Additional connection: read-only viewer *)
-                       Printf.eprintf "[web] WebSocket upgraded (viewer)\n%!" ;
-                       Session.add_viewer sess ws ;
-                       send_role_message ws "viewer" ;
-                       (* Fork a reader fiber that discards input and
-                          detects close *)
-                       Eio.Fiber.fork ~sw:page_sw (fun () ->
-                           (try
-                              let rec loop () =
-                                match Web_websocket.recv_text ws br with
-                                | None -> ()
-                                | Some _ -> loop ()
-                              in
-                              loop ()
-                            with _ -> ()) ;
-                           Printf.eprintf "[web] Viewer disconnected\n%!" ;
-                           Session.remove_viewer sess ws ;
-                           try Eio.Flow.close conn with _ -> ())))
+                           match result with
+                           | `Quit -> Web_websocket.close ws
+                           | `SwitchTo "__BACK__" -> (
+                               match !page_stack with
+                               | [] -> Web_websocket.close ws
+                               | prev :: rest ->
+                                   page_stack := rest ;
+                                   page_loop prev)
+                           | `SwitchTo next -> (
+                               match Registry.find next with
+                               | Some p ->
+                                   page_stack := current_page :: !page_stack ;
+                                   page_loop p
+                               | None ->
+                                   Printf.eprintf
+                                     "[web] Page %S not found, closing\n%!"
+                                     next ;
+                                   Web_websocket.close ws)
+                         in
+                         (try page_loop initial_page
+                          with exn ->
+                            Printf.eprintf
+                              "[web] Controller error: %s\n%!"
+                              (Printexc.to_string exn)) ;
+                         Printf.eprintf
+                           "[web] Controller disconnected, closing viewers\n%!" ;
+                         Session.close_all_viewers sess ;
+                         session := None ;
+                         try Eio.Flow.close conn with _ -> ()))
+           | "/ws/viewer" -> (
+               (* Viewer WebSocket endpoint *)
+               let password = extract_query_param request_line "password" in
+               let required_password =
+                 match auth with None -> None | Some a -> a.viewer_password
+               in
+               if
+                 not
+                   (check_password
+                      ~expected:required_password
+                      ~supplied:password)
+               then begin
+                 Printf.eprintf "[web] Auth failed for /ws/viewer\n%!" ;
+                 serve_403 conn ;
+                 try Eio.Flow.close conn with _ -> ()
+               end
+               else
+                 match !session with
+                 | None -> (
+                     Printf.eprintf "[web] No controller yet, returning 409\n%!" ;
+                     serve_409 conn "No controller connected yet" ;
+                     try Eio.Flow.close conn with _ -> ())
+                 | Some sess -> (
+                     let sink = (conn :> Eio.Flow.sink_ty Eio.Resource.t) in
+                     let write s = Eio.Flow.write sink [Cstruct.of_string s] in
+                     match Web_websocket.upgrade headers ~write with
+                     | None -> (
+                         Printf.eprintf "[web] WebSocket upgrade failed\n%!" ;
+                         serve_404 conn ;
+                         try Eio.Flow.close conn with _ -> ())
+                     | Some ws ->
+                         Printf.eprintf "[web] WebSocket upgraded (viewer)\n%!" ;
+                         Session.add_viewer sess ws ;
+                         send_role_message ws "viewer" ;
+                         Eio.Fiber.fork ~sw:page_sw (fun () ->
+                             (try
+                                let rec loop () =
+                                  match Web_websocket.recv_text ws br with
+                                  | None -> ()
+                                  | Some _ -> loop ()
+                                in
+                                loop ()
+                              with _ -> ()) ;
+                             Printf.eprintf "[web] Viewer disconnected\n%!" ;
+                             Session.remove_viewer sess ws ;
+                             try Eio.Flow.close conn with _ -> ())))
            | _ -> (
-               serve_404 conn ;
-               try Eio.Flow.close conn with _ -> ())
+               (* Check extra_assets, then 404 *)
+               match List.find_opt (fun a -> a.path = path) extra_assets with
+               | Some asset -> (
+                   serve_200 conn ~content_type:asset.content_type asset.body ;
+                   try Eio.Flow.close conn with _ -> ())
+               | None -> (
+                   serve_404 conn ;
+                   try Eio.Flow.close conn with _ -> ()))
          with
         | Eio.Io _ as exn ->
             Printf.eprintf "[web] I/O error: %s\n%!" (Printexc.to_string exn)

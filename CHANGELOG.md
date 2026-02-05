@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-05
+
+### Added
+
+- **Path-based roles for web driver** with explicit URL routing:
+  - `/ws` — controller WebSocket (returns 409 if slot already taken)
+  - `/ws/viewer` — viewer WebSocket (returns 409 if no controller connected)
+  - `/viewer` — dedicated viewer HTML page
+  - Separate `controller_password` and `viewer_password` authentication
+- **Composable `MiaouTerminal(container, options)` JS factory** replacing the IIFE in `client.js`:
+  - `wsPath` option (`/ws` or `/ws/viewer`)
+  - `onRole`, `onStatusChange`, `onAuthRequired` callbacks
+  - `sessionStorage` keys scoped by `wsPath`
+  - Returns `{ term, fitAddon, reconnect(pw), getRole() }`
+- **Custom HTML pages and extra assets** for the web driver:
+  - `~controller_html` and `~viewer_html` optional parameters on `Web_driver.run`
+  - `extra_asset` type for serving additional static files (e.g. logos)
+  - Both parameters forwarded through `Runner_web.run`
+- **Branded gallery pages** with Miaou logo header and role badges:
+  - `MIAOU_WEB_VIEWER_PASSWORD` environment variable (falls back to `MIAOU_WEB_PASSWORD`)
+
+### Changed
+
+- Web driver routing refactored: `/ws` always creates controller, `/ws/viewer` always creates viewer (previously role was assigned by connection order on single `/ws` endpoint)
+
 ## [0.1.4] - 2026-01-22
 
 ### Fixed
