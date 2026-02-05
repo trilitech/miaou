@@ -242,20 +242,22 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
         Session.broadcast session data
     | None -> ()
   in
+  let refresh_interval = config.frame_time_ms /. 1000.0 in
   let io : Matrix_io.t =
     {
       write = Output_buffer.write output;
       poll =
         (fun ~timeout_ms ->
-          let now = Unix.gettimeofday () in
-          if now -. !last_refresh >= 1.0 then begin
-            last_refresh := now ;
-            Matrix_io.Refresh
-          end
-          else
-            match Eio.Stream.take_nonblocking events with
-            | Some ev -> ev
-            | None -> (
+          (* Always drain pending events first so input is never starved *)
+          match Eio.Stream.take_nonblocking events with
+          | Some ev -> ev
+          | None -> (
+              let now = Unix.gettimeofday () in
+              if now -. !last_refresh >= refresh_interval then begin
+                last_refresh := now ;
+                Matrix_io.Refresh
+              end
+              else
                 let timeout_s = float_of_int timeout_ms /. 1000.0 in
                 match
                   Eio.Time.with_timeout env#clock timeout_s (fun () ->
