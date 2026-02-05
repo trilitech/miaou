@@ -209,18 +209,21 @@ let render_row t ~size =
     List.init max_h (fun row ->
         let buf = Buffer.create (size.LTerm_geom.cols + 2) in
         Buffer.add_string buf (String.make (t.padding.left + leading) ' ') ;
-        let rec emit idx blocks =
-          match blocks with
-          | [] -> ()
-          | blk :: rest ->
+        let rec emit idx blocks widths =
+          match (blocks, widths) with
+          | [], _ | _, [] -> ()
+          | blk :: rest_blk, w :: rest_w ->
               let line =
                 match List.nth_opt blk row with Some s -> s | None -> ""
               in
               if idx > 0 then Buffer.add_string buf (String.make gap.h ' ') ;
               Buffer.add_string buf line ;
-              emit (idx + 1) rest
+              (* Pad line to allocated width for proper column alignment *)
+              let vis = W.visible_chars_count line in
+              if vis < w then Buffer.add_string buf (String.make (w - vis) ' ') ;
+              emit (idx + 1) rest_blk rest_w
         in
-        emit 0 rendered ;
+        emit 0 rendered child_sizes ;
         let used =
           List.fold_left ( + ) 0 child_sizes
           + max 0 ((List.length child_sizes - 1) * gap.h)
