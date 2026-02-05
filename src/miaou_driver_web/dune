@@ -19,6 +19,7 @@
   digestif
   base64
   yojson
+  cstruct
   eio
   eio_main
   eio.unix))

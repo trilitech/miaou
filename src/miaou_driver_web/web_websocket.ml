@@ -12,7 +12,7 @@
 
 type t = {mutable closed : bool; write : string -> unit}
 
-let websocket_magic = "258EAFA5-E914-47DA-95CA-5AB5DC085B11"
+let websocket_magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 let accept_key client_key =
   let open Digestif in

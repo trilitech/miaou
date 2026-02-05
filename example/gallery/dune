@@ -62,4 +62,4 @@
  (public_name miaou.demo-web)
  (package miaou-driver-web)
  (modules main_web)
- (libraries gallery miaou-driver-web.runner miaou-core.helpers eio_main))
+ (libraries gallery miaou-driver-web.runner miaou-core.helpers eio_posix))

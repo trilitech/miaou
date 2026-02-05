@@ -14,7 +14,7 @@ let () =
     | None -> 8080
   in
   Printf.eprintf "Starting Miaou gallery on http://127.0.0.1:%d\n%!" port ;
-  Eio_main.run @@ fun env ->
+  Eio_posix.run @@ fun env ->
   Eio.Switch.run @@ fun sw ->
   Miaou_helpers.Fiber_runtime.init ~env ~sw ;
   Demo_shared.Demo_config.register_mocks () ;

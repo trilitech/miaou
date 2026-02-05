@@ -70,7 +70,9 @@ let serve_response conn ~status ~content_type body =
       content_type
       len
   in
-  Eio.Flow.copy_string (headers ^ body) conn
+  Eio.Flow.write
+    (conn :> Eio.Flow.sink_ty Eio.Resource.t)
+    [Cstruct.of_string (headers ^ body)]
 
 let serve_200 conn ~content_type body =
   serve_response conn ~status:"HTTP/1.1 200 OK" ~content_type body
@@ -205,6 +207,9 @@ let run_tui (env : Eio_unix.Stdenv.base) config ws br initial_page =
               Printf.eprintf
                 "[web] Flusher fiber error: %s\n%!"
                 (Printexc.to_string exn)) ;
+        (* Clear the screen so old content from a previous page doesn't
+           bleed through in xterm.js *)
+        Web_websocket.send_text ws "\027[2J\027[H" ;
         (* Start the render domain and run the shared main loop *)
         Printf.eprintf "[web] Starting render loop and main loop\n%!" ;
         Matrix_render_loop.start render_loop ;
@@ -212,7 +217,6 @@ let run_tui (env : Eio_unix.Stdenv.base) config ws br initial_page =
         Printf.eprintf "[web] Main loop exited\n%!" ;
         Matrix_render_loop.shutdown render_loop ;
         flush_output () ;
-        Web_websocket.close ws ;
         raise (Tui_done result))
   with Tui_done result ->
     Printf.eprintf "[web] TUI session ended\n%!" ;
@@ -235,8 +239,13 @@ let run ?(config = None) ?(port = 8080)
          is established, then run the TUI over that connection. *)
       let rec accept_loop () =
         let conn, _addr = Eio.Net.accept ~sw:page_sw socket in
-        let is_ws = ref false in
-        let ws_result = ref `Quit in
+        (* Disable Nagle's algorithm so small frames (e.g. the 101 upgrade
+           response) are sent immediately rather than buffered. *)
+        (match Eio_unix.Resource.fd_opt (conn :> _ Eio.Resource.t) with
+        | Some fd ->
+            Eio_unix.Fd.use_exn "nodelay" fd (fun unix_fd ->
+                Unix.setsockopt unix_fd Unix.TCP_NODELAY true)
+        | None -> ()) ;
         (try
            let br = Eio.Buf_read.of_flow ~max_size:(1024 * 1024) conn in
            let request_line = Eio.Buf_read.line br in
@@ -252,21 +261,41 @@ let run ?(config = None) ?(port = 8080)
                  ~content_type:"application/javascript"
                  Web_assets.client_js
            | "/ws" -> (
-               let write s =
-                 Eio.Flow.copy_string
-                   s
-                   (conn :> Eio.Flow.sink_ty Eio.Resource.t)
-               in
+               let sink = (conn :> Eio.Flow.sink_ty Eio.Resource.t) in
+               let write s = Eio.Flow.write sink [Cstruct.of_string s] in
                match Web_websocket.upgrade headers ~write with
                | None ->
                    Printf.eprintf "[web] WebSocket upgrade failed\n%!" ;
                    serve_404 conn
                | Some ws ->
                    Printf.eprintf "[web] WebSocket upgraded\n%!" ;
-                   is_ws := true ;
-                   ws_result := run_tui env config ws br initial_page)
+                   (* Handle page switches within the same WebSocket connection,
+                      mirroring the orchestrator logic in tui_driver_common.ml *)
+                   let page_stack = ref [] in
+                   let rec page_loop current_page =
+                     let result = run_tui env config ws br current_page in
+                     match result with
+                     | `Quit -> Web_websocket.close ws
+                     | `SwitchTo "__BACK__" -> (
+                         match !page_stack with
+                         | [] -> Web_websocket.close ws
+                         | prev :: rest ->
+                             page_stack := rest ;
+                             page_loop prev)
+                     | `SwitchTo next -> (
+                         match Registry.find next with
+                         | Some p ->
+                             page_stack := current_page :: !page_stack ;
+                             page_loop p
+                         | None ->
+                             Printf.eprintf
+                               "[web] Page %S not found, closing\n%!"
+                               next ;
+                             Web_websocket.close ws)
+                   in
+                   page_loop initial_page)
            | _ -> serve_404 conn) ;
-           if not !is_ws then try Eio.Flow.close conn with _ -> ()
+           try Eio.Flow.close conn with _ -> ()
          with
         | Eio.Io _ as exn ->
             Printf.eprintf "[web] I/O error: %s\n%!" (Printexc.to_string exn)
@@ -275,6 +304,6 @@ let run ?(config = None) ?(port = 8080)
             Printf.eprintf
               "[web] Unexpected error: %s\n%!"
               (Printexc.to_string exn)) ;
-        if !is_ws then !ws_result else accept_loop ()
+        accept_loop ()
       in
       accept_loop ())
