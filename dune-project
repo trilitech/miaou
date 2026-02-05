@@ -75,6 +75,23 @@
   tsdl-image))
 
 (package
+ (name miaou-driver-web)
+ (synopsis "Miaou web driver (xterm.js over WebSocket)")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
+ (depends
+  miaou-core
+  miaou-driver-matrix
+  digestif
+  base64
+  yojson
+  ppx_blob
+  eio
+  eio_main))
+
+(package
  (name miaou-runner)
  (synopsis "Miaou runner with backend selection")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
