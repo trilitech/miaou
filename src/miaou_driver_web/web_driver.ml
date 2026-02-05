@@ -308,11 +308,11 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
               Printf.eprintf
                 "[web] Flusher fiber error: %s\n%!"
                 (Printexc.to_string exn)) ;
-        (* Clear the screen so old content from a previous page doesn't
-           bleed through in xterm.js *)
-        let clear = "\027[2J\027[H" in
-        Web_websocket.send_text ws clear ;
-        Session.broadcast session clear ;
+        (* Hide cursor and clear the screen so old content from a previous
+           page doesn't bleed through in xterm.js *)
+        let init = Matrix_ansi_writer.cursor_hide ^ "\027[2J\027[H" in
+        Web_websocket.send_text ws init ;
+        Session.broadcast session init ;
         (* Start the render domain and run the shared main loop *)
         Printf.eprintf "[web] Starting render loop and main loop\n%!" ;
         Matrix_render_loop.start render_loop ;
@@ -320,6 +320,9 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br initial_page =
         Printf.eprintf "[web] Main loop exited\n%!" ;
         Matrix_render_loop.shutdown render_loop ;
         flush_output () ;
+        let cleanup = Matrix_ansi_writer.cursor_show ^ "\027[0m" in
+        Web_websocket.send_text ws cleanup ;
+        Session.broadcast session cleanup ;
         raise (Tui_done result))
   with Tui_done result ->
     Printf.eprintf "[web] TUI session ended\n%!" ;
