@@ -77,7 +77,8 @@ window.MiaouTerminal = function (container, options) {
   var fitAddon = new window.FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.open(container);
-  fitAddon.fit();
+  // Defer initial fit so the browser has settled the layout
+  requestAnimationFrame(function () { fitAddon.fit(); });
 
   function buildWsUrl(password) {
     var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -112,6 +113,7 @@ window.MiaouTerminal = function (container, options) {
             onRole(role);
             if (role === 'controller') {
               onStatusChange('connected', 'Connected');
+              fitAddon.fit();
               var dims = fitAddon.proposeDimensions();
               if (dims) {
                 ws.send(JSON.stringify({
