@@ -227,6 +227,16 @@
  (libraries alcotest miaou-core.internals))
 
 (test
+ (name test_box_widget)
+ (modules test_box_widget)
+ (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
+
+(test
+ (name test_focus_container)
+ (modules test_focus_container)
+ (libraries alcotest miaou-core.internals))
+
+(test
  (name test_focus_ring)
  (modules test_focus_ring)
  (libraries alcotest miaou-core.internals))

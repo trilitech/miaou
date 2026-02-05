@@ -2,6 +2,7 @@
  (name miaou_widgets_layout)
  (public_name miaou-core.widgets.layout)
  (modules
+  box_widget
   pane
   pane_layout
   vsection

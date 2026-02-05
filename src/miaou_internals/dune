@@ -9,6 +9,7 @@
   modal_utils
   key_handler_stack
   focus_chain
+  focus_container
   focus_ring)
  (instrumentation
   (backend bisect_ppx))

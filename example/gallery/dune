@@ -35,6 +35,8 @@
   system_monitor_demo
   braille_demo
   direct_page_demo
+  box_widget_demo
+  focus_container_demo
   ; Core miaou
   miaou
   miaou-core.lib_miaou_internal))
