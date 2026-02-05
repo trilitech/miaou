@@ -5,6 +5,7 @@
   'use strict';
 
   var statusEl = document.getElementById('status');
+  var role = null;
 
   function setStatus(msg, cls) {
     statusEl.textContent = msg;
@@ -81,20 +82,40 @@
   var ws = new WebSocket(protocol + '//' + location.host + '/ws');
 
   ws.onopen = function () {
-    setStatus('Connected', 'connected');
-
-    // Send initial terminal size
-    var dims = fitAddon.proposeDimensions();
-    if (dims) {
-      ws.send(JSON.stringify({
-        type: 'resize',
-        rows: dims.rows,
-        cols: dims.cols
-      }));
+    // Don't set status yet — wait for the role message from the server
+    if (role === null) {
+      setStatus('Connected', 'connected');
     }
   };
 
   ws.onmessage = function (event) {
+    // First message should be a role assignment
+    if (role === null) {
+      try {
+        var msg = JSON.parse(event.data);
+        if (msg.type === 'role') {
+          role = msg.role;
+          if (role === 'controller') {
+            setStatus('Connected', 'connected');
+            // Send initial terminal size
+            var dims = fitAddon.proposeDimensions();
+            if (dims) {
+              ws.send(JSON.stringify({
+                type: 'resize',
+                rows: dims.rows,
+                cols: dims.cols
+              }));
+            }
+          } else {
+            setStatus('Connected (read-only viewer)', 'viewer');
+          }
+          return;
+        }
+      } catch (e) {
+        // Not JSON, treat as ANSI data below
+      }
+    }
+
     // Server sends raw ANSI data as text frames
     term.write(event.data);
   };
@@ -110,6 +131,7 @@
   // Intercept all keyboard events and send to server
   term.attachCustomKeyEventHandler(function (ev) {
     if (ev.type !== 'keydown') return false;
+    if (role === 'viewer') return false;
     if (ws.readyState !== WebSocket.OPEN) return false;
 
     var key = mapKey(ev);
@@ -121,6 +143,7 @@
 
   // Handle mouse clicks
   document.getElementById('terminal').addEventListener('mousedown', function (ev) {
+    if (role === 'viewer') return;
     if (ws.readyState !== WebSocket.OPEN) return;
 
     // Convert pixel coordinates to terminal cell coordinates
@@ -145,6 +168,7 @@
   // Handle terminal resize
   window.addEventListener('resize', function () {
     fitAddon.fit();
+    if (role === 'viewer') return;
     if (ws.readyState === WebSocket.OPEN) {
       var dims = fitAddon.proposeDimensions();
       if (dims) {
