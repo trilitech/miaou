@@ -29,6 +29,12 @@ type child = {
       (** Optional cross-axis size hint; [None] uses the parent slot. *)
 }
 
+type child_constraint = {
+  index : int;  (** 0-based child index. *)
+  min_size : int option;  (** Minimum main-axis size in cells. *)
+  max_size : int option;  (** Maximum main-axis size in cells. *)
+}
+
 type t
 
 (** Create a flex container.
@@ -38,6 +44,7 @@ type t
     - [justify]: distribution on the main axis (start/center/end/space_between/space_around).
     - [gap]: horizontal/vertical spacing between children.
     - [padding]: surrounding padding inside the container.
+    - [constraints]: optional per-child min/max size constraints (by index).
 
     Children are rendered in order; strings longer than their slot are visually truncated. *)
 val create :
@@ -46,6 +53,7 @@ val create :
   ?justify:justify ->
   ?gap:spacing ->
   ?padding:padding ->
+  ?constraints:child_constraint list ->
   child list ->
   t
 

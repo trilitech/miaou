@@ -197,6 +197,11 @@
  (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
 
 (test
+ (name test_grid_layout)
+ (modules test_grid_layout)
+ (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
+
+(test
  (name test_input_widgets)
  (modules test_input_widgets)
  (libraries

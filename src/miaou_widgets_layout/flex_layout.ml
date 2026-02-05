@@ -31,12 +31,19 @@ type child = {
   cross : size_hint option;
 }
 
+type child_constraint = {
+  index : int;
+  min_size : int option;
+  max_size : int option;
+}
+
 type t = {
   direction : direction;
   align_items : align_items;
   justify : justify;
   gap : spacing;
   padding : padding;
+  constraints : child_constraint list;
   children : child list;
 }
 
@@ -46,8 +53,8 @@ let default_gap = {h = 0; v = 0}
 
 let create ?(direction = Row) ?(align_items : align_items = Start)
     ?(justify : justify = Start) ?(gap = default_gap)
-    ?(padding = default_padding) children =
-  {direction; align_items; justify; gap; padding; children}
+    ?(padding = default_padding) ?(constraints = []) children =
+  {direction; align_items; justify; gap; padding; constraints; children}
 
 let clamp v ~min_v ~max_v = max min_v (min max_v v)
 
@@ -90,7 +97,22 @@ let pad_block ?(align : align_items = Start) lines ~width ~height =
       (* For now, stretch behaves like start; future iterations could distribute extra lines. *)
       lines @ blanks missing
 
-let compute_sizes direction padding gap size children =
+let apply_constraints constraints sizes =
+  let arr = Array.of_list sizes in
+  List.iter
+    (fun c ->
+      if c.index >= 0 && c.index < Array.length arr then begin
+        (match c.min_size with
+        | Some mn -> arr.(c.index) <- max mn arr.(c.index)
+        | None -> ()) ;
+        match c.max_size with
+        | Some mx -> arr.(c.index) <- min mx arr.(c.index)
+        | None -> ()
+      end)
+    constraints ;
+  Array.to_list arr
+
+let compute_sizes direction padding gap size children constraints =
   let available_main =
     match direction with
     | Row ->
@@ -126,7 +148,8 @@ let compute_sizes direction padding gap size children =
     | Percent p -> int_of_float (p /. 100. *. float available_main)
     | Fill | Auto -> if fills > 0 then remaining / max 1 fills else remaining
   in
-  List.map alloc_child children
+  let sizes = List.map alloc_child children in
+  apply_constraints constraints sizes
 
 let distribute direction padding justify gap child_sizes size =
   let children = List.length child_sizes in
@@ -164,7 +187,9 @@ let distribute direction padding justify gap child_sizes size =
       (lead, between, extra - (lead * (children + 1)))
 
 let render_row t ~size =
-  let child_sizes = compute_sizes Row t.padding t.gap size t.children in
+  let child_sizes =
+    compute_sizes Row t.padding t.gap size t.children t.constraints
+  in
   let leading, gap, trailing_extra =
     distribute Row t.padding t.justify t.gap child_sizes size
   in
@@ -210,7 +235,9 @@ let render_row t ~size =
   lines
 
 let render_column t ~size =
-  let child_sizes = compute_sizes Column t.padding t.gap size t.children in
+  let child_sizes =
+    compute_sizes Column t.padding t.gap size t.children t.constraints
+  in
   let max_w = size.LTerm_geom.cols - t.padding.left - t.padding.right in
   let leading, gap, trailing_extra =
     distribute Column t.padding t.justify t.gap child_sizes size

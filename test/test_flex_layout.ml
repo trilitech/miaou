@@ -110,6 +110,57 @@ let test_percent_ratio_allocation () =
   check int "percent child" 14 (count_char out 'B') ;
   check int "ratio child" 10 (count_char out 'C')
 
+let test_min_constraint () =
+  let make_child ch basis =
+    {
+      Flex.render = (fun ~size -> String.make size.LTerm_geom.cols ch);
+      basis;
+      cross = None;
+    }
+  in
+  let flex =
+    Flex.create
+      ~direction:Flex.Row
+      ~constraints:[{Flex.index = 0; min_size = Some 8; max_size = None}]
+      [make_child 'A' (Flex.Px 3); make_child 'B' Flex.Fill]
+  in
+  let out = Flex.render flex ~size:(size 20 1) in
+  check bool "min constraint applied" true (count_char out 'A' >= 8)
+
+let test_max_constraint () =
+  let make_child ch basis =
+    {
+      Flex.render = (fun ~size -> String.make size.LTerm_geom.cols ch);
+      basis;
+      cross = None;
+    }
+  in
+  let flex =
+    Flex.create
+      ~direction:Flex.Row
+      ~constraints:[{Flex.index = 0; min_size = None; max_size = Some 5}]
+      [make_child 'A' Flex.Fill; make_child 'B' Flex.Fill]
+  in
+  let out = Flex.render flex ~size:(size 20 1) in
+  check bool "max constraint applied" true (count_char out 'A' <= 5)
+
+let test_no_constraints_unchanged () =
+  let make_child ch basis =
+    {
+      Flex.render = (fun ~size -> String.make size.LTerm_geom.cols ch);
+      basis;
+      cross = None;
+    }
+  in
+  let flex =
+    Flex.create
+      ~direction:Flex.Row
+      [make_child 'A' Flex.Fill; make_child 'B' Flex.Fill]
+  in
+  let out = Flex.render flex ~size:(size 20 1) in
+  check int "A fills half" 10 (count_char out 'A') ;
+  check int "B fills half" 10 (count_char out 'B')
+
 let () =
   run
     "flex_layout"
@@ -121,5 +172,11 @@ let () =
           test_case "justify center" `Quick test_justify_center;
           test_case "align center column" `Quick test_align_center_column;
           test_case "percent + ratio alloc" `Quick test_percent_ratio_allocation;
+          test_case "min constraint" `Quick test_min_constraint;
+          test_case "max constraint" `Quick test_max_constraint;
+          test_case
+            "no constraints unchanged"
+            `Quick
+            test_no_constraints_unchanged;
         ] );
     ]

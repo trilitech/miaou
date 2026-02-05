@@ -14,6 +14,7 @@
   card_widget
   sidebar_widget
   flex_layout
+  grid_layout
   toast_widget)
  (instrumentation
   (backend bisect_ppx))
