@@ -9,4 +9,6 @@
 
 let index_html = [%blob "static/index.html"]
 
+let viewer_html = [%blob "static/viewer.html"]
+
 let client_js = [%blob "static/client.js"]

@@ -26,8 +26,15 @@ let run ?(enable_mouse = true) page =
       run = Miaou_driver_matrix.Matrix_driver.run ~config:matrix_config;
     }
   in
+  let web_backend =
+    {
+      Miaou_runner_common.Tui_driver_common.available = false;
+      run = (fun _ -> `Quit);
+    }
+  in
   Miaou_runner_common.Tui_driver_common.run
     ~term_backend
     ~sdl_backend
     ~matrix_backend
+    ~web_backend
     page

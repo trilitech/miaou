@@ -251,7 +251,8 @@ let open_lines ?title ?notify_render lines =
     flush_interval_ms = 200;
     (* default: 200ms -> conservative flush rate *)
     last_win = default_win;
-    last_body_win = default_win - 4;  (* conservative estimate for header/footer *)
+    last_body_win = default_win - 4;
+    (* conservative estimate for header/footer *)
     last_cols = 80;
     search = None;
     is_regex = false;
@@ -292,7 +293,7 @@ let ensure_cursor_visible t =
     let max_offset = max_offset_for ~total ~win in
     (* If cursor is above visible area, scroll up *)
     if t.cursor < t.offset then t.offset <- t.cursor
-    (* If cursor is below visible area, scroll down *)
+      (* If cursor is below visible area, scroll down *)
     else if t.cursor >= t.offset + win then
       t.offset <- clamp 0 max_offset (t.cursor - win + 1)
 
@@ -766,7 +767,11 @@ let render ?cols ~win (t : t) ~focus : string =
   let status =
     let pos =
       if t.cursor_mode then
-        Printf.sprintf "L%d %d-%d/%d" (t.cursor + 1) (start + 1) stop
+        Printf.sprintf
+          "L%d %d-%d/%d"
+          (t.cursor + 1)
+          (start + 1)
+          stop
           (List.length t.lines)
       else Printf.sprintf "%d-%d/%d" (start + 1) stop (List.length t.lines)
     in
@@ -774,7 +779,8 @@ let render ?cols ~win (t : t) ~focus : string =
     let cursor_indicator = if t.cursor_mode then " [cursor]" else "" in
     let mode = if t.follow then " [follow]" else "" in
     Widgets.dim
-      (Widgets.fg Colors.status_dim
+      (Widgets.fg
+         Colors.status_dim
          (pos ^ wrap_indicator ^ cursor_indicator ^ mode))
   in
   (* Show search input prompt when in search edit mode *)
@@ -812,16 +818,15 @@ let render ?cols ~win (t : t) ~focus : string =
       match t.input_mode with
       | `Search_edit -> [("Enter", "search"); ("Esc", "cancel")]
       | _ ->
-          let nav_hint =
-            if t.cursor_mode then "move cursor" else "scroll"
-          in
+          let nav_hint = if t.cursor_mode then "move cursor" else "scroll" in
           let base =
             [("Up/Down", nav_hint); ("PgUp/PgDn", "page"); ("/", "search")]
           in
           let base = base @ [("n/p", "next/prev")] in
           let base = base @ [("w", if wrap then "unwrap" else "wrap")] in
           let base =
-            base @ [("c", if t.cursor_mode then "scroll mode" else "cursor mode")]
+            base
+            @ [("c", if t.cursor_mode then "scroll mode" else "cursor mode")]
           in
           let base = base @ [("?", "help")] in
           if t.streaming then
@@ -839,7 +844,10 @@ let render ?cols ~win (t : t) ~focus : string =
     match t.input_mode with
     | `Help ->
         let help_lines =
-          help_content ~streaming:t.streaming ~wrap ~follow:t.follow
+          help_content
+            ~streaming:t.streaming
+            ~wrap
+            ~follow:t.follow
             ~cursor_mode:t.cursor_mode
         in
         let modal_width = min (cols - 4) 50 in
@@ -965,8 +973,7 @@ let handle_nav_key t ~key ~win ~total ~page =
   | "p" -> (
       let q = match t.search with Some s -> s | None -> "" in
       let start_pos =
-        if t.cursor_mode then max 0 (t.cursor - 1)
-        else max 0 (t.offset - 1)
+        if t.cursor_mode then max 0 (t.cursor - 1) else max 0 (t.offset - 1)
       in
       match find_prev t.lines ~start:start_pos ~q ~is_regex:t.is_regex with
       | None -> Some (t, true)
@@ -986,9 +993,11 @@ let handle_nav_key t ~key ~win ~total ~page =
         (* Position cursor at current scroll position when enabling *)
         t.cursor <- clamp 0 (max 0 (total - 1)) t.offset ;
       Some (t, true)
-  | _ ->
-      (* Mode-specific navigation keys *)
-      if t.cursor_mode then
+  | _ -> (
+      if
+        (* Mode-specific navigation keys *)
+        t.cursor_mode
+      then
         match key with
         | "Up" | "k" ->
             let _ = cursor_up t in
@@ -1025,7 +1034,7 @@ let handle_nav_key t ~key ~win ~total ~page =
             t.offset <- max_offset ;
             t.follow <- t.streaming ;
             Some (t, true)
-        | _ -> None
+        | _ -> None)
 
 let handle_key ?win (t : t) ~key : t * bool =
   debug
