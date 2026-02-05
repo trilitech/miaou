@@ -77,8 +77,29 @@ window.MiaouTerminal = function (container, options) {
   var fitAddon = new window.FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.open(container);
-  // Defer initial fit so the browser has settled the layout
-  requestAnimationFrame(function () { fitAddon.fit(); });
+
+  // Send current dimensions to the server
+  function sendResize() {
+    if (role !== 'controller') return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    var dims = fitAddon.proposeDimensions();
+    if (dims) {
+      ws.send(JSON.stringify({
+        type: 'resize',
+        rows: dims.rows,
+        cols: dims.cols
+      }));
+    }
+  }
+
+  // Fit terminal to container and notify server.
+  // Uses ResizeObserver to reliably detect when the container has its
+  // final dimensions (works even when the initial layout is delayed).
+  var resizeObserver = new ResizeObserver(function () {
+    fitAddon.fit();
+    sendResize();
+  });
+  resizeObserver.observe(container);
 
   function buildWsUrl(password) {
     var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -114,14 +135,7 @@ window.MiaouTerminal = function (container, options) {
             if (role === 'controller') {
               onStatusChange('connected', 'Connected');
               fitAddon.fit();
-              var dims = fitAddon.proposeDimensions();
-              if (dims) {
-                ws.send(JSON.stringify({
-                  type: 'resize',
-                  rows: dims.rows,
-                  cols: dims.cols
-                }));
-              }
+              sendResize();
             } else {
               onStatusChange('viewer', 'Connected (read-only viewer)');
             }
@@ -187,21 +201,7 @@ window.MiaouTerminal = function (container, options) {
     }
   });
 
-  // Handle terminal resize
-  window.addEventListener('resize', function () {
-    fitAddon.fit();
-    if (role === 'viewer') return;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      var dims = fitAddon.proposeDimensions();
-      if (dims) {
-        ws.send(JSON.stringify({
-          type: 'resize',
-          rows: dims.rows,
-          cols: dims.cols
-        }));
-      }
-    }
-  });
+  // Window resize is handled by the ResizeObserver above.
 
   // Initial connection
   var saved = sessionStorage.getItem(storageKey);
