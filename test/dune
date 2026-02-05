@@ -227,6 +227,11 @@
  (libraries alcotest miaou-core.internals))
 
 (test
+ (name test_focus_ring)
+ (modules test_focus_ring)
+ (libraries alcotest miaou-core.internals))
+
+(test
  (name test_sparkline)
  (modules test_sparkline)
  (libraries alcotest miaou-core.widgets.display))

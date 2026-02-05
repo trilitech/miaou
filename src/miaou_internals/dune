@@ -8,7 +8,8 @@
   modal_snapshot
   modal_utils
   key_handler_stack
-  focus_chain)
+  focus_chain
+  focus_ring)
  (instrumentation
   (backend bisect_ppx))
  (libraries miaou-core.widgets.layout miaou-core.widgets.display lambda-term))

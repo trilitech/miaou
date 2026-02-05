@@ -23,6 +23,7 @@
   toast_demo
   flex_layout_demo
   grid_layout_demo
+  focus_ring_demo
   description_list_demo
   spinner_progress_demo
   line_chart_demo

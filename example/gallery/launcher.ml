@@ -204,6 +204,13 @@ let demos =
           (module Grid_layout_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
+      title = "Focus Ring";
+      open_demo =
+        goto
+          "demo_focus_ring"
+          (module Focus_ring_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
       title = "Link";
       open_demo =
         goto "demo_link" (module Link_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
