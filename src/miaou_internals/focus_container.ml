@@ -7,7 +7,17 @@
 
 [@@@warning "-32-34-37-69"]
 
+(** Widget operations for Focus_container.
+
+    New API uses [on_key] with [Key_event.result].
+    Legacy [handle_key] is still supported via adapters. *)
 type 'a widget_ops = {
+  render : 'a -> focus:bool -> string;
+  on_key : 'a -> key:string -> 'a * Miaou_interfaces.Key_event.result;
+}
+
+(** @deprecated Legacy widget ops with polymorphic variant result. *)
+type 'a widget_ops_legacy = {
   render : 'a -> focus:bool -> string;
   handle_key : 'a -> key:string -> 'a * [`Handled | `Bubble];
 }
@@ -84,24 +94,36 @@ let render_focused t =
       | None -> None
       | Some (Slot s) -> Some (s.id, s.ops.render s.state ~focus:true))
 
-let handle_key t ~key =
-  let ring', ring_status = Focus_ring.handle_key t.ring ~key in
-  match ring_status with
-  | `Handled -> ({t with ring = ring'}, `Handled)
-  | `Bubble -> (
+(** New unified key handler returning Key_event.result *)
+let on_key t ~key =
+  let open Miaou_interfaces.Key_event in
+  let ring', ring_result = Focus_ring.on_key t.ring ~key in
+  match ring_result with
+  | Handled -> ({t with ring = ring'}, Handled)
+  | Bubble -> (
       match Focus_ring.current t.ring with
-      | None -> (t, `Bubble)
+      | None -> (t, Bubble)
       | Some fid ->
-          let status = ref `Bubble in
+          let status = ref Bubble in
           List.iter
             (fun (Slot s) ->
               if String.equal s.id fid then begin
-                let state', st = s.ops.handle_key s.state ~key in
+                let state', st = s.ops.on_key s.state ~key in
                 s.state <- state' ;
                 status := st
               end)
             t.slots ;
           (t, !status))
+
+(** @deprecated Use [on_key] instead. Returns polymorphic variant for compat. *)
+let handle_key t ~key =
+  let t', result = on_key t ~key in
+  let status =
+    match result with
+    | Miaou_interfaces.Key_event.Handled -> `Handled
+    | Miaou_interfaces.Key_event.Bubble -> `Bubble
+  in
+  (t', status)
 
 (* Type-safe extraction via extensible GADT witness *)
 
@@ -127,15 +149,40 @@ let set : type a. t -> string -> a witness -> a -> t =
     t.slots ;
   t
 
-(* Adapter constructors *)
-let ops_simple ~render ~handle_key =
-  {render; handle_key = (fun st ~key -> (handle_key st ~key, `Bubble))}
+(** Create widget_ops from render and on_key functions. *)
+let ops ~render ~on_key = {render; on_key}
 
+(** @deprecated Adapter: wrap simple handle_key that returns just state (bubbles). *)
+let ops_simple ~render ~handle_key =
+  {
+    render;
+    on_key =
+      (fun st ~key -> (handle_key st ~key, Miaou_interfaces.Key_event.Bubble));
+  }
+
+(** @deprecated Adapter: wrap handle_key that returns (state, bool). *)
 let ops_bool ~render ~handle_key =
   {
     render;
-    handle_key =
+    on_key =
       (fun st ~key ->
         let st', fired = handle_key st ~key in
-        (st', if fired then `Handled else `Bubble));
+        ( st',
+          if fired then Miaou_interfaces.Key_event.Handled
+          else Miaou_interfaces.Key_event.Bubble ));
+  }
+
+(** Adapter: wrap legacy handle_key returning polymorphic variant. *)
+let ops_of_legacy (legacy : 'a widget_ops_legacy) : 'a widget_ops =
+  {
+    render = legacy.render;
+    on_key =
+      (fun st ~key ->
+        let st', status = legacy.handle_key st ~key in
+        let result =
+          match status with
+          | `Handled -> Miaou_interfaces.Key_event.Handled
+          | `Bubble -> Miaou_interfaces.Key_event.Bubble
+        in
+        (st', result));
   }

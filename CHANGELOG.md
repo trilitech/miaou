@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.6] - 2026-02-06
+
+### Added
+
+- **Unified key handling architecture** with `Key_event.result` type:
+  - New `on_key` / `on_modal_key` methods return `Handled | Bubble` for composable key dispatch
+  - `key_hints` for display-only footer hints (replaces action-bearing `keymap`)
+  - All input widgets (`Button`, `Checkbox`, `Radio`, `Switch`, `Textbox`, `Select`, `ValidatedTextbox`) expose `on_key`
+  - `Keys.of_string` now accepts aliases: `"S-Tab"`, `"BackTab"` → `ShiftTab`; `"Esc"` → `Escape`
+
+### Fixed
+
+- **Keymap dispatch bypassing `handle_key`** — Drivers now always route keys through `on_key`, fixing Focus_ring Tab navigation when Tab was in page keymap
+- **Lambda-term driver Enter key** — Enter now goes through `on_key` like other keys
+
+### Changed
+
+- **BREAKING**: `PAGE_SIG` now requires `on_key`, `on_modal_key`, and `key_hints` methods
+- `Demo_page.MakeSimple` functor for demos without explicit `key_hints`
+- Legacy `handle_key`, `handle_modal_key`, `keymap` deprecated but still functional
+
 ## [0.2.5] - 2026-02-05
 
 ### Added

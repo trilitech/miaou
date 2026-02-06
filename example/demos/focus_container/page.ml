@@ -27,12 +27,14 @@ module Inner = struct
             Printf.sprintf "%s%s: %d (Up/Down)" marker c.label c.value
           in
           if focus then W.green (W.bold text) else text);
-      handle_key =
+      on_key =
         (fun c ~key ->
           match key with
-          | "Up" -> ({c with value = c.value + 1}, `Handled)
-          | "Down" -> ({c with value = c.value - 1}, `Handled)
-          | _ -> (c, `Bubble));
+          | "Up" ->
+              ({c with value = c.value + 1}, Miaou_interfaces.Key_event.Handled)
+          | "Down" ->
+              ({c with value = c.value - 1}, Miaou_interfaces.Key_event.Handled)
+          | _ -> (c, Miaou_interfaces.Key_event.Bubble));
     }
 
   let checkbox_ops : CB.t FC.widget_ops =
@@ -123,4 +125,4 @@ module Inner = struct
   let has_modal _ = false
 end
 
-include Demo_shared.Demo_page.Make (Inner)
+include Demo_shared.Demo_page.MakeSimple (Inner)

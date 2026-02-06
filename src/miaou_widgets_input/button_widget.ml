@@ -1,9 +1,10 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
+
 type t = {label : string; on_click : unit -> unit; disabled : bool}
 
 let create ?(disabled = false) ~label ~on_click () = {label; on_click; disabled}
@@ -14,11 +15,17 @@ let render t ~focus =
   let decorated = if focus then bg 24 (fg 15 (bold base)) else base in
   if t.disabled then dim decorated else decorated
 
-let handle_key t ~key =
-  if t.disabled then (t, false)
+(** New unified key handler returning Key_event.result *)
+let on_key t ~key =
+  if t.disabled then (t, Miaou_interfaces.Key_event.Bubble)
   else
     match key with
     | "Enter" | " " ->
         t.on_click () ;
-        (t, true)
-    | _ -> (t, false)
+        (t, Miaou_interfaces.Key_event.Handled)
+    | _ -> (t, Miaou_interfaces.Key_event.Bubble)
+
+(** @deprecated Use [on_key] instead. Kept for backward compatibility. *)
+let handle_key t ~key =
+  let t', result = on_key t ~key in
+  (t', Miaou_interfaces.Key_event.to_bool result)

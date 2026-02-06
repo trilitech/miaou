@@ -12,8 +12,12 @@ val open_centered : ?label:string -> ?on:bool -> ?disabled:bool -> unit -> t
 
 val render : t -> focus:bool -> string
 
-(** Space/Enter toggles the switch. *)
+(** Space/Enter toggles the switch.
+    @deprecated Use [on_key] for new code. *)
 val handle_key : t -> key:string -> t
+
+(** Handle a key with unified result type. Returns [Handled] on Space/Enter. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
 
 val is_on : t -> bool
 

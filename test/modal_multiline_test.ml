@@ -100,6 +100,18 @@ let show_multiline_modal () =
     let handle_key = handle_modal_key
 
     let has_modal _ = true
+
+    let on_key ps key ~size =
+      let key_str = Keys.to_string key in
+      let ps' = handle_key ps key_str ~size in
+      (ps', Miaou_interfaces.Key_event.Bubble)
+
+    let on_modal_key ps key ~size =
+      let key_str = Keys.to_string key in
+      let ps' = handle_modal_key ps key_str ~size in
+      (ps', Miaou_interfaces.Key_event.Bubble)
+
+    let key_hints _ = []
   end in
   (* This is the test: putting multiline message in the title *)
   let title_with_message = Printf.sprintf "Confirm Action\n%s" multiline_text in
@@ -152,6 +164,18 @@ let back ps = ps
 
 let has_modal _ = false
 
+let on_key ps key ~size =
+  let key_str = Keys.to_string key in
+  let ps' = handle_key ps key_str ~size in
+  (ps', Miaou_interfaces.Key_event.Bubble)
+
+let on_modal_key ps key ~size =
+  let key_str = Keys.to_string key in
+  let ps' = handle_modal_key ps key_str ~size in
+  (ps', Miaou_interfaces.Key_event.Bubble)
+
+let key_hints _ = []
+
 (* Main entry point *)
 let () =
   let page : Registry.page =
@@ -189,6 +213,12 @@ let () =
       let back = back
 
       let has_modal = has_modal
+
+      let on_key = on_key
+
+      let on_modal_key = on_modal_key
+
+      let key_hints = key_hints
     end)
   in
   Eio_main.run @@ fun env ->

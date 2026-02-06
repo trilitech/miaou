@@ -1,9 +1,10 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
+
 [@@@warning "-32-34-37-69"]
 
 module Navigation = Navigation
@@ -57,6 +58,11 @@ let open_modal ?(title = "Select path") ?path ?dirs_only ?require_writable
       in
       rendered
 
+    let key_hints ps =
+      let browser = ps.Navigation.s.browser in
+      File_browser_widget.key_hints browser
+      |> List.map (fun (key, help) -> Tui_page.{key; help})
+
     let keymap ps =
       let browser = ps.Navigation.s.browser in
       File_browser_widget.key_hints browser
@@ -78,6 +84,27 @@ let open_modal ?(title = "Select path") ?path ?dirs_only ?require_writable
         Keys.Char "n";
       ]
 
+    let rec on_modal_key ps key ~size = on_key ps key ~size
+
+    and on_key ps key ~size:_ =
+      let key_str = Keys.to_string key in
+      let st = ps.Navigation.s in
+      let browser' = File_browser_widget.handle_key st.browser ~key:key_str in
+      let ps' = Navigation.update (fun _ -> {browser = browser'}) ps in
+      let browser' = ps'.Navigation.s.browser in
+      if File_browser_widget.is_cancelled browser' then (
+        on_cancel () ;
+        Modal_manager.close_top `Cancel ;
+        (ps', Miaou_interfaces.Key_event.Handled))
+      else
+        match File_browser_widget.get_pending_selection browser' with
+        | Some path ->
+            on_select path ;
+            Modal_manager.close_top `Commit ;
+            (ps', Miaou_interfaces.Key_event.Handled)
+        | None -> (ps', Miaou_interfaces.Key_event.Bubble)
+
+    (* Legacy handlers *)
     let rec handle_modal_key ps key ~size = handle_key ps key ~size
 
     and handle_key ps key ~size:_ =

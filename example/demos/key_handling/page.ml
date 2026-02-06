@@ -56,4 +56,4 @@ module Inner = struct
   let has_modal _ = Miaou.Core.Modal_manager.has_active ()
 end
 
-include Demo_shared.Demo_page.Make (Inner)
+include Demo_shared.Demo_page.MakeSimple (Inner)

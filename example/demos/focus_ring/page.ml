@@ -145,6 +145,14 @@ module Inner = struct
 
   let keymap (_ : state) = []
 
+  let key_hints (_ : state) =
+    [
+      ("Tab/S-Tab", "Switch panels");
+      ("Enter", "Enter scope");
+      ("Esc", "Exit scope / Back");
+      ("t", "Tutorial");
+    ]
+
   let handled_keys () = []
 
   let back s = go_back s

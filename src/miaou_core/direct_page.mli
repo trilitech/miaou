@@ -61,6 +61,10 @@ end
 module type FULL = sig
   include REQUIRED
 
+  (** Display-only key hints for footer. *)
+  val key_hints : state -> (string * string) list
+
+  (** @deprecated Use [key_hints] instead. *)
   val keymap : state -> (string * string) list
 
   val refresh : state -> state

@@ -286,23 +286,31 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
         end
         else if Page.has_modal ps then begin
           (* Page has its own modal - use page's modal key handler *)
-          let ps' = Page.handle_modal_key ps key ~size in
+          let ps' =
+            match Keys.of_string key with
+            | Some typed_key ->
+                let ps', _result = Page.on_modal_key ps typed_key ~size in
+                ps'
+            | None ->
+                (* Fallback to legacy handle_modal_key for unparseable keys *)
+                Page.handle_modal_key ps key ~size
+          in
           (* If modal was closed by Esc, drain any pending Esc keys *)
           if (key = "Esc" || key = "Escape") && not (Page.has_modal ps') then
             ignore (ctx.io.drain_esc_keys ()) ;
           check_navigation (Packed ((module Page), ps')) tick_start
         end
         else
-          (* All keys go through handle_key - Enter, Esc, navigation, etc.
+          (* All keys go through on_key - no keymap dispatch.
              Pages use Navigation.goto/back/quit for navigation. *)
           let ps' =
-            let keymap = Page.keymap ps in
-            let keymap_match =
-              List.find_opt (fun (kb : Page.key_binding) -> kb.key = key) keymap
-            in
-            match keymap_match with
-            | Some kb when not kb.display_only -> kb.action ps
-            | _ -> Page.handle_key ps key ~size
+            match Keys.of_string key with
+            | Some typed_key ->
+                let ps', _result = Page.on_key ps typed_key ~size in
+                ps'
+            | None ->
+                (* Fallback to legacy handle_key for unparseable keys *)
+                Page.handle_key ps key ~size
           in
           check_navigation (Packed ((module Page), ps')) tick_start
     | Mouse (row, col) ->

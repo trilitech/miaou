@@ -1,9 +1,10 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
+
 open Miaou_widgets_display.Widgets
 
 type t = {
@@ -58,15 +59,17 @@ let render st ~focus:(_ : bool) =
   let box = "[" ^ padded ^ "]" in
   match st.title with Some t -> titleize t ^ "\n" ^ box | None -> box
 
-let handle_key st ~key =
+(** New unified key handler returning Key_event.result *)
+let on_key st ~key =
+  let open Miaou_interfaces.Key_event in
   match key with
   | "Backspace" ->
       if st.cursor > 0 then
         let s = st.buf in
         let left = String.sub s 0 (st.cursor - 1) in
         let right = String.sub s st.cursor (String.length s - st.cursor) in
-        {st with buf = left ^ right; cursor = st.cursor - 1}
-      else st
+        ({st with buf = left ^ right; cursor = st.cursor - 1}, Handled)
+      else (st, Handled) (* Consumed even if no-op *)
   | "Delete" ->
       let s = st.buf in
       if st.cursor < String.length s then
@@ -74,21 +77,30 @@ let handle_key st ~key =
         let right =
           String.sub s (st.cursor + 1) (String.length s - st.cursor - 1)
         in
-        {st with buf = left ^ right}
-      else st
-  | "Left" -> if st.cursor > 0 then {st with cursor = st.cursor - 1} else st
+        ({st with buf = left ^ right}, Handled)
+      else (st, Handled)
+      (* Consumed even if no-op *)
+  | "Left" ->
+      if st.cursor > 0 then ({st with cursor = st.cursor - 1}, Handled)
+      else (st, Handled)
   | "Right" ->
-      if st.cursor < String.length st.buf then {st with cursor = st.cursor + 1}
-      else st
-  | "Home" -> {st with cursor = 0}
-  | "End" -> {st with cursor = String.length st.buf}
-  | "Esc" | "Escape" -> {st with cancelled = true}
+      if st.cursor < String.length st.buf then
+        ({st with cursor = st.cursor + 1}, Handled)
+      else (st, Handled)
+  | "Home" -> ({st with cursor = 0}, Handled)
+  | "End" -> ({st with cursor = String.length st.buf}, Handled)
+  | "Esc" | "Escape" -> ({st with cancelled = true}, Handled)
   | k when String.length k = 1 ->
       let s = st.buf in
       let left = String.sub s 0 st.cursor in
       let right = String.sub s st.cursor (String.length s - st.cursor) in
-      {st with buf = left ^ k ^ right; cursor = st.cursor + 1}
-  | _ -> st
+      ({st with buf = left ^ k ^ right; cursor = st.cursor + 1}, Handled)
+  | _ -> (st, Bubble)
+
+(** @deprecated Use [on_key] instead. Returns just state for backward compat. *)
+let handle_key st ~key =
+  let st', _ = on_key st ~key in
+  st'
 
 let is_cancelled t = t.cancelled
 

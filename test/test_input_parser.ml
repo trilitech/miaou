@@ -192,7 +192,7 @@ let test_parse_mouse_sgr () =
   | None -> fail "Expected Mouse, got None") ;
   cleanup (p, r) ;
 
-  (* SGR mouse press (motion): ESC [ < 0;10;5M *)
+  (* SGR mouse press: ESC [ < 0;10;5M *)
   let p, r = parser_with_input "\027[<0;10;5M" in
   (match Parser.parse_key p with
   | Some (Parser.Mouse {release = false; _}) -> ()
