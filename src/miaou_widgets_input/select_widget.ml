@@ -236,6 +236,17 @@ let handle_key (w : 'a t) ~key : 'a t =
   let default_size : LTerm_geom.size = {rows = 24; cols = 80} in
   handle_key_with_size w ~key ~size:default_size
 
+let on_key (w : 'a t) ~key : 'a t * Miaou_interfaces.Key_event.result =
+  let w' = handle_key w ~key in
+  let handled =
+    match key with
+    | "Up" | "Down" | "PageUp" | "PageDown" | "Home" | "End" | "Esc" | "Enter"
+    | "Space" | " " ->
+        true
+    | _ -> false
+  in
+  (w', Miaou_interfaces.Key_event.of_bool handled)
+
 let get_selection (w : 'a t) : 'a option =
   match w.items with [] -> None | _ -> Some (List.nth w.items w.inner.cursor)
 

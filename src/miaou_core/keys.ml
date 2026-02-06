@@ -53,14 +53,14 @@ let of_string s =
   | "Left" -> Some Left
   | "Right" -> Some Right
   | "Tab" -> Some Tab
-  | "Shift-Tab" -> Some ShiftTab
+  | "Shift-Tab" | "S-Tab" | "BackTab" -> Some ShiftTab
   | "Enter" -> Some Enter
   | "Backspace" -> Some Backspace
   | "PageUp" -> Some PageUp
   | "PageDown" -> Some PageDown
   | "Home" -> Some Home
   | "End" -> Some End
-  | "Escape" -> Some Escape
+  | "Escape" | "Esc" -> Some Escape
   | "Delete" -> Some Delete
   | _ when String.length s > 1 && String.get s 0 = 'F' -> (
       try Some (Function (int_of_string (String.sub s 1 (String.length s - 1))))

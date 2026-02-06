@@ -45,6 +45,18 @@ module Page = struct
       Miaou_core.Navigation.update (fun st -> st + String.length key) ps
       |> maybe_quit
 
+  let on_key ps key ~size =
+    let key_str = Miaou_core.Keys.to_string key in
+    let ps' = handle_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  let on_modal_key ps key ~size =
+    let key_str = Miaou_core.Keys.to_string key in
+    let ps' = handle_modal_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  let key_hints _ = []
+
   let has_modal _ = false
 end
 

@@ -109,6 +109,18 @@ module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let back ps = ps
 
+  let on_key ps key ~size =
+    let key_str = Miaou.Core.Keys.to_string key in
+    let ps' = handle_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  let on_modal_key ps key ~size =
+    let key_str = Miaou.Core.Keys.to_string key in
+    let ps' = handle_modal_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  let key_hints _ = []
+
   let has_modal _ = false
 end
 

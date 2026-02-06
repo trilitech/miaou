@@ -18,11 +18,17 @@
         FC.slot "go"     button_ops   (Button_widget.create ~label:"Go"
                                          ~on_click:ignore ());
       ]
-      let c', status = FC.handle_key c ~key:"Tab"
+      let c', result = FC.on_key c ~key:"Tab"
     ]} *)
 
 (** Widget operations record -- uniform interface for any widget type. *)
 type 'a widget_ops = {
+  render : 'a -> focus:bool -> string;
+  on_key : 'a -> key:string -> 'a * Miaou_interfaces.Key_event.result;
+}
+
+(** @deprecated Legacy widget ops with polymorphic variant result. *)
+type 'a widget_ops_legacy = {
   render : 'a -> focus:bool -> string;
   handle_key : 'a -> key:string -> 'a * [`Handled | `Bubble];
 }
@@ -40,7 +46,10 @@ type t
 val create : packed_slot list -> t
 
 (** Handle a key. Tab/Shift+Tab cycle focus; other keys route to
-    the focused widget. *)
+    the focused widget. Returns Key_event.result. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
+
+(** @deprecated Use [on_key] instead. Returns polymorphic variant for compat. *)
 val handle_key : t -> key:string -> t * [`Handled | `Bubble]
 
 (** Render all widgets: [(id, focused, rendered_string)] in order. *)
@@ -78,14 +87,23 @@ val set : t -> string -> 'a witness -> 'a -> t
 
 (** {1 Adapter constructors} *)
 
-(** For widgets with [handle_key : t -> key:string -> t] (always bubbles). *)
+(** Create widget_ops from render and on_key functions. *)
+val ops :
+  render:('a -> focus:bool -> string) ->
+  on_key:('a -> key:string -> 'a * Miaou_interfaces.Key_event.result) ->
+  'a widget_ops
+
+(** @deprecated For widgets with [handle_key : t -> key:string -> t] (always bubbles). *)
 val ops_simple :
   render:('a -> focus:bool -> string) ->
   handle_key:('a -> key:string -> 'a) ->
   'a widget_ops
 
-(** For widgets with [handle_key : t -> key:string -> t * bool]. *)
+(** @deprecated For widgets with [handle_key : t -> key:string -> t * bool]. *)
 val ops_bool :
   render:('a -> focus:bool -> string) ->
   handle_key:('a -> key:string -> 'a * bool) ->
   'a widget_ops
+
+(** Adapter: wrap legacy handle_key returning polymorphic variant. *)
+val ops_of_legacy : 'a widget_ops_legacy -> 'a widget_ops

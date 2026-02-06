@@ -46,6 +46,10 @@ val render : 'a t -> focus:bool -> string
 
 val handle_key : 'a t -> key:string -> 'a t
 
+(** Handle a key with unified result type.
+    Returns [Handled] for editing keys, [Bubble] for unknown keys. *)
+val on_key : 'a t -> key:string -> 'a t * Miaou_interfaces.Key_event.result
+
 val is_cancelled : 'a t -> bool
 
 val reset_cancelled : 'a t -> 'a t

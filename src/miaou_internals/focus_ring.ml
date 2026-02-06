@@ -55,15 +55,27 @@ let move t dir =
   | Some idx -> {t with active = idx}
   | None -> t
 
-let handle_key t ~key =
+(** New unified key handler returning Key_event.result *)
+let on_key t ~key =
+  let open Miaou_interfaces.Key_event in
   match key with
   | "Tab" ->
       let t' = move t `Next in
-      (t', `Handled)
-  | "S-Tab" | "BackTab" ->
+      (t', Handled)
+  | "S-Tab" | "Shift-Tab" | "BackTab" ->
       let t' = move t `Prev in
-      (t', `Handled)
-  | _ -> (t, `Bubble)
+      (t', Handled)
+  | _ -> (t, Bubble)
+
+(** @deprecated Use [on_key] instead. Returns polymorphic variant for compat. *)
+let handle_key t ~key =
+  let t', result = on_key t ~key in
+  let status =
+    match result with
+    | Miaou_interfaces.Key_event.Handled -> `Handled
+    | Miaou_interfaces.Key_event.Bubble -> `Bubble
+  in
+  (t', status)
 
 let focus t id =
   let n = Array.length t.slots in
@@ -136,24 +148,36 @@ let update_child sc id ring =
   in
   {sc with children}
 
-let handle_scope_key sc ~key =
+(** New unified scope key handler returning Key_event.result *)
+let on_scope_key sc ~key =
+  let open Miaou_interfaces.Key_event in
   match sc.active_child with
   | None -> (
       match key with
-      | "Tab" | "S-Tab" | "BackTab" ->
-          let parent, status = handle_key sc.parent ~key in
-          ({sc with parent}, status)
+      | "Tab" | "S-Tab" | "Shift-Tab" | "BackTab" ->
+          let parent, result = on_key sc.parent ~key in
+          ({sc with parent}, result)
       | "Enter" ->
           let sc' = enter sc in
-          if in_child sc' then (sc', `Handled) else (sc, `Bubble)
-      | _ -> (sc, `Bubble))
+          if in_child sc' then (sc', Handled) else (sc, Bubble)
+      | _ -> (sc, Bubble))
   | Some child_id -> (
       match key with
-      | "Tab" | "S-Tab" | "BackTab" -> (
+      | "Tab" | "S-Tab" | "Shift-Tab" | "BackTab" -> (
           match List.assoc_opt child_id sc.children with
           | Some ring ->
-              let ring', status = handle_key ring ~key in
-              (update_child sc child_id ring', status)
-          | None -> (sc, `Bubble))
-      | "Esc" | "Escape" -> ({sc with active_child = None}, `Handled)
-      | _ -> (sc, `Bubble))
+              let ring', result = on_key ring ~key in
+              (update_child sc child_id ring', result)
+          | None -> (sc, Bubble))
+      | "Esc" | "Escape" -> ({sc with active_child = None}, Handled)
+      | _ -> (sc, Bubble))
+
+(** @deprecated Use [on_scope_key] instead. Returns polymorphic variant for compat. *)
+let handle_scope_key sc ~key =
+  let sc', result = on_scope_key sc ~key in
+  let status =
+    match result with
+    | Miaou_interfaces.Key_event.Handled -> `Handled
+    | Miaou_interfaces.Key_event.Bubble -> `Bubble
+  in
+  (sc', status)

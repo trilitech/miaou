@@ -1,7 +1,7 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -59,6 +59,54 @@ module type DEMO_PAGE_INPUT = sig
 
   val next_page : state -> string option
 
+  (** @deprecated Use [key_hints] instead. *)
+  val keymap : state -> (string * (state -> state) * string) list
+
+  (** Display-only key hints for footer. Optional - defaults to keymap. *)
+  val key_hints : state -> (string * string) list
+
+  val handled_keys : unit -> Miaou.Core.Keys.t list
+
+  val back : state -> state
+
+  val has_modal : state -> bool
+end
+
+module type DEMO_PAGE_INPUT_SIMPLE = sig
+  (** Title shown in the tutorial modal *)
+  val tutorial_title : string
+
+  (** Markdown content for the tutorial (use [%blob "README.md"]) *)
+  val tutorial_markdown : string
+
+  (** The inner page state *)
+  type state
+
+  type msg
+
+  val init : unit -> state
+
+  val update : state -> msg -> state
+
+  val view : state -> focus:bool -> size:LTerm_geom.size -> string
+
+  val handle_key : state -> string -> size:LTerm_geom.size -> state
+
+  val move : state -> int -> state
+
+  val refresh : state -> state
+
+  val enter : state -> state
+
+  val service_select : state -> int -> state
+
+  val service_cycle : state -> int -> state
+
+  val handle_modal_key : state -> string -> size:LTerm_geom.size -> state
+
+  val next_page : state -> string option
+
+  (** @deprecated Use [key_hints] instead. *)
   val keymap : state -> (string * (state -> state) * string) list
 
   val handled_keys : unit -> Miaou.Core.Keys.t list
@@ -66,6 +114,14 @@ module type DEMO_PAGE_INPUT = sig
   val back : state -> state
 
   val has_modal : state -> bool
+end
+
+(** Adapter for modules that don't provide key_hints - derives from keymap. *)
+module With_key_hints (S : DEMO_PAGE_INPUT_SIMPLE) :
+  DEMO_PAGE_INPUT with type state = S.state and type msg = S.msg = struct
+  include S
+
+  let key_hints s = List.map (fun (key, _, help) -> (key, help)) (S.keymap s)
 end
 
 module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
@@ -98,6 +154,7 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
       (fun s -> P.handle_modal_key s key_str ~size)
       ps
 
+  (** @deprecated Use [key_hints] instead. *)
   let keymap ps =
     List.map
       (fun (key, action, help) ->
@@ -108,6 +165,12 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
           display_only = false;
         })
       (P.keymap ps.Miaou.Core.Navigation.s)
+
+  (** Display-only key hints for footer. *)
+  let key_hints ps =
+    List.map
+      (fun (key, help) -> Miaou.Core.Tui_page.{key; help})
+      (P.key_hints ps.Miaou.Core.Navigation.s)
 
   let handled_keys = P.handled_keys
 
@@ -122,6 +185,7 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
   let show_tutorial () =
     Tutorial_modal.show ~title:P.tutorial_title ~markdown:P.tutorial_markdown ()
 
+  (** @deprecated Use [on_key] instead. *)
   let handle_key ps key_str ~size =
     match Miaou.Core.Keys.of_string key_str with
     | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "t" ->
@@ -132,4 +196,28 @@ module Make (P : DEMO_PAGE_INPUT) : Miaou.Core.Tui_page.PAGE_SIG = struct
         match P.next_page s' with
         | Some target -> Miaou.Core.Navigation.goto target {ps with s = s'}
         | None -> {ps with s = s'})
+
+  (** New typed key handler. *)
+  let on_key ps key ~size =
+    let key_str = Miaou.Core.Keys.to_string key in
+    let ps' = handle_key ps key_str ~size in
+    (* Check if we handled tutorial key *)
+    let handled =
+      match key with
+      | Miaou.Core.Keys.Char k when String.lowercase_ascii k = "t" -> true
+      | _ -> false
+    in
+    ( ps',
+      if handled then Miaou_interfaces.Key_event.Handled
+      else Miaou_interfaces.Key_event.Bubble )
+
+  (** New typed modal key handler. *)
+  let on_modal_key ps key ~size =
+    let key_str = Miaou.Core.Keys.to_string key in
+    let ps' = handle_modal_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
 end
+
+(** Like [Make] but for modules without [key_hints] (derives from keymap). *)
+module MakeSimple (S : DEMO_PAGE_INPUT_SIMPLE) : Miaou.Core.Tui_page.PAGE_SIG =
+  Make (With_key_hints (S))

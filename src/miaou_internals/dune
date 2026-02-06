@@ -13,6 +13,10 @@
   focus_ring)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou-core.widgets.layout miaou-core.widgets.display lambda-term))
+ (libraries
+  miaou-core.interfaces
+  miaou-core.widgets.layout
+  miaou-core.widgets.display
+  lambda-term))
 
 ;; Key handler stack module added for hierarchical key exclusivity

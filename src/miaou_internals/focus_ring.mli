@@ -18,7 +18,7 @@
     (* Flat ring *)
     let ring = Focus_ring.create ["search"; "filter"; "tree"] in
     let focused = Focus_ring.is_focused ring "search" in
-    let ring, _ = Focus_ring.handle_key ring ~key:"Tab" in
+    let ring, _ = Focus_ring.on_key ring ~key:"Tab" in
     ...
 
     (* Nested scopes *)
@@ -27,7 +27,7 @@
     let main = Focus_ring.create ["editor"; "preview"] in
     let sc = Focus_ring.scope ~parent
       ~children:[("sidebar", sidebar); ("main", main)] in
-    let sc, _ = Focus_ring.handle_scope_key sc ~key:"Enter" in
+    let sc, _ = Focus_ring.on_scope_key sc ~key:"Enter" in
     (* Now inside the sidebar child ring *)
     ]} *)
 
@@ -57,8 +57,11 @@ val is_focused : t -> string -> bool
 (** Move focus forward or backward among focusable slots. Wraps around. *)
 val move : t -> [`Next | `Prev] -> t
 
-(** Handle Tab/Shift+Tab. Returns [`Handled] if consumed, [`Bubble]
-    if the key should propagate. *)
+(** Handle Tab/Shift+Tab. Returns [Key_event.Handled] if consumed,
+    [Key_event.Bubble] if the key should propagate. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
+
+(** @deprecated Use [on_key] instead. Returns polymorphic variant for compat. *)
 val handle_key : t -> key:string -> t * [`Handled | `Bubble]
 
 (** Focus a specific slot by ID. No-op if ID not found. *)
@@ -111,4 +114,8 @@ val update_child : scope -> string -> t -> scope
     - Enter enters a child scope (if available)
     - Esc exits a child scope back to the parent
     - Other keys bubble. *)
+val on_scope_key :
+  scope -> key:string -> scope * Miaou_interfaces.Key_event.result
+
+(** @deprecated Use [on_scope_key] instead. Returns polymorphic variant for compat. *)
 val handle_scope_key : scope -> key:string -> scope * [`Handled | `Bubble]

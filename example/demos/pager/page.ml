@@ -281,4 +281,4 @@ module Inner = struct
     match s.pager.Pager.input_mode with `Search_edit -> true | _ -> false
 end
 
-include Demo_shared.Demo_page.Make (Inner)
+include Demo_shared.Demo_page.MakeSimple (Inner)

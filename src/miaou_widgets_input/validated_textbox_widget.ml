@@ -94,6 +94,19 @@ let handle_key t ~key =
     (* No text change (e.g., cursor movement): no validation needed *)
     {t with textbox = updated_textbox}
 
+let on_key t ~key =
+  let t' = handle_key t ~key in
+  (* Determine result based on key (mirrors Textbox_widget.on_key logic) *)
+  let handled =
+    match key with
+    | "Backspace" | "Delete" | "Left" | "Right" | "Home" | "End" | "Esc"
+    | "Escape" ->
+        true
+    | _ when String.length key = 1 -> true (* printable char *)
+    | _ -> false
+  in
+  (t', Miaou_interfaces.Key_event.of_bool handled)
+
 let is_cancelled t = Textbox_widget.is_cancelled t.textbox
 
 let reset_cancelled t =

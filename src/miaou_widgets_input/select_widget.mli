@@ -141,8 +141,14 @@ val handle_key_with_size : 'a t -> key:string -> size:LTerm_geom.size -> 'a t
 
     @param key The key string (e.g., "Up", "Down", "Enter", "Esc")
     @return Updated select widget state
+
+    @deprecated Use [on_key] for new code.
 *)
 val handle_key : 'a t -> key:string -> 'a t
+
+(** Handle a key with unified result type.
+    Returns [Handled] for navigation keys (Up/Down/PageUp/PageDown/Home/End/Esc). *)
+val on_key : 'a t -> key:string -> 'a t * Miaou_interfaces.Key_event.result
 
 (** {1 State Queries} *)
 

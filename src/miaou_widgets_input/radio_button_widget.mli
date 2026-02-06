@@ -13,8 +13,12 @@ val open_centered :
 
 val render : t -> focus:bool -> string
 
-(** Space/Enter selects this radio button. *)
+(** Space/Enter selects this radio button.
+    @deprecated Use [on_key] for new code. *)
 val handle_key : t -> key:string -> t
+
+(** Handle a key with unified result type. Returns [Handled] on Space/Enter. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
 
 val is_selected : t -> bool
 

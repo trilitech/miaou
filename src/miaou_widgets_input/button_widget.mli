@@ -15,8 +15,12 @@ val create :
 (** Render the button as a string, style depends on focus. *)
 val render : t -> focus:bool -> string
 
-(** Handle a key; returns updated widget and whether the action fired. *)
+(** Handle a key; returns updated widget and whether the action fired.
+    @deprecated Use [on_key] for new code. *)
 val handle_key : t -> key:string -> t * bool
+
+(** Handle a key with unified result type. Returns [Handled] on Enter/Space. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
 
 (** Usage:
     {[

@@ -1,17 +1,17 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
-
-(* This module file intentionally contains no definitions. The page signature
-  is declared in the corresponding mli file `tui_page.mli`. Keeping this
-  .ml file minimal prevents duplicate module-type definitions and helps the
-  build stay consistent. *)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
 
 [@@@warning "-32-34-37-69"]
 
+(** Display-only key hint for help footer. *)
+type key_hint = {key : string; help : string}
+
+(** Legacy key binding type. Deprecated - use [key_hint] for display
+    and [on_key] for handling. *)
 type 'state key_binding_desc = {
   key : string;
   action : 'state Navigation.t -> 'state Navigation.t;
@@ -22,17 +22,12 @@ type 'state key_binding_desc = {
 type 'state key_binding = 'state key_binding_desc
 
 module type PAGE_SIG = sig
-  (** The page's own state type (no next_page field needed). *)
   type state
 
   type msg
 
-  (** Key binding description.
-      [display_only] lets you show reserved keys (e.g., "?") in the footer without
-      expecting them to be dispatched to [action]. *)
   type key_binding = state key_binding_desc
 
-  (** Wrapped state with navigation support. *)
   type pstate = state Navigation.t
 
   val init : unit -> pstate
@@ -41,10 +36,35 @@ module type PAGE_SIG = sig
 
   val view : pstate -> focus:bool -> size:LTerm_geom.size -> string
 
-  (* Driver-callable helpers, keeping msg abstract *)
-  val move : pstate -> int -> pstate
+  (* New key handling API *)
+  val on_key :
+    pstate ->
+    Keys.t ->
+    size:LTerm_geom.size ->
+    pstate * Miaou_interfaces.Key_event.result
 
+  val on_modal_key :
+    pstate ->
+    Keys.t ->
+    size:LTerm_geom.size ->
+    pstate * Miaou_interfaces.Key_event.result
+
+  val key_hints : pstate -> key_hint list
+
+  (* Legacy key handling API (deprecated) *)
+  val handle_key : pstate -> string -> size:LTerm_geom.size -> pstate
+
+  val handle_modal_key : pstate -> string -> size:LTerm_geom.size -> pstate
+
+  val keymap : pstate -> key_binding list
+
+  (* Lifecycle *)
   val refresh : pstate -> pstate
+
+  val has_modal : pstate -> bool
+
+  (* Legacy methods (deprecated) *)
+  val move : pstate -> int -> pstate
 
   val service_select : pstate -> int -> pstate
 
@@ -52,18 +72,5 @@ module type PAGE_SIG = sig
 
   val back : pstate -> pstate
 
-  val keymap : pstate -> key_binding list
-
   val handled_keys : unit -> Keys.t list
-
-  (* When a modal is active, pages can handle raw key strings here *)
-  val handle_modal_key : pstate -> string -> size:LTerm_geom.size -> pstate
-
-  (* Generic key handler - includes Enter, Esc, and all other keys *)
-  val handle_key : pstate -> string -> size:LTerm_geom.size -> pstate
-
-  (* Return true if the page currently has an active modal overlay that
-     should consume most input. When true, the driver will avoid routing
-     navigation keys (Up/Down/Left/Right/NextPage) to the background page. *)
-  val has_modal : pstate -> bool
 end

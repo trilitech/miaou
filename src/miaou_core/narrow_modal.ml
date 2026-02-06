@@ -1,9 +1,9 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
 
 open Tui_page
 
@@ -16,6 +16,14 @@ module Page : PAGE_SIG = struct
 
   type key_binding = state Tui_page.key_binding_desc
 
+  (* New key handlers *)
+  let on_key ps _ ~size:_ = (ps, Miaou_interfaces.Key_event.Bubble)
+
+  let on_modal_key ps _ ~size:_ = (ps, Miaou_interfaces.Key_event.Bubble)
+
+  let key_hints (_ : pstate) = []
+
+  (* Legacy key handlers *)
   let handle_modal_key ps _ ~size:_ = ps
 
   let handle_key ps _ ~size:_ = ps

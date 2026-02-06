@@ -1,9 +1,10 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
+
 open Miaou_widgets_display.Widgets
 
 type t = {label : string option; on : bool; cancelled : bool; disabled : bool}
@@ -23,13 +24,21 @@ let render (t : t) ~focus =
       let lbl = if focus then bold l else l in
       lbl ^ ": " ^ sw
 
-let handle_key (t : t) ~key =
-  if t.disabled then t
+(** New unified key handler returning Key_event.result *)
+let on_key (t : t) ~key =
+  if t.disabled then (t, Miaou_interfaces.Key_event.Bubble)
   else
     match key with
-    | " " | "Space" | "Enter" -> {t with on = not t.on}
-    | "Esc" | "Escape" -> {t with cancelled = true}
-    | _ -> t
+    | " " | "Space" | "Enter" ->
+        ({t with on = not t.on}, Miaou_interfaces.Key_event.Handled)
+    | "Esc" | "Escape" ->
+        ({t with cancelled = true}, Miaou_interfaces.Key_event.Handled)
+    | _ -> (t, Miaou_interfaces.Key_event.Bubble)
+
+(** @deprecated Use [on_key] instead. Returns just state for backward compat. *)
+let handle_key (t : t) ~key =
+  let t', _ = on_key t ~key in
+  t'
 
 let is_on t = t.on
 

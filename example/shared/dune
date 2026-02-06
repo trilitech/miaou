@@ -13,6 +13,7 @@
   tutorial_modal)
  (libraries
   miaou
+  miaou-core.interfaces
   miaou-core.lib_miaou_internal
   miaou-widgets-display-sdl.widgets
   tsdl

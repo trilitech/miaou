@@ -765,6 +765,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     | 'B' -> `Down
                     | 'C' -> `Right
                     | 'D' -> `Left
+                    | 'Z' -> `PrevPage (* Shift+Tab: ESC [ Z *)
                     | '3' ->
                         (* Common Delete sequence: ESC [ 3 ~ *)
                         if
@@ -815,10 +816,23 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             Modal_manager.handle_key key ;
             ps)
           else if Page.has_modal ps then (
-            let ps' = Page.handle_modal_key ps key ~size in
+            (* Use on_modal_key with typed key when possible *)
+            let ps' =
+              match Miaou_core.Keys.of_string key with
+              | Some typed_key ->
+                  let ps', _result = Page.on_modal_key ps typed_key ~size in
+                  ps'
+              | None -> Page.handle_modal_key ps key ~size
+            in
             clear_and_render ps' key_stack ;
             ps')
-          else Page.handle_key ps key ~size
+          else
+            (* All keys go through on_key - no keymap dispatch *)
+            match Miaou_core.Keys.of_string key with
+            | Some typed_key ->
+                let ps', _result = Page.on_key ps typed_key ~size in
+                ps'
+            | None -> Page.handle_key ps key ~size
         in
 
         (* Key handler stack (pure) integration: thread alongside page state. *)
@@ -864,10 +878,18 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   ks'
               | None -> key_stack
             in
-            (* Update footer from top frame after rebuild. *)
+            (* Update footer from key_hints (preferred) or keymap bindings. *)
             let () =
-              let pairs = Khs.top_bindings key_stack in
-              let pairs = if pairs = [] then [("q", "Quit")] else pairs in
+              let hints = Page.key_hints ps in
+              let pairs =
+                if hints <> [] then
+                  List.map
+                    (fun (h : Miaou_core.Tui_page.key_hint) -> (h.key, h.help))
+                    hints
+                else
+                  let khs_pairs = Khs.top_bindings key_stack in
+                  if khs_pairs = [] then [("q", "Quit")] else khs_pairs
+              in
               footer_ref :=
                 Some (Miaou_widgets_display.Widgets.footer_hints pairs)
             in
@@ -932,19 +954,27 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   Modal_manager.set_current_size
                     size.LTerm_geom.rows
                     size.LTerm_geom.cols ;
-                  let ps' = Page.handle_modal_key ps "Enter" ~size in
+                  (* Use on_modal_key for Enter *)
+                  let ps' =
+                    let ps', _result =
+                      Page.on_modal_key ps Miaou_core.Keys.Enter ~size
+                    in
+                    ps'
+                  in
                   match Navigation.pending ps' with
                   | Some page -> `SwitchTo page
                   | None ->
                       clear_and_render ps' key_stack ;
                       loop ps' key_stack)
                 else
-                  (* Non-modal Enter: perform page.enter, then switch immediately if next_page set. *)
+                  (* Non-modal Enter: go through on_key *)
                   match Navigation.pending ps with
                   | Some page -> `SwitchTo page
                   | None -> (
                       let size = detect_size () in
-                      let ps' = Page.handle_key ps "Enter" ~size in
+                      let ps', _result =
+                        Page.on_key ps Miaou_core.Keys.Enter ~size
+                      in
                       match Navigation.pending ps' with
                       | Some page -> `SwitchTo page
                       | None ->
@@ -971,7 +1001,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   | `Left -> "Left"
                   | `Right -> "Right"
                   | `NextPage -> "Tab"
-                  | `PrevPage -> "Shift-Tab"
+                  | `PrevPage -> "S-Tab"
                   | _ -> ""
                 in
                 if key <> "" then (
@@ -996,33 +1026,26 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   Modal_manager.set_current_size
                     size.LTerm_geom.rows
                     size.LTerm_geom.cols ;
-                  let ps' = Page.handle_modal_key ps key ~size in
+                  (* Use on_modal_key with typed key when possible *)
+                  let ps' =
+                    match Miaou_core.Keys.of_string key with
+                    | Some typed_key ->
+                        let ps', _result =
+                          Page.on_modal_key ps typed_key ~size
+                        in
+                        ps'
+                    | None -> Page.handle_modal_key ps key ~size
+                  in
                   clear_and_render ps' key_stack ;
                   loop ps' key_stack)
                 else
-                  (* First attempt stack-based dispatch. *)
-                  let consumed, key_stack' = Khs.dispatch key_stack key in
-                  if consumed then (
-                    let ps' =
-                      match !pending_update with
-                      | Some f ->
-                          let s' = f ps in
-                          pending_update := None ;
-                          s'
-                      | None -> ps
-                    in
-                    match Navigation.pending ps' with
-                    | Some page -> `SwitchTo page
-                    | None ->
-                        clear_and_render ps' key_stack ;
-                        loop ps' key_stack')
-                  else
-                    let ps' = handle_key_like ps key key_stack in
-                    match Navigation.pending ps' with
-                    | Some page -> `SwitchTo page
-                    | None ->
-                        clear_and_render ps' key_stack ;
-                        loop ps' key_stack')
+                  (* All keys go through on_key - no keymap dispatch *)
+                  let ps' = handle_key_like ps key key_stack in
+                  match Navigation.pending ps' with
+                  | Some page -> `SwitchTo page
+                  | None ->
+                      clear_and_render ps' key_stack ;
+                      loop ps' key_stack)
             | `Other key ->
                 if key = "?" then (
                   (* Build help text with optional contextual hint (markdown),
@@ -1159,6 +1182,18 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                       let keymap (_ : pstate) = []
 
                       let handled_keys () = []
+
+                      let on_key ps key ~size =
+                        let key_str = Miaou_core.Keys.to_string key in
+                        let ps' = handle_key ps key_str ~size in
+                        (ps', Miaou_interfaces.Key_event.Bubble)
+
+                      let on_modal_key ps key ~size =
+                        let key_str = Miaou_core.Keys.to_string key in
+                        let ps' = handle_modal_key ps key_str ~size in
+                        (ps', Miaou_interfaces.Key_event.Bubble)
+
+                      let key_hints _ = []
                     end
                   end in
                   Modal_manager.push_default
@@ -1230,29 +1265,13 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     loop ps key_stack)
                 else (
                   if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-                  (* Stack dispatch first. *)
-                  let consumed, key_stack' = Khs.dispatch key_stack key in
-                  if consumed then (
-                    let ps' =
-                      match !pending_update with
-                      | Some f ->
-                          let s' = f ps in
-                          pending_update := None ;
-                          s'
-                      | None -> ps
-                    in
-                    match Navigation.pending ps' with
-                    | Some page -> `SwitchTo page
-                    | None ->
-                        clear_and_render ps' key_stack ;
-                        loop ps' key_stack')
-                  else
-                    let ps' = handle_key_like ps key key_stack in
-                    match Navigation.pending ps' with
-                    | Some page -> `SwitchTo page
-                    | None ->
-                        clear_and_render ps' key_stack ;
-                        loop ps' key_stack'))
+                  (* All keys go through on_key - no keymap dispatch *)
+                  let ps' = handle_key_like ps key key_stack in
+                  match Navigation.pending ps' with
+                  | Some page -> `SwitchTo page
+                  | None ->
+                      clear_and_render ps' key_stack ;
+                      loop ps' key_stack))
         in
 
         enter_raw () ;

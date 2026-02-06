@@ -20,8 +20,12 @@ val open_centered :
 (** Render the checkbox to a string suitable for terminal output. *)
 val render : t -> focus:bool -> string
 
-(** Handle a key press. Space/Enter toggles the checkbox. Esc marks it cancelled. *)
+(** Handle a key press. Space/Enter toggles the checkbox. Esc marks it cancelled.
+    @deprecated Use [on_key] for new code. *)
 val handle_key : t -> key:string -> t
+
+(** Handle a key with unified result type. Returns [Handled] on Space/Enter. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
 
 (** Current boolean value. *)
 val is_checked : t -> bool

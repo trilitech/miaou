@@ -53,12 +53,17 @@ module type REQUIRED = sig
 
   val view : state -> focus:bool -> size:LTerm_geom.size -> string
 
+  (** Key handler. Use [navigate], [go_back], [quit] for navigation. *)
   val on_key : state -> string -> size:LTerm_geom.size -> state
 end
 
 module type FULL = sig
   include REQUIRED
 
+  (** Display-only key hints for footer. *)
+  val key_hints : state -> (string * string) list
+
+  (** @deprecated Use [key_hints] instead. *)
   val keymap : state -> (string * string) list
 
   val refresh : state -> state
@@ -71,7 +76,9 @@ end
 module With_defaults (R : REQUIRED) : FULL with type state = R.state = struct
   include R
 
-  let keymap _ = []
+  let key_hints _ = []
+
+  let keymap = key_hints
 
   let refresh s = s
 
@@ -104,13 +111,35 @@ module Make (D : FULL) : Tui_page.PAGE_SIG = struct
     | Some `Quit -> Navigation.quit ps'
     | None -> ps'
 
+  (** New typed key handler. Converts Keys.t to string and calls D.on_key. *)
+  let on_key ps key ~size =
+    let key_str = Keys.to_string key in
+    let ps' = with_nav ps (fun s -> D.on_key s key_str ~size) in
+    (* Direct_page always bubbles - navigation is via effects *)
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  (** New typed modal key handler. *)
+  let on_modal_key ps key ~size =
+    let key_str = Keys.to_string key in
+    let ps' = with_nav ps (fun s -> D.on_modal_key s key_str ~size) in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  (** Display-only key hints for footer. *)
+  let key_hints ps =
+    List.map
+      (fun (key, help) -> Tui_page.{key; help})
+      (D.key_hints ps.Navigation.s)
+
+  (** @deprecated Legacy string-based key handler. *)
   let handle_key ps key ~size = with_nav ps (fun s -> D.on_key s key ~size)
 
+  (** @deprecated Legacy string-based modal key handler. *)
   let handle_modal_key ps key ~size =
     with_nav ps (fun s -> D.on_modal_key s key ~size)
 
   let refresh ps = with_nav ps (fun s -> D.refresh s)
 
+  (** @deprecated Use [key_hints] instead. *)
   let keymap ps =
     List.map
       (fun (key, help) ->

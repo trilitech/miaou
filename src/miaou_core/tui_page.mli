@@ -1,9 +1,23 @@
-(*****************************************************************************)
-(*                                                                           *)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
+(******************************************************************************)
+(*                                                                            *)
+(* SPDX-License-Identifier: MIT                                               *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(*                                                                            *)
+(******************************************************************************)
+
+(** {1 Key Hints} *)
+
+(** Display-only key hint for help footer. Unlike the old [key_binding] type,
+    this has no action - it's purely for showing users what keys are available.
+    All actual key handling goes through [on_key]. *)
+type key_hint = {
+  key : string;  (** Display string, e.g., "Tab/S-Tab", "Enter", "Esc" *)
+  help : string;  (** Description, e.g., "Navigate fields", "Submit" *)
+}
+
+(** {1 Legacy Key Binding (deprecated)} *)
+
+(** @deprecated Use [key_hint] for display and [on_key] for handling. *)
 type 'state key_binding_desc = {
   key : string;
   action : 'state Navigation.t -> 'state Navigation.t;
@@ -13,15 +27,15 @@ type 'state key_binding_desc = {
 
 type 'state key_binding = 'state key_binding_desc
 
+(** {1 Page Signature} *)
+
 module type PAGE_SIG = sig
-  (** The page's own state type (no next_page field needed). *)
+  (** The page's own state type. *)
   type state
 
   type msg
 
-  (** Key binding description.
-      [display_only] lets you show reserved keys (e.g., "?") in the footer without
-      expecting them to be dispatched to [action]. *)
+  (** @deprecated Use [key_hint] instead. *)
   type key_binding = state key_binding_desc
 
   (** Wrapped state with navigation support.
@@ -35,38 +49,66 @@ module type PAGE_SIG = sig
 
   val view : pstate -> focus:bool -> size:LTerm_geom.size -> string
 
-  (* Driver-callable helpers, keeping msg abstract *)
-  val move : pstate -> int -> pstate
+  (** {2 Key Handling - New API} *)
+
+  (** Primary key handler. Most keys go through this method.
+      Returns the updated state and whether the key was handled.
+      Use [Navigation.goto/back/quit] for navigation.
+
+      Note: Mouse events (["Mouse:row:col"]) currently go through the legacy
+      [handle_key] as [Keys.of_string] cannot parse them. This may change
+      in a future release. *)
+  val on_key :
+    pstate ->
+    Keys.t ->
+    size:LTerm_geom.size ->
+    pstate * Miaou_interfaces.Key_event.result
+
+  (** Modal key handler. Called when [has_modal] returns true. *)
+  val on_modal_key :
+    pstate ->
+    Keys.t ->
+    size:LTerm_geom.size ->
+    pstate * Miaou_interfaces.Key_event.result
+
+  (** Display-only key hints for footer/help display.
+      These are never dispatched - all handling goes through [on_key]. *)
+  val key_hints : pstate -> key_hint list
+
+  (** {2 Key Handling - Legacy API (deprecated)} *)
+
+  (** @deprecated Use [on_key] instead. Kept for backward compatibility. *)
+  val handle_key : pstate -> string -> size:LTerm_geom.size -> pstate
+
+  (** @deprecated Use [on_modal_key] instead. *)
+  val handle_modal_key : pstate -> string -> size:LTerm_geom.size -> pstate
+
+  (** @deprecated Use [key_hints] instead. Actions are ignored by modern drivers. *)
+  val keymap : pstate -> key_binding list
+
+  (** {2 Lifecycle} *)
 
   val refresh : pstate -> pstate
 
+  (** Return true if the page currently has an active modal overlay that
+      should consume most input. When true, the driver routes keys to
+      [on_modal_key] instead of [on_key]. *)
+  val has_modal : pstate -> bool
+
+  (** {2 Legacy Methods (deprecated)} *)
+
+  (** @deprecated Rarely used. Will be removed in future version. *)
+  val move : pstate -> int -> pstate
+
+  (** @deprecated Rarely used. Will be removed in future version. *)
   val service_select : pstate -> int -> pstate
 
+  (** @deprecated Rarely used. Will be removed in future version. *)
   val service_cycle : pstate -> int -> pstate
 
+  (** @deprecated Use [Navigation.back] in [on_key] instead. *)
   val back : pstate -> pstate
 
-  (* Unified keymap: pure description for stack-based dispatcher and footer/help
-     display. Footer hints are auto-generated from this keymap; pages should not
-     render their own keymap footer. Reserved keys like "?" are intercepted by
-     the driver but can still appear here with [display_only = true] so they show
-     up in the footer/help overlay without being dispatched. *)
-  val keymap : pstate -> key_binding list
-
-  (* Declare which keys this page handles (for conflict detection).
-     Pages should list all keys they handle, using Keys.t variants.
-     This enables compile-time checking; it is not used for footer rendering. *)
+  (** @deprecated Not used by modern drivers. *)
   val handled_keys : unit -> Keys.t list
-
-  (* When a modal is active, pages can handle raw key strings here (e.g., "a", "Backspace", "Left"). *)
-  val handle_modal_key : pstate -> string -> size:LTerm_geom.size -> pstate
-
-  (* Generic key handler - includes Enter, Esc, and all other keys.
-     Use Navigation.goto/back/quit for navigation. *)
-  val handle_key : pstate -> string -> size:LTerm_geom.size -> pstate
-
-  (* Return true if the page currently has an active modal overlay that
-     should consume most input. When true, the driver should avoid routing
-     navigation keys (Up/Down/Left/Right/NextPage) to the background page. *)
-  val has_modal : pstate -> bool
 end

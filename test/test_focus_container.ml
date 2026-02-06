@@ -8,6 +8,7 @@
 open Alcotest
 module FC = Miaou_internals.Focus_container
 module FR = Miaou_internals.Focus_ring
+module Key_event = Miaou_interfaces.Key_event
 
 (* --- Inline test widgets --- *)
 
@@ -17,12 +18,12 @@ let counter_ops : counter FC.widget_ops =
   {
     render =
       (fun c ~focus -> (if focus then "> " else "  ") ^ string_of_int c.value);
-    handle_key =
+    on_key =
       (fun c ~key ->
         match key with
-        | "Up" -> ({value = c.value + 1}, `Handled)
-        | "Down" -> ({value = c.value - 1}, `Handled)
-        | _ -> (c, `Bubble));
+        | "Up" -> ({value = c.value + 1}, Key_event.Handled)
+        | "Down" -> ({value = c.value - 1}, Key_event.Handled)
+        | _ -> (c, Key_event.Bubble));
   }
 
 type label = {text : string}
@@ -30,7 +31,7 @@ type label = {text : string}
 let label_ops : label FC.widget_ops =
   {
     render = (fun l ~focus -> (if focus then "> " else "  ") ^ l.text);
-    handle_key = (fun l ~key:_ -> (l, `Bubble));
+    on_key = (fun l ~key:_ -> (l, Key_event.Bubble));
   }
 
 let make_two () =
@@ -57,13 +58,15 @@ let test_render_all () =
 
 let test_tab_cycles () =
   let c = make_two () in
-  let c', status = FC.handle_key c ~key:"Tab" in
+  let c', result = FC.on_key c ~key:"Tab" in
   check (option string) "after tab" (Some "b") (FC.focused_id c') ;
-  match status with `Handled -> () | `Bubble -> fail "expected Handled"
+  match result with
+  | Key_event.Handled -> ()
+  | Key_event.Bubble -> fail "expected Handled"
 
 let test_shift_tab () =
   let c = make_two () in
-  let c', _status = FC.handle_key c ~key:"S-Tab" in
+  let c', _result = FC.on_key c ~key:"S-Tab" in
   check (option string) "wrap to last" (Some "b") (FC.focused_id c')
 
 let test_key_routing () =
@@ -75,8 +78,10 @@ let test_key_routing () =
         FC.slot "b" label_ops {text = "x"};
       ]
   in
-  let c', status = FC.handle_key c ~key:"Up" in
-  (match status with `Handled -> () | `Bubble -> fail "expected Handled") ;
+  let c', result = FC.on_key c ~key:"Up" in
+  (match result with
+  | Key_event.Handled -> ()
+  | Key_event.Bubble -> fail "expected Handled") ;
   match FC.get c' "a" w with
   | Some v -> check int "incremented" 1 v.value
   | None -> fail "witness get failed"
@@ -84,8 +89,10 @@ let test_key_routing () =
 let test_bubble () =
   let c = make_two () in
   (* Focus is on "a" (counter), send unknown key *)
-  let _, status = FC.handle_key c ~key:"Unknown" in
-  match status with `Bubble -> () | `Handled -> fail "expected Bubble"
+  let _, result = FC.on_key c ~key:"Unknown" in
+  match result with
+  | Key_event.Bubble -> ()
+  | Key_event.Handled -> fail "expected Bubble"
 
 let test_focus_by_name () =
   let c = make_two () in
@@ -102,13 +109,13 @@ let test_empty () =
   let c = FC.create [] in
   check int "count" 0 (FC.count c) ;
   check (option string) "focused" None (FC.focused_id c) ;
-  let c', status = FC.handle_key c ~key:"Tab" in
+  let c', result = FC.on_key c ~key:"Tab" in
   ignore c' ;
-  match status with `Handled -> () | `Bubble -> ()
+  ignore result
 
 let test_single_slot () =
   let c = FC.create [FC.slot "only" label_ops {text = "alone"}] in
-  let c', _ = FC.handle_key c ~key:"Tab" in
+  let c', _ = FC.on_key c ~key:"Tab" in
   check (option string) "stays" (Some "only") (FC.focused_id c')
 
 let test_ring_access () =
@@ -128,11 +135,11 @@ let test_multiple_routes () =
       ]
   in
   (* Key to a *)
-  let c, _ = FC.handle_key c ~key:"Up" in
+  let c, _ = FC.on_key c ~key:"Up" in
   (* Tab to b *)
-  let c, _ = FC.handle_key c ~key:"Tab" in
+  let c, _ = FC.on_key c ~key:"Tab" in
   (* Key to b *)
-  let c, _ = FC.handle_key c ~key:"Up" in
+  let c, _ = FC.on_key c ~key:"Up" in
   (match FC.get c "a" wa with
   | Some v -> check int "a incremented" 1 v.value
   | None -> fail "get a") ;
@@ -172,8 +179,10 @@ let test_ops_simple () =
   in
   let rendered = ops.render {text = "hi"} ~focus:true in
   check bool "renders" true (String.length rendered > 0) ;
-  let _, status = ops.handle_key {text = "hi"} ~key:"x" in
-  match status with `Bubble -> () | `Handled -> fail "simple always bubbles"
+  let _, result = ops.on_key {text = "hi"} ~key:"x" in
+  match result with
+  | Key_event.Bubble -> ()
+  | Key_event.Handled -> fail "simple always bubbles"
 
 let test_ops_bool () =
   let ops =
@@ -183,14 +192,14 @@ let test_ops_bool () =
       ~handle_key:(fun c ~key ->
         match key with "fire" -> (c, true) | _ -> (c, false))
   in
-  let _, status1 = ops.handle_key {value = 0} ~key:"fire" in
-  (match status1 with
-  | `Handled -> ()
-  | `Bubble -> fail "expected Handled on fire") ;
-  let _, status2 = ops.handle_key {value = 0} ~key:"other" in
-  match status2 with
-  | `Bubble -> ()
-  | `Handled -> fail "expected Bubble on other"
+  let _, result1 = ops.on_key {value = 0} ~key:"fire" in
+  (match result1 with
+  | Key_event.Handled -> ()
+  | Key_event.Bubble -> fail "expected Handled on fire") ;
+  let _, result2 = ops.on_key {value = 0} ~key:"other" in
+  match result2 with
+  | Key_event.Bubble -> ()
+  | Key_event.Handled -> fail "expected Bubble on other"
 
 let () =
   run

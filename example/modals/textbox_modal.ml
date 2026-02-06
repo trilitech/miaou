@@ -33,6 +33,15 @@ let handle_key ps key_str ~size:_ =
     (fun s -> Miaou_widgets_input.Textbox_widget.handle_key s ~key:key_str)
     ps
 
+let on_key ps key ~size =
+  let key_str = Miaou.Core.Keys.to_string key in
+  let ps' = handle_key ps key_str ~size in
+  (ps', Miaou_interfaces.Key_event.Bubble)
+
+let on_modal_key ps key ~size = on_key ps key ~size
+
+let key_hints (_ : pstate) = []
+
 let move ps _ = ps
 
 let refresh ps = ps

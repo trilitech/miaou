@@ -141,4 +141,4 @@ module Inner = struct
   let has_modal _ = false
 end
 
-include Demo_shared.Demo_page.Make (Inner)
+include Demo_shared.Demo_page.MakeSimple (Inner)

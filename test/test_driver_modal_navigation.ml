@@ -64,6 +64,18 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
     let keymap _ = []
 
     let handled_keys () = []
+
+    let on_key ps key ~size =
+      let key_str = Miaou_core.Keys.to_string key in
+      let ps' = handle_key ps key_str ~size in
+      (ps', Miaou_interfaces.Key_event.Bubble)
+
+    let on_modal_key ps key ~size =
+      let key_str = Miaou_core.Keys.to_string key in
+      let ps' = handle_modal_key ps key_str ~size in
+      (ps', Miaou_interfaces.Key_event.Bubble)
+
+    let key_hints _ = []
   end
 
   let push_modal () =
@@ -109,6 +121,18 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
   let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = Miaou_core.Modal_manager.has_active ()
+
+  let on_key ps key ~size =
+    let key_str = Miaou_core.Keys.to_string key in
+    let ps' = handle_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  let on_modal_key ps key ~size =
+    let key_str = Miaou_core.Keys.to_string key in
+    let ps' = handle_modal_key ps key_str ~size in
+    (ps', Miaou_interfaces.Key_event.Bubble)
+
+  let key_hints _ = []
 end
 
 let read_keys keys =

@@ -104,8 +104,15 @@ val render : t -> focus:bool -> string
 
     {b Note}: This function does NOT handle [Enter] - you typically want to
     handle Enter in your modal's [handle_key] to trigger form submission.
+
+    @deprecated Use [on_key] for new code.
 *)
 val handle_key : t -> key:string -> t
+
+(** Handle a key with unified result type.
+    Returns [Handled] for editing keys, [Bubble] for unknown keys.
+    Enter always bubbles since form submission is typically page-level. *)
+val on_key : t -> key:string -> t * Miaou_interfaces.Key_event.result
 
 (** {1 Text Access} *)
 
