@@ -29,6 +29,7 @@ type key =
   | Char of string  (** Regular character or UTF-8 grapheme *)
   | Enter
   | Tab
+  | ShiftTab  (** Shift+Tab / backtab (ESC [ Z) *)
   | Backspace
   | Escape
   | Up

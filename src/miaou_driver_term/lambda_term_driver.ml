@@ -765,6 +765,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     | 'B' -> `Down
                     | 'C' -> `Right
                     | 'D' -> `Left
+                    | 'Z' -> `PrevPage (* Shift+Tab: ESC [ Z *)
                     | '3' ->
                         (* Common Delete sequence: ESC [ 3 ~ *)
                         if
@@ -971,7 +972,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   | `Left -> "Left"
                   | `Right -> "Right"
                   | `NextPage -> "Tab"
-                  | `PrevPage -> "Shift-Tab"
+                  | `PrevPage -> "S-Tab"
                   | _ -> ""
                 in
                 if key <> "" then (

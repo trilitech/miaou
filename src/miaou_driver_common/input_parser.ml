@@ -13,6 +13,7 @@ type key =
   | Char of string  (** Regular character or UTF-8 grapheme *)
   | Enter
   | Tab
+  | ShiftTab  (** Shift+Tab / backtab (ESC [ Z) *)
   | Backspace
   | Escape
   | Up
@@ -94,6 +95,7 @@ let peek_key t =
         | 'B' -> Some Down
         | 'C' -> Some Right
         | 'D' -> Some Left
+        | 'Z' -> Some ShiftTab (* Shift+Tab: ESC [ Z *)
         | '3' ->
             (* Delete: ESC [ 3 ~ *)
             if len >= 4 && String.get t.pending 3 = '~' then Some Delete
@@ -117,6 +119,7 @@ let peek_key t =
 let bytes_for_key = function
   | Up | Down | Left | Right -> 3 (* ESC [ A/B/C/D *)
   | Tab | Backspace | Enter -> 1
+  | ShiftTab -> 3 (* ESC [ Z *)
   | Char s -> String.length s
   | Ctrl _ -> 1
   | Delete -> 4 (* ESC [ 3 ~ *)
@@ -236,6 +239,10 @@ let parse_key t =
         | 'D' ->
             consume t 3 ;
             Some Left
+        | 'Z' ->
+            (* Shift+Tab: ESC [ Z *)
+            consume t 3 ;
+            Some ShiftTab
         | '3' ->
             (* Delete: ESC [ 3 ~ *)
             if len >= 4 && String.get t.pending 3 = '~' then begin
@@ -311,6 +318,7 @@ let key_to_string = function
   | Char s -> s
   | Enter -> "Enter"
   | Tab -> "Tab"
+  | ShiftTab -> "S-Tab"
   | Backspace -> "Backspace"
   | Escape -> "Esc"
   | Up -> "Up"
