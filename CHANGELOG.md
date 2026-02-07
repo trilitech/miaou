@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.7] - 2026-02-07
+
+### Fixed
+
+- **Esc key repeat quitting app after modal close** — Matrix driver now applies a 200ms cooldown after closing a modal with Esc, suppressing spurious Esc events from terminal key repeat that would otherwise reach the page and trigger app exit
+- **Footer hints not rendering in Matrix driver** — `key_hints` from pages are now correctly rendered in the footer bar
+
 ## [0.2.6] - 2026-02-06
 
 ### Added
