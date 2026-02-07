@@ -11,6 +11,7 @@ open Miaou_core
 module Narrow_modal = Miaou_core.Narrow_modal
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Fibers = Miaou_helpers.Fiber_runtime
+module Widgets = Miaou_widgets_display.Widgets
 
 (* One-time narrow terminal warning flag *)
 let narrow_warned = ref false
@@ -157,8 +158,38 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
       else []
     in
 
+    (* Build footer hints from page key_hints *)
+    let footer_pairs =
+      let hints = Page.key_hints ps in
+      if hints <> [] then
+        List.map
+          (fun (h : Miaou_core.Tui_page.key_hint) -> (h.key, h.help))
+          hints
+      else []
+    in
+    let footer_str =
+      if footer_pairs = [] then ""
+      else Widgets.footer_hints_wrapped_capped ~cols ~max_lines:2 footer_pairs
+    in
+    let footer_lines =
+      if footer_str = "" then 0
+      else List.length (String.split_on_char '\n' footer_str)
+    in
+
+    (* Reduce available rows for the page view to leave room for footer *)
+    let view_size =
+      if footer_lines > 0 then
+        {size with LTerm_geom.rows = max 1 (rows - footer_lines)}
+      else size
+    in
+
     (* Render page view to ANSI string *)
-    let view_output = Page.view ps ~focus:true ~size in
+    let view_output = Page.view ps ~focus:true ~size:view_size in
+
+    (* Append footer if present *)
+    let view_output =
+      if footer_str = "" then view_output else view_output ^ "\n" ^ footer_str
+    in
 
     (* Prepend header lines if any *)
     let view_output =
