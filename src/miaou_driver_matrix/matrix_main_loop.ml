@@ -91,6 +91,12 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   (* Track last size for narrow warning detection *)
   let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
 
+  (* Esc cooldown: after closing a modal with Esc, suppress further Esc keys
+     for a short period to prevent key-repeat from reaching the underlying page
+     (e.g. causing the app to quit when the user holds Esc to close a modal). *)
+  let esc_cooldown_until = ref 0.0 in
+  let esc_cooldown_s = 0.2 in
+
   (* Main loop *)
   let rec loop packed =
     let tick_start = Unix.gettimeofday () in
@@ -310,7 +316,9 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
              double-navigation (modal close + page back) *)
           if
             (key = "Esc" || key = "Escape") && not (Modal_manager.has_active ())
-          then ignore (ctx.io.drain_esc_keys ()) ;
+          then (
+            ignore (ctx.io.drain_esc_keys ()) ;
+            esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s) ;
           (* After modal handles key, check if navigation requested *)
           let ps' = Page.service_cycle (Page.refresh ps) 0 in
           check_navigation (Packed ((module Page), ps')) tick_start
@@ -327,13 +335,21 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
                 Page.handle_modal_key ps key ~size
           in
           (* If modal was closed by Esc, drain any pending Esc keys *)
-          if (key = "Esc" || key = "Escape") && not (Page.has_modal ps') then
+          if (key = "Esc" || key = "Escape") && not (Page.has_modal ps') then (
             ignore (ctx.io.drain_esc_keys ()) ;
+            esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s) ;
           check_navigation (Packed ((module Page), ps')) tick_start
         end
+        else if
+          (* No modal active - send key to the page.
+             Suppress Esc keys during cooldown period after modal close to
+             prevent key-repeat Esc from reaching the underlying page. *)
+          (key = "Esc" || key = "Escape")
+          && Unix.gettimeofday () < !esc_cooldown_until
+        then check_navigation (Packed ((module Page), ps)) tick_start
         else
           (* All keys go through on_key - no keymap dispatch.
-             Pages use Navigation.goto/back/quit for navigation. *)
+               Pages use Navigation.goto/back/quit for navigation. *)
           let ps' =
             match Keys.of_string key with
             | Some typed_key ->
