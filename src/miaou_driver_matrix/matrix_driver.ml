@@ -46,6 +46,7 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
         {
           write = Matrix_terminal.write terminal;
           poll = (fun ~timeout_ms -> Matrix_input.poll input ~timeout_ms);
+          drain = (fun () -> Matrix_input.drain input);
           drain_nav_keys = (fun ev -> Matrix_input.drain_nav_keys input ev);
           drain_esc_keys = (fun () -> Matrix_input.drain_esc_keys input);
           size = (fun () -> Matrix_terminal.size terminal);

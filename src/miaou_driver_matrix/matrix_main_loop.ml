@@ -97,6 +97,23 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   let esc_cooldown_until = ref 0.0 in
   let esc_cooldown_s = 0.2 in
 
+  (* Convert a packed state with pending navigation into the loop outcome. *)
+  let nav_outcome packed =
+    let (Packed ((module Page), ps)) = packed in
+    ignore (Page.init, ps) ;
+    match Navigation.pending ps with
+    | Some Navigation.Quit ->
+        Matrix_render_loop.shutdown ctx.render_loop ;
+        `Quit
+    | Some Navigation.Back ->
+        Matrix_render_loop.shutdown ctx.render_loop ;
+        `Back
+    | Some (Navigation.Goto name) -> `SwitchTo name
+    | None ->
+        (* Should not happen — caller checks pending first *)
+        `Quit
+  in
+
   (* Main loop *)
   let rec loop packed =
     let tick_start = Unix.gettimeofday () in
@@ -264,28 +281,41 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
     incr frame_counter ;
     if !frame_counter mod 120 = 0 then Matrix_buffer.mark_all_dirty ctx.buffer ;
 
-    (* Poll for input with short timeout to maintain TPS *)
-    let timeout_ms = int_of_float (ctx.config.tick_time_ms *. 0.8) in
-    match ctx.io.poll ~timeout_ms with
-    | Quit ->
+    (* Drain all pending input events from the queue and process them
+       sequentially.  When the queue is empty we still run one tick
+       (service_cycle / refresh) and sleep for the remainder of the budget. *)
+    let events = ctx.io.drain () in
+    process_events (Packed ((module Page), ps)) events tick_start size
+  and process_events packed events tick_start size =
+    match events with
+    | [] ->
+        (* No events — run service_cycle and sleep for remainder of tick *)
+        let (Packed ((module Page), ps)) = packed in
+        let ps' = Page.service_cycle (Page.refresh ps) 0 in
+        check_navigation (Packed ((module Page), ps')) tick_start
+    | ev :: rest -> (
+        match handle_single_event packed ev size with
+        | `Continue packed' -> process_events packed' rest tick_start size
+        | `Exit result -> result)
+  and handle_single_event packed event size =
+    let (Packed ((module Page), ps)) = packed in
+    let rows = size.LTerm_geom.rows in
+    let cols = size.LTerm_geom.cols in
+    match event with
+    | Matrix_io.Quit ->
         Matrix_render_loop.shutdown ctx.render_loop ;
-        `Quit
-    | Resize ->
+        `Exit `Quit
+    | Matrix_io.Resize ->
         ctx.io.invalidate_size_cache () ;
         (* Clear display on resize to avoid artifacts from old layout *)
         ctx.io.write "\027[2J\027[H" ;
         Matrix_buffer.mark_all_dirty ctx.buffer ;
-        loop packed
-    | Refresh ->
+        `Continue packed
+    | Matrix_io.Refresh ->
         let ps' = Page.service_cycle (Page.refresh ps) 0 in
-        check_navigation (Packed ((module Page), ps')) tick_start
-    | Idle ->
-        (* No input and not time for refresh - maintain TPS and continue *)
-        let elapsed = Unix.gettimeofday () -. tick_start in
-        let sleep_time = tick_time_s -. elapsed in
-        eio_sleep env sleep_time ;
-        loop packed
-    | Key key ->
+        `Continue (Packed ((module Page), ps'))
+    | Matrix_io.Idle -> `Continue packed
+    | Matrix_io.Key key -> (
         (* Debug: log received key if MIAOU_DEBUG is set *)
         if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
           let oc =
@@ -298,7 +328,6 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             (Modal_manager.has_active ())
             (Page.has_modal ps) ;
           close_out oc) ;
-        let _ = ctx.io.drain_nav_keys (Key key) in
         (* Set modal size before handling keys *)
         Modal_manager.set_current_size rows cols ;
         (* Helper: detect whether the transient narrow modal is currently active *)
@@ -307,76 +336,89 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
           | Some t when t = "Narrow terminal" -> true
           | _ -> false
         in
-        (* Check if modal is active - if so, send keys to modal instead of page *)
-        if Modal_manager.has_active () then begin
-          (* If the narrow modal is active, close it on any key as advertised *)
-          if is_narrow_modal_active () then Modal_manager.close_top `Cancel
-          else Modal_manager.handle_key key ;
-          (* If modal was closed by Esc, drain any pending Esc keys to prevent
-             double-navigation (modal close + page back) *)
-          if
-            (key = "Esc" || key = "Escape") && not (Modal_manager.has_active ())
-          then (
-            ignore (ctx.io.drain_esc_keys ()) ;
-            esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s) ;
-          (* After modal handles key, check if navigation requested *)
-          let ps' = Page.service_cycle (Page.refresh ps) 0 in
-          check_navigation (Packed ((module Page), ps')) tick_start
-        end
-        else if Page.has_modal ps then begin
-          (* Page has its own modal - use page's modal key handler *)
-          let ps' =
-            match Keys.of_string key with
-            | Some typed_key ->
-                let ps', _result = Page.on_modal_key ps typed_key ~size in
-                ps'
-            | None ->
-                (* Fallback to legacy handle_modal_key for unparseable keys *)
-                Page.handle_modal_key ps key ~size
-          in
-          (* If modal was closed by Esc, drain any pending Esc keys *)
-          if (key = "Esc" || key = "Escape") && not (Page.has_modal ps') then (
-            ignore (ctx.io.drain_esc_keys ()) ;
-            esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s) ;
-          check_navigation (Packed ((module Page), ps')) tick_start
-        end
-        else if
-          (* No modal active - send key to the page.
-             Suppress Esc keys during cooldown period after modal close to
-             prevent key-repeat Esc from reaching the underlying page. *)
-          (key = "Esc" || key = "Escape")
-          && Unix.gettimeofday () < !esc_cooldown_until
-        then check_navigation (Packed ((module Page), ps)) tick_start
-        else
-          (* All keys go through on_key - no keymap dispatch.
-               Pages use Navigation.goto/back/quit for navigation. *)
-          let ps' =
-            match Keys.of_string key with
-            | Some typed_key ->
-                let ps', _result = Page.on_key ps typed_key ~size in
-                ps'
-            | None ->
-                (* Fallback to legacy handle_key for unparseable keys *)
-                Page.handle_key ps key ~size
-          in
-          check_navigation (Packed ((module Page), ps')) tick_start
-    | Mouse (row, col) ->
+        let packed' =
+          (* Check if modal is active - if so, send keys to modal instead of page *)
+          if Modal_manager.has_active () then begin
+            (* If the narrow modal is active, close it on any key *)
+            if is_narrow_modal_active () then Modal_manager.close_top `Cancel
+            else Modal_manager.handle_key key ;
+            (* If modal was closed by Esc, activate cooldown *)
+            if
+              (key = "Esc" || key = "Escape")
+              && not (Modal_manager.has_active ())
+            then esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s ;
+            (* After modal handles key, run service_cycle *)
+            let ps' = Page.service_cycle (Page.refresh ps) 0 in
+            Packed ((module Page), ps')
+          end
+          else if Page.has_modal ps then begin
+            (* Page has its own modal - use page's modal key handler *)
+            let ps' =
+              match Keys.of_string key with
+              | Some typed_key ->
+                  let ps', _result = Page.on_modal_key ps typed_key ~size in
+                  ps'
+              | None ->
+                  (* Fallback to legacy handle_modal_key for unparseable keys *)
+                  Page.handle_modal_key ps key ~size
+            in
+            (* If modal was closed by Esc, activate cooldown *)
+            if (key = "Esc" || key = "Escape") && not (Page.has_modal ps') then
+              esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s ;
+            Packed ((module Page), ps')
+          end
+          else if
+            (* Suppress Esc keys during cooldown period after modal close *)
+            (key = "Esc" || key = "Escape")
+            && Unix.gettimeofday () < !esc_cooldown_until
+          then packed
+          else
+            (* All keys go through on_key *)
+            let ps' =
+              match Keys.of_string key with
+              | Some typed_key ->
+                  let ps', _result = Page.on_key ps typed_key ~size in
+                  ps'
+              | None ->
+                  (* Fallback to legacy handle_key for unparseable keys *)
+                  Page.handle_key ps key ~size
+            in
+            Packed ((module Page), ps')
+        in
+        (* Check navigation after each key — if a key triggers navigation,
+           stop processing remaining events in this tick *)
+        let (Packed ((module Page2), ps2)) = packed' in
+        let ps2 =
+          match Modal_manager.take_pending_navigation () with
+          | Some (Navigation.Goto page) -> Navigation.goto page ps2
+          | Some Navigation.Back -> Navigation.back ps2
+          | Some Navigation.Quit -> Navigation.quit ps2
+          | None -> ps2
+        in
+        let next = Navigation.pending ps2 in
+        match next with
+        | Some _ ->
+            (* Navigation requested — stop processing further events *)
+            `Exit (nav_outcome (Packed ((module Page2), ps2)))
+        | None -> `Continue (Packed ((module Page2), ps2)))
+    | Matrix_io.Mouse (row, col) ->
         let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
         (* Set modal size before handling keys *)
         Modal_manager.set_current_size rows cols ;
-        (* Check if modal is active - if so, send keys to modal instead of page *)
-        if Modal_manager.has_active () then begin
-          Modal_manager.handle_key mouse_key ;
-          let ps' = Page.service_cycle (Page.refresh ps) 0 in
-          check_navigation (Packed ((module Page), ps')) tick_start
-        end
-        else if Page.has_modal ps then
-          (* Page has its own modal - use page's modal key handler *)
-          let ps' = Page.handle_modal_key ps mouse_key ~size in
-          check_navigation (Packed ((module Page), ps')) tick_start
-        else
-          let ps' = Page.handle_key ps mouse_key ~size in
-          check_navigation (Packed ((module Page), ps')) tick_start
+        let packed' =
+          if Modal_manager.has_active () then begin
+            Modal_manager.handle_key mouse_key ;
+            let ps' = Page.service_cycle (Page.refresh ps) 0 in
+            Packed ((module Page), ps')
+          end
+          else if Page.has_modal ps then
+            let ps' = Page.handle_modal_key ps mouse_key ~size in
+            Packed ((module Page), ps')
+          else
+            let ps' = Page.handle_key ps mouse_key ~size in
+            Packed ((module Page), ps')
+        in
+        `Continue packed'
   and check_navigation packed tick_start =
     let (Packed ((module Page), ps)) = packed in
     (* Check for pending navigation from modal callbacks *)
