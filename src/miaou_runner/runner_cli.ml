@@ -61,6 +61,14 @@ module Placeholder_page : Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
+type options = {
+  page_name : string;
+  cli_output : bool;
+  cols : int;
+  rows : int;
+  ticks : int;
+}
+
 let find_page name =
   match Registry.find name with
   | Some p -> p
@@ -76,19 +84,53 @@ let find_page name =
       Registry.find "miaou.runner.placeholder"
       |> Option.value ~default:(module Placeholder_page : Tui_page.PAGE_SIG)
 
-let pick_page ~argv:_ =
+let parse ~argv:_ =
   let page = ref None in
+  let cli_output = ref false in
+  let cols = ref 80 in
+  let rows = ref 24 in
+  let ticks = ref 0 in
   let specs =
     [
       ( "--page",
         Arg.String (fun s -> page := Some s),
         "Name of the registered TUI page to start (default: env or \"main\")" );
+      ( "--cli-output",
+        Arg.Set cli_output,
+        "Render one static frame to stdout and exit" );
+      ( "--cols",
+        Arg.Int (fun n -> cols := max 10 n),
+        "Viewport width for --cli-output (default: 80)" );
+      ( "--rows",
+        Arg.Int (fun n -> rows := max 4 n),
+        "Viewport height for --cli-output (default: 24)" );
+      ( "--ticks",
+        Arg.Int (fun n -> ticks := max 0 n),
+        "Number of refresh ticks before rendering in --cli-output mode" );
     ]
   in
   Arg.parse specs (fun _ -> ()) "Miaou runner options:" ;
-  match !page with
-  | Some p -> p
-  | None -> (
-      match Sys.getenv_opt "MIAOU_RUNNER_PAGE" with
-      | Some p -> p
-      | None -> "main")
+  let page_name =
+    match !page with
+    | Some p -> p
+    | None -> (
+        match Sys.getenv_opt "MIAOU_RUNNER_PAGE" with
+        | Some p -> p
+        | None -> "main")
+  in
+  {
+    page_name;
+    cli_output = !cli_output;
+    cols = !cols;
+    rows = !rows;
+    ticks = !ticks;
+  }
+
+let rec refresh_n refresh ps n =
+  if n <= 0 then ps else refresh_n refresh (refresh ps) (n - 1)
+
+let render_cli ?(focus = true) ~rows ~cols ~ticks page =
+  let module P = (val page : Tui_page.PAGE_SIG) in
+  let ps0 = P.init () in
+  let ps = refresh_n P.refresh ps0 ticks in
+  P.view ps ~focus ~size:{LTerm_geom.rows; cols}
