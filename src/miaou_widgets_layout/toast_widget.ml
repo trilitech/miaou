@@ -9,6 +9,15 @@
 
 module W = Miaou_widgets_display.Widgets
 module Helpers = Miaou_helpers.Helpers
+module Clock = Miaou_interfaces.Clock
+
+(** Resolve the current time: explicit [now] > Clock capability > gettimeofday *)
+let resolve_now = function
+  | Some v -> v
+  | None -> (
+      match Clock.get () with
+      | Some c -> c.now ()
+      | None -> Unix.gettimeofday ())
 
 type severity = Info | Success | Warn | Error
 
@@ -27,16 +36,14 @@ type t = {queue : toast list; next_id : int; position : position}
 let empty ?(position = `Top_right) () = {queue = []; next_id = 0; position}
 
 let enqueue ?(ttl = 5.) ?now (t : t) sev message =
-  let created_at =
-    match now with Some v -> v | None -> Unix.gettimeofday ()
-  in
+  let created_at = resolve_now now in
   let toast = {id = t.next_id; message; severity = sev; created_at; ttl} in
   {t with queue = t.queue @ [toast]; next_id = t.next_id + 1}
 
 let dismiss t ~id = {t with queue = List.filter (fun q -> q.id <> id) t.queue}
 
 let tick ?now t =
-  let now = match now with Some v -> v | None -> Unix.gettimeofday () in
+  let now = resolve_now now in
   let fresh q = now -. q.created_at <= q.ttl in
   {t with queue = List.filter fresh t.queue}
 
