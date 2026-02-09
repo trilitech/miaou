@@ -282,8 +282,11 @@ let parse_key t =
         | _ -> Some (Unknown (String.make 1 c))
       end
       else if len >= 2 then begin
-        consume t 2 ;
-        Some (Unknown (String.make 1 (String.get t.pending 0)))
+        (* Treat unknown ESC-prefix as a plain Escape and keep trailing bytes.
+           This preserves Esc behavior while allowing the next key to be parsed
+           normally (e.g. Alt-modified input arrives as ESC + key). *)
+        consume t 1 ;
+        Some Escape
       end
       else begin
         consume t 1 ;
