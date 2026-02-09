@@ -16,7 +16,8 @@
   sidebar_widget
   flex_layout
   grid_layout
-  toast_widget)
+  toast_widget
+  canvas_widget)
  (instrumentation
   (backend bisect_ppx))
  (libraries
@@ -24,4 +25,5 @@
   miaou-core.widgets.input
   miaou-core.helpers
   miaou-core.interfaces
+  miaou-core.canvas
   lambda-term))
