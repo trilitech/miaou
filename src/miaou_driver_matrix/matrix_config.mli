@@ -9,7 +9,7 @@
 
     Settings can be configured via environment variables:
     - MIAOU_MATRIX_FPS: Frame rate cap for rendering (default: 60)
-    - MIAOU_MATRIX_TPS: Tick rate for effects/input (default: 30)
+    - MIAOU_MATRIX_TPS: Tick rate for effects/input (default: 60)
     - MIAOU_MATRIX_DEBUG: Enable debug logging (default: false)
     - MIAOU_ENABLE_MOUSE: Enable mouse tracking (default: true, set to 0/false/no to disable for easier copy/paste)
 *)
@@ -24,7 +24,7 @@ type t = {
       (** Enable mouse tracking (set to false for easier copy/paste) *)
 }
 
-(** Default configuration: 60 FPS, 30 TPS, no debug. *)
+(** Default configuration: 60 FPS, 60 TPS, no debug. *)
 val default : t
 
 (** Load configuration from environment variables. *)

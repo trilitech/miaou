@@ -20,7 +20,7 @@ let time_of_rate rate =
 
 let default =
   let fps_cap = 60 in
-  let tps_cap = 30 in
+  let tps_cap = 60 in
   {
     fps_cap;
     frame_time_ms = time_of_rate fps_cap;
@@ -44,8 +44,8 @@ let load () =
     | Some s -> (
         match int_of_string_opt s with
         | Some n when n >= 1 && n <= 120 -> n
-        | _ -> 30)
-    | None -> 30
+        | _ -> 60)
+    | None -> 60
   in
   let debug =
     match Sys.getenv_opt "MIAOU_MATRIX_DEBUG" with
