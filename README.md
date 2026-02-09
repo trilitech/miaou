@@ -652,6 +652,7 @@ Documentation
 - **[Getting Started](./docs/getting-started.md)** — Build your first MIAOU application
 - **[Architecture Overview](./docs/architecture.md)** — Core components, pages, modals, widgets
 - **[Capabilities Guide](./docs/capabilities.md)** — Dependency injection system
+- **[Color Guide](./docs/colors.md)** — ANSI color payloads and chart precedence rules
 - **[Examples](./example/README.md)** — Demo applications and widget showcases
 
 Further reading
