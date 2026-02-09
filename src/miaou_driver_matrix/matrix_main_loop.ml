@@ -289,9 +289,16 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
       Matrix_render_loop.force_render ctx.render_loop
     end ;
 
-    (* Periodic full refresh every 120 frames (~2s at 60 TPS) to catch any artifacts *)
+    (* Periodic full clear+redraw to scrub any terminal artifacts. *)
     incr frame_counter ;
-    if !frame_counter mod 120 = 0 then Matrix_buffer.mark_all_dirty ctx.buffer ;
+    if
+      ctx.config.scrub_interval_frames > 0
+      && !frame_counter mod ctx.config.scrub_interval_frames = 0
+    then begin
+      ctx.io.write "\027[2J\027[H" ;
+      Matrix_buffer.mark_all_dirty ctx.buffer ;
+      Matrix_render_loop.force_render ctx.render_loop
+    end ;
 
     (* Drain all pending input events from the queue and process them
        sequentially.  When the queue is empty we still run one tick
