@@ -360,6 +360,13 @@ let demos =
           "demo_canvas"
           (module Canvas_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "Space Invaders (Game)";
+      open_demo =
+        goto
+          "demo_space_invaders"
+          (module Space_invaders_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let init () = Navigation.make {cursor = 0}
