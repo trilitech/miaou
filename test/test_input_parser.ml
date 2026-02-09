@@ -157,6 +157,23 @@ let test_parse_escape () =
   | _ -> fail "Expected Escape") ;
   cleanup (p, r)
 
+let test_parse_escape_unknown_pair () =
+  let p, r = parser_with_input "\027x" in
+  (match Parser.parse_key p with
+  | Some Parser.Escape -> ()
+  | Some k ->
+      fail (Printf.sprintf "Expected Escape, got %s" (Parser.key_to_string k))
+  | None -> fail "Expected Escape") ;
+  (match Parser.parse_key p with
+  | Some (Parser.Char "x") -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected trailing Char x, got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected trailing Char x") ;
+  cleanup (p, r)
+
 (* Test multiple keys in sequence *)
 let test_parse_sequence () =
   let p, r = parser_with_input "abc" in
@@ -236,6 +253,7 @@ let () =
           test_case "simple keys" `Quick test_parse_simple_keys;
           test_case "arrow keys" `Quick test_parse_arrow_keys;
           test_case "escape" `Quick test_parse_escape;
+          test_case "escape unknown pair" `Quick test_parse_escape_unknown_pair;
           test_case "sequence" `Quick test_parse_sequence;
           test_case "mouse sgr" `Quick test_parse_mouse_sgr;
         ] );
