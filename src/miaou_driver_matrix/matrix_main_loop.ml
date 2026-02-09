@@ -11,6 +11,7 @@ open Miaou_core
 module Narrow_modal = Miaou_core.Narrow_modal
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
+module Timer = Miaou_interfaces.Timer
 module Fibers = Miaou_helpers.Fiber_runtime
 module Widgets = Miaou_widgets_display.Widgets
 
@@ -102,6 +103,10 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   let clock_state = Clock.create_state () in
   Clock.register clock_state ;
 
+  (* Timer capability — page-scoped periodic/one-shot callbacks *)
+  let timer_state = Timer.create_state () in
+  Timer.register timer_state ;
+
   (* Convert a packed state with pending navigation into the loop outcome. *)
   let nav_outcome packed =
     let (Packed ((module Page), ps)) = packed in
@@ -123,6 +128,7 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   let rec loop packed =
     let tick_start = Unix.gettimeofday () in
     Clock.tick clock_state ;
+    Timer.tick timer_state ;
     let (Packed ((module Page), ps)) = packed in
 
     (* Get current size *)
