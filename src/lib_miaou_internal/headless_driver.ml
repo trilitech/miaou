@@ -9,6 +9,7 @@ module Modal_manager = Miaou_core.Modal_manager
 module Capture = Miaou_core.Tui_capture
 module Fibers = Miaou_helpers.Fiber_runtime
 module Clock = Miaou_interfaces.Clock
+module Timer = Miaou_interfaces.Timer
 open LTerm_geom
 
 (* Helper: apply any pending navigation from modal callbacks to pstate *)
@@ -108,6 +109,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       (* Clock capability — provides dt/now/elapsed to pages and widgets *)
       let clock_state = Clock.create_state () in
       Clock.register clock_state ;
+      (* Timer capability — page-scoped periodic/one-shot callbacks *)
+      let timer_state = Timer.create_state () in
+      Timer.register timer_state ;
       let exceed_guard iteration =
         let elapsed = Unix.gettimeofday () -. start_time in
         if iteration >= !max_iterations_ref || elapsed >= !max_seconds_ref then
@@ -129,6 +133,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           [`Quit | `Back | `SwitchTo of string] =
         exceed_guard iteration ;
         Clock.tick clock_state ;
+        Timer.tick timer_state ;
         render_page_with (module P) ps ;
         match Key_queue.take () with
         | None -> (
@@ -207,6 +212,8 @@ module Stateful = struct
     let ps = ref (P.init ()) in
     let clock_state = Clock.create_state () in
     Clock.register clock_state ;
+    let timer_state = Timer.create_state () in
+    Timer.register timer_state ;
     let render () = render_page_with (module P) !ps in
     let handle_modal_key k =
       if Miaou_core.Modal_manager.has_active () then
@@ -214,6 +221,7 @@ module Stateful = struct
     in
     let handle_key (k : string) =
       Clock.tick clock_state ;
+      Timer.tick timer_state ;
       if Miaou_core.Modal_manager.has_active () then (
         handle_modal_key k ;
         render ())
@@ -232,6 +240,7 @@ module Stateful = struct
     (refresh_impl :=
        fun () ->
          Clock.tick clock_state ;
+         Timer.tick timer_state ;
          ps := P.refresh !ps ;
          render ()) ;
     (next_page_impl := fun () -> Navigation.pending !ps) ;
