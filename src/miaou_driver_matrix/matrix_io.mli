@@ -27,11 +27,16 @@ type t = {
       (** Write an ANSI string to the output (terminal or WebSocket). *)
   poll : timeout_ms:int -> event;
       (** Poll for the next input event with timeout. *)
+  drain : unit -> event list;
+      (** Drain all pending events from the input queue (oldest first).
+          Returns the empty list when nothing is buffered. *)
   drain_nav_keys : event -> int;
       (** Drain consecutive identical navigation keys to prevent scroll lag.
+          No-op when the decoupled reader is active.
           Returns count of drained events. *)
   drain_esc_keys : unit -> int;
       (** Drain pending Esc keys to prevent double-Esc navigation.
+          No-op when the decoupled reader is active.
           Returns count of drained events. *)
   size : unit -> int * int;
       (** Get current viewport dimensions as (rows, cols). *)

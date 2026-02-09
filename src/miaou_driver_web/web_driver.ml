@@ -274,6 +274,7 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br
                 | Error `Timeout -> Matrix_io.Idle));
       drain_nav_keys = (fun _ -> 0);
       drain_esc_keys = (fun () -> 0);
+      drain = (fun () -> []);
       size = (fun () -> (!current_rows, !current_cols));
       invalidate_size_cache = (fun () -> ());
     }
