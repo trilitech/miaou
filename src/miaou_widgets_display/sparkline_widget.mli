@@ -23,6 +23,24 @@
     Output: [ ▃▄▆▇█▇▅▃▂ ▂▃▅▆▇█▇▆▄▃▂ ] 42.3%
 *)
 
+(** {1 Color parameters}
+
+    Sparkline colors use ANSI SGR foreground color numbers encoded as strings,
+    such as ["32"] (green) or ["38;5;214"] (orange in the 256-color palette).
+
+    These values are SGR payloads and not raw palette indices.
+
+    Useful forms:
+    - Basic ANSI colors: ["30"]..["37"]
+    - Bright ANSI colors: ["90"]..["97"]
+    - 256-color foreground: ["38;5;<n>"] where [n] is [0..255]
+
+    Precedence when rendering each segment:
+    - threshold color for that value (if matched)
+    - otherwise default [color] argument
+    - otherwise widget fallback color
+*)
+
 (** A threshold for coloring sparkline segments with a value above it. *)
 type threshold = {value : float; color : string}
 
