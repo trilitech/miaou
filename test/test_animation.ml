@@ -209,6 +209,108 @@ let test_tiny_duration () =
   let a = A.tick a ~dt:0.001 in
   check bool "tiny duration finishes" true (A.finished a)
 
+(* ----------------------------------------------------------------------- *)
+(* Bounce easing                                                            *)
+(* ----------------------------------------------------------------------- *)
+
+let test_bounce () =
+  let a = A.create ~duration:1.0 ~easing:Bounce () in
+  (* At start and end, values are 0 and 1 *)
+  check float_eq "bounce start" 0.0 (A.value a) ;
+  let a1 = A.tick a ~dt:1.0 in
+  check (approx_eq ()) "bounce end" 1.0 (A.value a1) ;
+  (* Midway, bounce should overshoot above 1.0 at some point *)
+  let a_mid = A.tick a ~dt:0.5 in
+  let v = A.value a_mid in
+  check bool "bounce overshoots at midpoint" true (v > 0.5)
+
+let test_custom_easing () =
+  (* Custom easing: square root (fast start, slow end) *)
+  let a = A.create ~duration:1.0 ~easing:(Custom Float.sqrt) () in
+  let a = A.tick a ~dt:0.25 in
+  check (approx_eq ()) "custom sqrt at 0.25" 0.5 (A.value a)
+
+(* ----------------------------------------------------------------------- *)
+(* Delay                                                                    *)
+(* ----------------------------------------------------------------------- *)
+
+let test_delay () =
+  let a = A.delay 0.5 in
+  check float_eq "delay starts at 0" 0.0 (A.value a) ;
+  check bool "delay not finished at start" false (A.finished a) ;
+  let a = A.tick a ~dt:0.25 in
+  check (approx_eq ()) "delay midway" 0.5 (A.value a) ;
+  let a = A.tick a ~dt:0.25 in
+  check bool "delay finishes" true (A.finished a)
+
+(* ----------------------------------------------------------------------- *)
+(* Sequence                                                                 *)
+(* ----------------------------------------------------------------------- *)
+
+let test_sequence_basic () =
+  (* Two 0.5s linear animations in sequence *)
+  let s = A.sequence [A.create ~duration:0.5 (); A.create ~duration:0.5 ()] in
+  check float_eq "seq start" 0.0 (A.value s) ;
+  check bool "seq not finished" false (A.finished s) ;
+  (* 0.25s into first step: value = 0.5 *)
+  let s = A.tick s ~dt:0.25 in
+  check (approx_eq ()) "step 1 midway" 0.5 (A.value s) ;
+  (* 0.5s: first step done, second step just starting *)
+  let s = A.tick s ~dt:0.25 in
+  check bool "not finished after step 1" false (A.finished s) ;
+  (* 0.75s: second step midway *)
+  let s = A.tick s ~dt:0.25 in
+  check (approx_eq ()) "step 2 midway" 0.5 (A.value s) ;
+  (* 1.0s: done *)
+  let s = A.tick s ~dt:0.25 in
+  check bool "finished" true (A.finished s) ;
+  check (approx_eq ()) "final value" 1.0 (A.value s)
+
+let test_sequence_with_delay () =
+  (* flash in → hold → fade out *)
+  let s =
+    A.sequence
+      [
+        A.create ~duration:0.1 ~easing:Ease_out ();
+        A.delay 0.5;
+        A.create ~duration:0.3 ~easing:Ease_in ();
+      ]
+  in
+  (* During hold phase, value should be linear progress of the delay *)
+  let s = A.tick s ~dt:0.1 in
+  (* first step done *)
+  check bool "past step 1" false (A.finished s) ;
+  let s = A.tick s ~dt:0.25 in
+  (* midway through delay *)
+  check (approx_eq ()) "delay midway" 0.5 (A.value s) ;
+  let s = A.tick s ~dt:0.25 in
+  (* delay done, step 3 starting *)
+  let s = A.tick s ~dt:0.3 in
+  (* step 3 done *)
+  check bool "sequence finished" true (A.finished s)
+
+let test_sequence_empty () =
+  let s = A.sequence [] in
+  check bool "empty sequence finished" true (A.finished s) ;
+  (* Empty sequence is an already-completed no-op — value is 1.0 *)
+  check float_eq "empty sequence value" 1.0 (A.value s)
+
+let test_sequence_reset () =
+  let s = A.sequence [A.create ~duration:0.5 (); A.create ~duration:0.5 ()] in
+  let s = A.tick s ~dt:1.0 in
+  check bool "finished before reset" true (A.finished s) ;
+  let s = A.reset s in
+  check bool "not finished after reset" false (A.finished s) ;
+  check float_eq "value reset" 0.0 (A.value s)
+
+let test_sequence_excess_carries () =
+  (* When step 1 gets excess time, it carries to step 2 *)
+  let s = A.sequence [A.create ~duration:0.2 (); A.create ~duration:0.8 ()] in
+  (* Tick 0.5s in one shot: 0.2s for step 1, 0.3s carries to step 2 *)
+  let s = A.tick s ~dt:0.5 in
+  (* Step 2 should be at 0.3/0.8 = 0.375 *)
+  check (approx_eq ~tolerance:0.02 ()) "excess carried" 0.375 (A.value s)
+
 let () =
   run
     "animation"
@@ -219,6 +321,8 @@ let () =
           test_case "ease_in" `Quick test_ease_in;
           test_case "ease_out" `Quick test_ease_out;
           test_case "ease_in_out" `Quick test_ease_in_out;
+          test_case "bounce" `Quick test_bounce;
+          test_case "custom" `Quick test_custom_easing;
         ] );
       ( "once",
         [
@@ -250,5 +354,14 @@ let () =
         [
           test_case "zero dt" `Quick test_zero_dt;
           test_case "tiny duration" `Quick test_tiny_duration;
+        ] );
+      ("delay", [test_case "delay lifecycle" `Quick test_delay]);
+      ( "sequence",
+        [
+          test_case "basic two-step" `Quick test_sequence_basic;
+          test_case "with delay" `Quick test_sequence_with_delay;
+          test_case "empty" `Quick test_sequence_empty;
+          test_case "reset" `Quick test_sequence_reset;
+          test_case "excess time carries" `Quick test_sequence_excess_carries;
         ] );
     ]
