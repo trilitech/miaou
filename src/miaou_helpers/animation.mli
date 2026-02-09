@@ -39,9 +39,16 @@
 (** Easing curve applied to the raw linear progress. *)
 type easing =
   | Linear  (** Constant speed. *)
-  | Ease_in  (** Slow start, accelerating. *)
-  | Ease_out  (** Fast start, decelerating. *)
-  | Ease_in_out  (** Slow start and end. *)
+  | Ease_in  (** Slow start, accelerating (cubic). *)
+  | Ease_out  (** Fast start, decelerating (cubic). *)
+  | Ease_in_out  (** Slow start and end (cubic). *)
+  | Bounce
+      (** Overshoots to ~1.1 then settles back to 1.0.
+          Useful for "pop" / impact effects in games. *)
+  | Custom of (float -> float)
+      (** User-supplied easing function.  Receives raw progress in
+          [\[0, 1\]], should return the eased value (may exceed
+          [\[0, 1\]] for overshoot effects). *)
 
 (** What happens when the animation reaches the end of its duration. *)
 type repeat =
@@ -99,3 +106,33 @@ val lerp : float -> float -> t -> float
 
 (** Integer version of {!lerp} (result is rounded to nearest int). *)
 val lerp_int : int -> int -> t -> int
+
+(** {1 Combinators} *)
+
+(** [delay seconds] creates an animation that stays at value 0.0 for
+    [seconds], then finishes.  Useful for inserting pauses into a
+    {!sequence}.
+
+    @param seconds Delay duration (clamped to > 0). *)
+val delay : float -> t
+
+(** [sequence anims] chains a list of animations end-to-end.  The
+    resulting animation's {!value} is that of whichever sub-animation
+    is currently active.  {!finished} is [true] only when the last
+    sub-animation finishes.
+
+    An empty list produces an already-finished animation with value 0.
+
+    {b Example} — flash, hold, then fade out:
+    {[
+      Animation.sequence [
+        Animation.create ~duration:0.1 ~easing:Ease_out () ;  (* flash in *)
+        Animation.delay 0.5 ;                                  (* hold *)
+        Animation.create ~duration:0.3 ~easing:Ease_in () ;    (* fade out *)
+      ]
+    ]}
+
+    Note: sub-animations should use [Once] repeat mode.  {!Loop} and
+    {!Ping_pong} sub-animations never finish, so subsequent steps
+    would never be reached. *)
+val sequence : t list -> t
