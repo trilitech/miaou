@@ -31,6 +31,8 @@ type border_chars = {
   v : string;
 }
 
+type layer = {canvas : t; row : int; col : int; opaque : bool}
+
 let default_style =
   {
     fg = -1;
@@ -231,6 +233,18 @@ let blit_all ~src ~dst ~row ~col =
         if dc >= 0 && dc < dst.cols then dst.grid.(dr).(dc) <- src.grid.(r).(c)
       done
   done
+
+let compose ~dst ~layers =
+  List.iter
+    (fun l ->
+      if l.opaque then blit_all ~src:l.canvas ~dst ~row:l.row ~col:l.col
+      else blit ~src:l.canvas ~dst ~row:l.row ~col:l.col)
+    layers
+
+let compose_new ~rows ~cols ~layers =
+  let dst = create ~rows ~cols in
+  compose ~dst ~layers ;
+  dst
 
 (* ANSI rendering *)
 

@@ -51,6 +51,9 @@ type border_chars = {
   v : string;
 }
 
+(** Placement and blend mode for one compositing layer. *)
+type layer = {canvas : t; row : int; col : int; opaque : bool}
+
 (** {1 Constants} *)
 
 (** The default style: no colors ([-1]), no attributes. *)
@@ -151,6 +154,18 @@ val blit : src:t -> dst:t -> row:int -> col:int -> unit
     at offset [(row, col)], including spaces. Out-of-bounds portions are
     clipped. *)
 val blit_all : src:t -> dst:t -> row:int -> col:int -> unit
+
+(** [compose ~dst ~layers] composites all [layers] onto [dst] in list order.
+    Earlier layers are considered behind later layers.
+
+    For each layer, [opaque = false] uses {!blit} (spaces are transparent),
+    while [opaque = true] uses {!blit_all} (spaces overwrite destination).
+    Out-of-bounds portions are clipped. *)
+val compose : dst:t -> layers:layer list -> unit
+
+(** [compose_new ~rows ~cols ~layers] creates a new empty canvas and applies
+    {!compose} with [layers]. *)
+val compose_new : rows:int -> cols:int -> layers:layer list -> t
 
 (** {1 Output} *)
 
