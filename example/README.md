@@ -57,6 +57,7 @@ The **gallery** provides a unified launcher to explore all demos interactively:
 | [image](demos/image/) | Image rendering with ANSI colors | [README](demos/image/README.md) |
 | [qr_code](demos/qr_code/) | QR code generation and display | [README](demos/qr_code/README.md) |
 | [description_list](demos/description_list/) | Key-value description lists | [README](demos/description_list/README.md) |
+| [canvas](demos/canvas/) | Canvas primitives and layered compositing | [README](demos/canvas/README.md) |
 
 ### Layout Widgets
 
@@ -89,6 +90,7 @@ The **gallery** provides a unified launcher to explore all demos interactively:
 |------|-------------|---------------|
 | [system_monitor](demos/system_monitor/) | Real-time system metrics showcase | [README](demos/system_monitor/README.md) |
 | [key_handling](demos/key_handling/) | Keyboard input handling patterns | [README](demos/key_handling/README.md) |
+| [miaou_invaders](demos/miaou_invaders/) | Arcade game demo using canvas, animation, timers, and AI mode | [README](demos/miaou_invaders/README.md) |
 
 ## Modal Examples
 

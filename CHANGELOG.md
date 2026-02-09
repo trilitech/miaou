@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - Unreleased
+
+### Breaking Changes
+
+- **Navigation API hardening**: `Navigation.pending` now returns `Navigation.nav option` (`Goto of string | Back | Quit`) instead of `string option`, replacing magic strings (`"__BACK__"`, `"__QUIT__"`).
+- **Modal navigation callback API**: `Modal_manager.set_pending_navigation` now takes `Navigation.nav` instead of `string`.
+- **Page transition hooks**: page transition handler records now expose an explicit `on_back` callback.
+- **Matrix IO internals**: `Matrix_io.t` removes legacy polling/drain fields (`poll`, `drain_nav_keys`, `drain_esc_keys`) in favor of a decoupled event queue reader model.
+
+### Added
+
+- **Clock capability** (`miaou_interfaces.Clock`) exposing `dt`, `now`, and `elapsed` thunks to pages/widgets.
+- **Page-scoped timers** (`miaou_interfaces.Timer`) with `set_interval`, `set_timeout`, `clear`, and fired-event draining.
+- **Animation module** (`miaou_helpers.Animation`) with easing, repeat modes, sequencing, delay, and lerp helpers.
+- **Canvas abstraction** (`miaou-core.canvas`) with drawing primitives, border styles, composition, and ANSI rendering.
+- **Canvas layers**: `Canvas.compose` and `Canvas.compose_new` for ordered transparent/opaque overlay compositing.
+- **Canvas widget** (`miaou_widgets_layout.Canvas_widget`) for embeddable mutable drawing surfaces in layout slots.
+- **Runner CLI snapshot mode**: `--cli-output` (plus `--cols`, `--rows`, `--ticks`) for non-interactive stdout rendering.
+- **Color documentation**: new `docs/colors.md` plus widget interface docs clarifying ANSI payload formats and precedence rules.
+
+### Changed
+
+- **Matrix driver input architecture**: dedicated Eio reader fiber + mutexed queue; tick loop drains full event batches.
+- **Default matrix tick rate** increased to **60 TPS**.
+- **Matrix artifact scrubbing** is now configurable via `MIAOU_MATRIX_SCRUB_FRAMES` (set `0` to disable).
+- **Example gallery** now includes the renamed **Miaou Invaders** demo, with richer gameplay systems and modularized demo code.
+
+### Fixed
+
+- **ESC parsing robustness**: avoid out-of-bounds exceptions on unknown ESC-prefixed pairs while preserving Escape semantics.
+- **Demo overlay/collision consistency** in Miaou Invaders: gameplay coordinate handling stays aligned with canvas size and reserved HUD rows.
+
 ## [0.2.7] - 2026-02-07
 
 ### Fixed
