@@ -353,6 +353,13 @@ let demos =
           "demo_focus_container"
           (module Focus_container_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "Canvas";
+      open_demo =
+        goto
+          "demo_canvas"
+          (module Canvas_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let init () = Navigation.make {cursor = 0}
