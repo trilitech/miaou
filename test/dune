@@ -310,6 +310,11 @@
  (modules test_animation)
  (libraries alcotest miaou-core.helpers))
 
+(test
+ (name test_canvas)
+ (modules test_canvas)
+ (libraries alcotest miaou-core.canvas))
+
 ; Interactive test for multiline modal title issue
 ; Run with: dune exec test/modal_multiline_test.exe
 
