@@ -256,6 +256,9 @@ dune exec -- miaou.demo             # TUI-only demo (lambda-term)
 dune exec -- miaou.demo-sdl         # SDL demo with enhanced graphics
 dune exec -- miaou-runner-tui       # generic runner forcing TUI
 dune exec -- miaou-runner-native    # generic runner preferring SDL
+
+# Pure CLI output (non-interactive snapshot)
+dune exec -- miaou-runner-tui -- --page main --cli-output --cols 100 --rows 28 --ticks 2
 ```
 
 For the best SDL experience with transitions:
@@ -768,4 +771,3 @@ match Registry.conflict_report () with
 - ✅ **Runtime validation**: Conflicts detected at registration
 - ✅ **Self-documenting**: `handled_keys` serves as documentation
 - ✅ **Auto-generated help**: Future help system can introspect keys
-
