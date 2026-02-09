@@ -37,6 +37,7 @@
   direct_page_demo
   box_widget_demo
   focus_container_demo
+  canvas_demo
   ; Core miaou
   miaou
   miaou-core.lib_miaou_internal))

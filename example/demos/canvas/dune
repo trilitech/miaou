@@ -1,0 +1,19 @@
+(library
+ (name canvas_demo)
+ (modules page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
+ (libraries
+  demo_shared
+  miaou
+  miaou-core.lib_miaou_internal
+  miaou-core.canvas))
+
+(executable
+ (name main)
+ (public_name miaou.canvas-demo)
+ (package miaou)
+ (modules main)
+ (libraries canvas_demo miaou-runner.tui miaou-core.helpers eio_main))
