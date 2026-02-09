@@ -53,7 +53,7 @@ let apply_powerup s color =
     if bonus_life = 0 then s.life_popups
     else
       {
-        lpos = {x = s.ship_x; y = Float.of_int (s.field_h - 3)};
+        lpos = {x = s.ship_x; y = muzzle_y_for s.field_h};
         lanim = Anim.create ~duration:0.9 ~easing:Ease_out ();
       }
       :: s.life_popups
@@ -67,11 +67,11 @@ let apply_powerup s color =
     ship_morph = Some (Anim.create ~duration:0.45 ~easing:Ease_in_out ());
     explosions =
       s.explosions
-      @ spawn_explosion ~x:s.ship_x ~y:(Float.of_int (s.field_h - 3)) ~big:false;
+      @ spawn_explosion ~x:s.ship_x ~y:(muzzle_y_for s.field_h) ~big:false;
   }
 
 let collect_bonuses s =
-  let ship_y = Float.of_int (s.field_h - 2) in
+  let ship_y = ship_y_for s.field_h in
   let grab_x = float_of_int (ship_half_width s + 1) in
   let rec loop bonuses kept st =
     match bonuses with
@@ -181,7 +181,7 @@ let check_bullet_alien_collisions s =
     life_popups =
       (if !extra_lives > 0 then
          {
-           lpos = {x = s.ship_x; y = Float.of_int (s.field_h - 3)};
+           lpos = {x = s.ship_x; y = muzzle_y_for s.field_h};
            lanim = Anim.create ~duration:0.9 ~easing:Ease_out ();
          }
          :: s.life_popups
@@ -191,7 +191,7 @@ let check_bullet_alien_collisions s =
   }
 
 let check_alien_bullet_ship s =
-  let ship_y = Float.of_int (s.field_h - 2) in
+  let ship_y = ship_y_for s.field_h in
   let hit =
     List.exists
       (fun (b : projectile) ->
@@ -265,7 +265,7 @@ let step_aliens s =
   in
   let reached_bottom =
     List.exists
-      (fun a -> a.alive && a.pos.y >= Float.of_int (s.field_h - 3))
+      (fun a -> a.alive && a.pos.y >= Float.of_int (ship_row_for s.field_h - 1))
       aliens
   in
   if reached_bottom then
