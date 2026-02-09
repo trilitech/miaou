@@ -166,27 +166,55 @@ module Inner = struct
       end
     end ;
 
-    (* Blit demo: small overlay canvas composited onto main canvas *)
+    (* Layer compositing demo: small overlay canvases composed onto main canvas *)
     let overlay_row = max (2 + box1_h + 1) 11 in
     if overlay_row + 5 < c_rows then begin
-      let ov = C.create ~rows:3 ~cols:19 in
+      let ov_back = C.create ~rows:3 ~cols:22 in
       C.draw_box
-        ov
+        ov_back
+        ~row:0
+        ~col:0
+        ~width:22
+        ~height:3
+        ~border:Rounded
+        ~style:{overlay_style with dim = true} ;
+      C.draw_text
+        ov_back
+        ~row:1
+        ~col:2
+        ~style:{overlay_style with dim = true}
+        "Layer 1 (back)" ;
+
+      let ov_front = C.create ~rows:3 ~cols:19 in
+      C.draw_box
+        ov_front
         ~row:0
         ~col:0
         ~width:19
         ~height:3
         ~border:Rounded
         ~style:overlay_style ;
-      C.draw_text ov ~row:1 ~col:2 ~style:overlay_style "Blitted overlay" ;
-      C.blit ~src:ov ~dst:c ~row:overlay_row ~col:2 ;
+      C.draw_text ov_front ~row:1 ~col:2 ~style:overlay_style "Layer 2 (front)" ;
+
+      C.compose
+        ~dst:c
+        ~layers:
+          [
+            {C.canvas = ov_back; row = overlay_row; col = 2; opaque = false};
+            {
+              C.canvas = ov_front;
+              row = overlay_row + 1;
+              col = 10;
+              opaque = false;
+            };
+          ] ;
 
       C.draw_text
         c
         ~row:(overlay_row + 3)
         ~col:2
         ~style:dim_style
-        "^ composited via Canvas.blit"
+        "^ composited via Canvas.compose"
     end ;
 
     (* Horizontal line across bottom *)
@@ -203,7 +231,9 @@ module Inner = struct
     end ;
 
     (* Status line *)
-    let status = Printf.sprintf "b:border  c:colors  t:tutorial  Esc:back" in
+    let status =
+      Printf.sprintf "b:border  c:colors  layers:compose  t:tutorial  Esc:back"
+    in
     let status_row = c_rows - 1 in
     C.draw_text c ~row:status_row ~col:1 ~style:dim_style status ;
 

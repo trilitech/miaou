@@ -251,6 +251,46 @@ let test_blit_negative_offset () =
   check string "visible cell" "X" (cell_char dst ~row:0 ~col:0) ;
   check string "untouched" " " (cell_char dst ~row:1 ~col:0)
 
+let test_compose_transparent_layers () =
+  let dst = C.create ~rows:4 ~cols:8 in
+  C.fill_rect dst ~row:0 ~col:0 ~width:8 ~height:4 ~char:"." ~style ;
+  let l1 = C.create ~rows:1 ~cols:3 in
+  C.set_char l1 ~row:0 ~col:0 ~char:"A" ~style ;
+  C.set_char l1 ~row:0 ~col:2 ~char:"C" ~style ;
+  let l2 = C.create ~rows:1 ~cols:3 in
+  C.set_char l2 ~row:0 ~col:1 ~char:"B" ~style:red_style ;
+  C.compose
+    ~dst
+    ~layers:
+      [
+        {C.canvas = l1; row = 1; col = 2; opaque = false};
+        {C.canvas = l2; row = 1; col = 2; opaque = false};
+      ] ;
+  check string "A kept" "A" (cell_char dst ~row:1 ~col:2) ;
+  check string "B overlaid" "B" (cell_char dst ~row:1 ~col:3) ;
+  check string "C kept" "C" (cell_char dst ~row:1 ~col:4)
+
+let test_compose_opaque_layer () =
+  let dst = C.create ~rows:2 ~cols:4 in
+  C.fill_rect dst ~row:0 ~col:0 ~width:4 ~height:2 ~char:"X" ~style ;
+  let l = C.create ~rows:1 ~cols:3 in
+  C.set_char l ~row:0 ~col:1 ~char:"Q" ~style ;
+  C.compose ~dst ~layers:[{C.canvas = l; row = 0; col = 1; opaque = true}] ;
+  check string "space overwrote" " " (cell_char dst ~row:0 ~col:1) ;
+  check string "char copied" "Q" (cell_char dst ~row:0 ~col:2)
+
+let test_compose_new () =
+  let l = C.create ~rows:1 ~cols:2 in
+  C.set_char l ~row:0 ~col:0 ~char:"M" ~style:bold_style ;
+  let c =
+    C.compose_new
+      ~rows:2
+      ~cols:3
+      ~layers:[{C.canvas = l; row = 1; col = 1; opaque = false}]
+  in
+  check string "composed char" "M" (cell_char c ~row:1 ~col:1) ;
+  check bool "style kept" true (cell_bold c ~row:1 ~col:1)
+
 (* --- ANSI output --- *)
 
 let test_to_ansi_empty () =
@@ -387,6 +427,12 @@ let () =
           test_case "blit_all opaque" `Quick test_blit_all;
           test_case "blit clip" `Quick test_blit_clip;
           test_case "blit negative offset" `Quick test_blit_negative_offset;
+          test_case
+            "compose transparent layers"
+            `Quick
+            test_compose_transparent_layers;
+          test_case "compose opaque layer" `Quick test_compose_opaque_layer;
+          test_case "compose_new" `Quick test_compose_new;
         ] );
       ( "ansi output",
         [

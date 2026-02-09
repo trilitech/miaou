@@ -33,6 +33,15 @@ Canvas.blit ~src:overlay ~dst:base ~row:2 ~col:5
 
 (* Opaque blit — copies everything including spaces *)
 Canvas.blit_all ~src:overlay ~dst:base ~row:2 ~col:5
+
+(* Multi-layer composition (back-to-front) *)
+Canvas.compose
+  ~dst:base
+  ~layers:[
+    { Canvas.canvas = shadow; row = 3; col = 4; opaque = false };
+    { Canvas.canvas = panel; row = 2; col = 3; opaque = true };
+    { Canvas.canvas = hud; row = 1; col = 1; opaque = false };
+  ]
 ```
 
 ## Controls
