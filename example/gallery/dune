@@ -38,7 +38,7 @@
   box_widget_demo
   focus_container_demo
   canvas_demo
-  space_invaders_demo
+  miaou_invaders_demo
   ; Core miaou
   miaou
   miaou-core.lib_miaou_internal))
