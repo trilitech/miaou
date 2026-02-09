@@ -54,6 +54,15 @@ val create : Unix.file_descr -> t
     @return Number of bytes read *)
 val refill : t -> timeout_s:float -> int
 
+(** Read bytes into buffer without waiting (no [Unix.select]).
+    The caller is responsible for ensuring the fd is readable
+    (e.g. via [Eio_unix.await_readable]).
+    @return Number of bytes read, or 0 on EINTR / nothing available. *)
+val refill_nonblocking : t -> int
+
+(** Return the underlying file descriptor. *)
+val fd : t -> Unix.file_descr
+
 (** Parse next key from buffer, consuming the bytes.
     Returns [None] if buffer is empty. *)
 val parse_key : t -> key option
