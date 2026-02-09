@@ -10,6 +10,8 @@
     Settings can be configured via environment variables:
     - MIAOU_MATRIX_FPS: Frame rate cap for rendering (default: 60)
     - MIAOU_MATRIX_TPS: Tick rate for effects/input (default: 60)
+    - MIAOU_MATRIX_SCRUB_FRAMES: Full redraw interval in frames
+      (default: 30, set 0 to disable)
     - MIAOU_MATRIX_DEBUG: Enable debug logging (default: false)
     - MIAOU_ENABLE_MOUSE: Enable mouse tracking (default: true, set to 0/false/no to disable for easier copy/paste)
 *)
@@ -19,6 +21,8 @@ type t = {
   frame_time_ms : float;  (** Minimum time between frames in ms *)
   tps_cap : int;  (** Maximum ticks per second for effects domain (1-120) *)
   tick_time_ms : float;  (** Minimum time between ticks in ms *)
+  scrub_interval_frames : int;
+      (** Perform a full clear+redraw every N frames (0 disables) *)
   debug : bool;  (** Enable debug logging *)
   enable_mouse : bool;
       (** Enable mouse tracking (set to false for easier copy/paste) *)
