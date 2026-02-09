@@ -8,7 +8,9 @@
   (backend bisect_ppx))
  (libraries
   miaou-core.core
+  miaou-core.interfaces
   miaou-core.internals
+  miaou-core.helpers
   miaou-core.widgets.layout
   lambda-term
   unix))

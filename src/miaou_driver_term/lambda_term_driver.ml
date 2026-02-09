@@ -9,6 +9,7 @@
 [@@@coverage off]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
+module Clock = Miaou_interfaces.Clock
 open Miaou_core.Tui_page
 module Navigation = Miaou_core.Navigation
 module Capture = Miaou_core.Tui_capture
@@ -838,6 +839,10 @@ let run (initial_page : (module PAGE_SIG)) :
             | None -> Page.handle_key ps key ~size
         in
 
+        (* Clock capability — provides dt/now/elapsed to pages and widgets *)
+        let clock_state = Clock.create_state () in
+        Clock.register clock_state ;
+
         (* Key handler stack (pure) integration: thread alongside page state. *)
         (* Prepare key handler stack: push a frame for the page keymap once per page.
        We translate (key, state->state, desc) into a side-effect that records
@@ -852,6 +857,7 @@ let run (initial_page : (module PAGE_SIG)) :
           | Navigation.Goto page -> `SwitchTo page
         in
         let rec loop ps key_stack =
+          Clock.tick clock_state ;
           (* Check if a signal (Ctrl+C) requested exit - if so, exit gracefully *)
           if Atomic.get signal_exit_flag then
             (* Don't call cleanup() here - let it run via at_exit for proper cleanup timing *)
