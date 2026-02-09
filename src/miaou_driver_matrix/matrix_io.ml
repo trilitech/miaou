@@ -16,6 +16,7 @@ type event =
 type t = {
   write : string -> unit;
   poll : timeout_ms:int -> event;
+  drain : unit -> event list;
   drain_nav_keys : event -> int;
   drain_esc_keys : unit -> int;
   size : unit -> int * int;
