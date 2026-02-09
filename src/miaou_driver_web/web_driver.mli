@@ -60,4 +60,4 @@ val run :
   ?viewer_html:string ->
   ?extra_assets:extra_asset list ->
   (module Miaou_core.Tui_page.PAGE_SIG) ->
-  [`Quit | `SwitchTo of string]
+  [`Quit | `Back | `SwitchTo of string]

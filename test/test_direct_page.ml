@@ -12,6 +12,15 @@ module Tui_page = Miaou_core.Tui_page
 
 let size = LTerm_geom.{rows = 24; cols = 80}
 
+let nav_option_testable =
+  Alcotest.testable
+    (fun fmt -> function
+      | None -> Fmt.string fmt "None"
+      | Some (Navigation.Goto s) -> Fmt.pf fmt "Some (Goto %S)" s
+      | Some Navigation.Back -> Fmt.string fmt "Some Back"
+      | Some Navigation.Quit -> Fmt.string fmt "Some Quit")
+    ( = )
+
 (* Test page: counter with navigation effects *)
 module Counter_input = struct
   type state = int
@@ -45,7 +54,7 @@ let test_init_wraps () =
   (* State is abstract through PAGE_SIG, but we can check via view *)
   let output = Counter.view ps ~focus:true ~size in
   check string "init state renders as 0" "0" output ;
-  check (option string) "no pending nav" None (Navigation.pending ps)
+  check nav_option_testable "no pending nav" None (Navigation.pending ps)
 
 let test_view_unwraps () =
   let ps = Counter.init () in
@@ -59,27 +68,35 @@ let test_navigate () =
   let ps = Counter.init () in
   let ps' = Counter.handle_key ps "g" ~size in
   check
-    (option string)
+    nav_option_testable
     "navigates to other"
-    (Some "other")
+    (Some (Navigation.Goto "other"))
     (Navigation.pending ps')
 
 let test_go_back () =
   let ps = Counter.init () in
   let ps' = Counter.handle_key ps "b" ~size in
-  check (option string) "goes back" (Some "__BACK__") (Navigation.pending ps')
+  check
+    nav_option_testable
+    "goes back"
+    (Some Navigation.Back)
+    (Navigation.pending ps')
 
 let test_quit () =
   let ps = Counter.init () in
   let ps' = Counter.handle_key ps "q" ~size in
-  check (option string) "quits" (Some "__QUIT__") (Navigation.pending ps')
+  check
+    nav_option_testable
+    "quits"
+    (Some Navigation.Quit)
+    (Navigation.pending ps')
 
 let test_no_effect () =
   let ps = Counter.init () in
   let ps' = Counter.handle_key ps "Up" ~size in
   let output = Counter.view ps' ~focus:true ~size in
   check string "state incremented" "1" output ;
-  check (option string) "no nav" None (Navigation.pending ps')
+  check nav_option_testable "no nav" None (Navigation.pending ps')
 
 let test_state_and_nav () =
   (* Press Up then g: first increment, then navigate. *)
@@ -88,7 +105,11 @@ let test_state_and_nav () =
   let ps'' = Counter.handle_key ps' "g" ~size in
   let output = Counter.view ps'' ~focus:true ~size in
   check string "state preserved after nav" "1" output ;
-  check (option string) "nav set" (Some "other") (Navigation.pending ps'')
+  check
+    nav_option_testable
+    "nav set"
+    (Some (Navigation.Goto "other"))
+    (Navigation.pending ps'')
 
 let test_last_wins () =
   let module Double_nav = Direct_page.Make (Direct_page.With_defaults (struct
@@ -108,7 +129,11 @@ let test_last_wins () =
   end)) in
   let ps = Double_nav.init () in
   let ps' = Double_nav.handle_key ps "x" ~size in
-  check (option string) "last nav wins" (Some "second") (Navigation.pending ps')
+  check
+    nav_option_testable
+    "last nav wins"
+    (Some (Navigation.Goto "second"))
+    (Navigation.pending ps')
 
 (* -- run tests -- *)
 

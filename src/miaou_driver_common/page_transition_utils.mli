@@ -10,6 +10,7 @@ module Navigation = Miaou_core.Navigation
 
 type 'r handler = {
   on_quit : unit -> 'r;
+  on_back : unit -> 'r;
   on_same_page : unit -> 'r;
   on_new_page :
     'new_s.
@@ -18,7 +19,8 @@ type 'r handler = {
 
 (** [handle_next_page page_module ps handler] checks if the current page requests
     a transition and invokes the appropriate callback:
-    - Calls [handler.on_quit ()] if the page requests "__QUIT__" or an unknown page
+    - Calls [handler.on_quit ()] if the page requests [Quit] or an unknown page
+    - Calls [handler.on_back ()] if the page requests [Back]
     - Calls [handler.on_same_page ()] if no transition requested
     - Calls [handler.on_new_page next_module next_pstate] if transitioning to a valid page
 

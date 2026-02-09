@@ -142,7 +142,7 @@ val take_consume_next_key : unit -> bool
     {[
       ~on_close:(fun _modal_state outcome ->
         match outcome with
-        | `Commit -> Modal_manager.set_pending_navigation "next_page"
+        | `Commit -> Modal_manager.set_pending_navigation (Navigation.Goto "next_page")
         | `Cancel -> ())
     ]}
 
@@ -150,15 +150,15 @@ val take_consume_next_key : unit -> bool
     modal callbacks, which was error-prone and required pages to check the ref
     in [service_cycle].
 *)
-val set_pending_navigation : string -> unit
+val set_pending_navigation : Navigation.nav -> unit
 
 (** Read and clear the pending navigation request.
 
-    Returns [Some page_name] exactly once after [set_pending_navigation] was
+    Returns [Some nav] exactly once after [set_pending_navigation] was
     called. This is used by drivers to apply navigation after modal close.
     You typically don't need to call this function yourself.
 *)
-val take_pending_navigation : unit -> string option
+val take_pending_navigation : unit -> Navigation.nav option
 
 (* Access the UI metadata for the top-most modal, if any. *)
 val top_ui_opt : unit -> ui option

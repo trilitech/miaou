@@ -183,9 +183,9 @@ let take_consume_next_key () =
    Modal callbacks can call set_pending_navigation to request navigation
    without needing access to the parent page's pstate. The driver checks
    this after modal close and applies it to the pstate. *)
-let pending_navigation_ref : string option ref = ref None
+let pending_navigation_ref : Navigation.nav option ref = ref None
 
-let set_pending_navigation page = pending_navigation_ref := Some page
+let set_pending_navigation nav = pending_navigation_ref := Some nav
 
 let take_pending_navigation () =
   let v = !pending_navigation_ref in

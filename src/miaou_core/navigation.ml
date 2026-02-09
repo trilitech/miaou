@@ -9,15 +9,17 @@
     Pages work with ['a pstate] instead of raw state, enabling
     framework-managed navigation without boilerplate. *)
 
-type 'a t = {s : 'a; nav : string option}
+type nav = Goto of string | Back | Quit
+
+type 'a t = {s : 'a; nav : nav option}
 
 let make s = {s; nav = None}
 
-let goto page ps = {ps with nav = Some page}
+let goto page ps = {ps with nav = Some (Goto page)}
 
-let back ps = {ps with nav = Some "__BACK__"}
+let back ps = {ps with nav = Some Back}
 
-let quit ps = {ps with nav = Some "__QUIT__"}
+let quit ps = {ps with nav = Some Quit}
 
 let pending ps = ps.nav
 

@@ -21,4 +21,4 @@ type driver_key = Term_events.driver_key =
 val run_with_key_source :
   read_key:(unit -> driver_key) ->
   (module Miaou_core.Tui_page.PAGE_SIG) ->
-  [`Quit | `SwitchTo of string]
+  [`Quit | `Back | `SwitchTo of string]

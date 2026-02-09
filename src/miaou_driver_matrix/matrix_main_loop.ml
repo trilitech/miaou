@@ -75,8 +75,8 @@ let eio_sleep env seconds =
   if seconds > 0.001 then Eio.Time.sleep env#clock seconds
 
 let run ctx ~(env : Eio_unix.Stdenv.base)
-    (initial_page : (module Tui_page.PAGE_SIG)) : [`Quit | `SwitchTo of string]
-    =
+    (initial_page : (module Tui_page.PAGE_SIG)) :
+    [`Quit | `Back | `SwitchTo of string] =
   let tick_time_s = ctx.config.tick_time_ms /. 1000.0 in
 
   (* TPS tracker for debug overlay *)
@@ -382,25 +382,36 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
     (* Check for pending navigation from modal callbacks *)
     let ps =
       match Modal_manager.take_pending_navigation () with
-      | Some page -> Navigation.goto page ps
+      | Some (Navigation.Goto page) -> Navigation.goto page ps
+      | Some Navigation.Back -> Navigation.back ps
+      | Some Navigation.Quit -> Navigation.quit ps
       | None -> ps
     in
     let next = Navigation.pending ps in
     (* Debug: log navigation if MIAOU_DEBUG is set *)
     (if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
        match next with
-       | Some name ->
+       | Some nav ->
            let oc =
              open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
            in
-           Printf.fprintf oc "Navigation requested: %S\n%!" name ;
+           let nav_str =
+             match nav with
+             | Navigation.Goto name -> Printf.sprintf "Goto %S" name
+             | Navigation.Back -> "Back"
+             | Navigation.Quit -> "Quit"
+           in
+           Printf.fprintf oc "Navigation requested: %s\n%!" nav_str ;
            close_out oc
        | None -> ()) ;
     match next with
-    | Some "__QUIT__" ->
+    | Some Navigation.Quit ->
         Matrix_render_loop.shutdown ctx.render_loop ;
         `Quit
-    | Some name -> `SwitchTo name
+    | Some Navigation.Back ->
+        Matrix_render_loop.shutdown ctx.render_loop ;
+        `Back
+    | Some (Navigation.Goto name) -> `SwitchTo name
     | None ->
         (* Maintain TPS by sleeping if we have time left *)
         let elapsed = Unix.gettimeofday () -. tick_start in
