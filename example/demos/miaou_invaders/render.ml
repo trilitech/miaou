@@ -207,10 +207,14 @@ let draw_game s c =
         let fg = if int_of_float (v *. 20.0) mod 2 = 0 then 203 else 196 in
         let msg = Printf.sprintf "WARNING - BOSS LEVEL %d" s.level in
         let sub = "Survive the barrage and break the core" in
+        let warning = C.create ~rows:2 ~cols in
         let msg_col = max 1 ((cols - String.length msg) / 2) in
         let sub_col = max 1 ((cols - String.length sub) / 2) in
-        C.draw_text c ~row:3 ~col:msg_col ~style:(bold_style_of fg) msg ;
-        C.draw_text c ~row:4 ~col:sub_col ~style:(style_of 229) sub) ;
+        C.draw_text warning ~row:0 ~col:msg_col ~style:(bold_style_of fg) msg ;
+        C.draw_text warning ~row:1 ~col:sub_col ~style:(style_of 229) sub ;
+        C.compose
+          ~dst:c
+          ~layers:[{C.canvas = warning; row = 3; col = 0; opaque = false}]) ;
 
     List.iter
       (fun a ->
