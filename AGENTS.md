@@ -346,7 +346,8 @@ Ask for confirmation before proceeding.
 | `MIAOU_ENABLE_MOUSE` | Enable/disable mouse tracking: `0`, `1`, `true`, `false` |
 | `MIAOU_OVERLAY` | Show FPS/TPS overlay: `1` |
 | `MIAOU_MATRIX_FPS` | Matrix render FPS cap (default: 60) |
-| `MIAOU_MATRIX_TPS` | Matrix tick rate (default: 30) |
+| `MIAOU_MATRIX_TPS` | Matrix tick rate (default: 60) |
+| `MIAOU_MATRIX_SCRUB_FRAMES` | Periodic full redraw interval (default: 30, `0` disables) |
 | `MIAOU_DEBUG` | Enable debug logging: `1` |
 
 ## Quick Reference

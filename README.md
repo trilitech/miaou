@@ -568,7 +568,7 @@ Configuration & options
 -----------------------
 
 - Logging/debug: enable debug output by setting `MIAOU_TUI_DEBUG_MODAL=1` (used by modal manager internals).
-- Backend selection: MIAOU uses λ-term by default; the driver/backend interface makes alternate backends possible.
+- Backend selection: MIAOU uses Matrix by default (priority: Matrix > SDL > λ-term), with environment-based overrides.
 
 Debugging & environment variables
 ---------------------------------
@@ -587,7 +587,8 @@ Debugging & environment variables
 
 **Matrix Backend:**
 - `MIAOU_MATRIX_FPS=60` — render domain frame rate cap (default: 60)
-- `MIAOU_MATRIX_TPS=30` — main domain tick rate (default: 30)
+- `MIAOU_MATRIX_TPS=60` — main domain tick rate (default: 60)
+- `MIAOU_MATRIX_SCRUB_FRAMES=30` — periodic full clear+redraw interval in frames (`0` disables)
 
 **SDL Backend:**
 - `MIAOU_SDL_FONT=/path/to/font.ttf` — specify TrueType font for SDL rendering
