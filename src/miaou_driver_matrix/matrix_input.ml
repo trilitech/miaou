@@ -147,14 +147,3 @@ let stop t = Atomic.set t.shutdown true
 
 (** Drain all pending events (oldest first). *)
 let drain t = Event_queue.drain t.queue
-
-(** Legacy poll — for backward compatibility.  Drains the queue and returns
-    the first event, or Idle when the queue is empty. *)
-let poll t ~timeout_ms:_ =
-  match Event_queue.drain t.queue with ev :: _ -> ev | [] -> Matrix_io.Idle
-
-(* Drain nav/esc keys are no-ops with the decoupled reader — all buffered
-   keys are already in the queue and processed naturally each tick. *)
-let drain_nav_keys _t _event = 0
-
-let drain_esc_keys _t = 0
