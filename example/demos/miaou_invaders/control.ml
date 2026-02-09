@@ -19,11 +19,12 @@ let register_timers () =
       timer.set_interval ~id:"alien_shoot" 0.8
 
 let view s ~focus:_ ~size =
-  let rows = max 16 (min 24 (size.LTerm_geom.rows - 1)) in
+  let rows = max 22 (min 36 (size.LTerm_geom.rows - 1)) in
+  let game_rows = max 16 (rows - 5) in
   let cols = max 24 (min size.LTerm_geom.cols max_cols) in
   let s =
-    if s.field_w <> cols || s.field_h <> rows then
-      {s with field_w = cols; field_h = rows}
+    if s.field_w <> cols || s.field_h <> game_rows then
+      {s with field_w = cols; field_h = game_rows}
     else s
   in
   let cw = Cw.ensure s.cw ~rows ~cols in
@@ -53,7 +54,7 @@ let fire s =
     | Playing ->
         if s.fire_cd > 0.0 then s
         else
-          let ship_y = Float.of_int (s.field_h - 3) in
+          let ship_y = muzzle_y_for s.field_h in
           let kind = shot_kind_of s.shot_color in
           let p = max 1 s.shot_power in
           let mk ?(vx = 0.0) ?(vy = -.bullet_speed) ?(wave_amp = 0.0)
@@ -251,7 +252,7 @@ let ai_target_x s =
       match best with Some a -> a.pos.x | None -> s.ship_x)
 
 let ai_danger s =
-  let ship_y = Float.of_int (s.field_h - 2) in
+  let ship_y = ship_y_for s.field_h in
   List.fold_left
     (fun acc (b : projectile) ->
       if b.vy <= 0.0 then acc
@@ -274,7 +275,7 @@ let ai_danger s =
     s.alien_bullets
 
 let ai_bonus_target s =
-  let ship_y = Float.of_int (s.field_h - 2) in
+  let ship_y = ship_y_for s.field_h in
   let near_bonus =
     List.filter
       (fun (b : bonus) -> b.bpos.y > ship_y -. 8.0 && b.bpos.y < ship_y +. 0.8)
@@ -329,6 +330,7 @@ let ai_control s =
 
 let handle_key s key_str ~size:_ =
   match Miaou.Core.Keys.of_string key_str with
+  | Some Miaou.Core.Keys.Escape -> go_back s
   | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
       go_back s
   | Some Miaou.Core.Keys.Enter when s.show_title -> start_run s
@@ -360,6 +362,17 @@ let refresh s =
       register_timers () ;
       {s with timers_registered = true}
     end
+    else s
+  in
+  let s =
+    let canvas_rows = Cw.rows s.cw in
+    let canvas_cols = Cw.cols s.cw in
+    let field_h =
+      if canvas_rows > 0 then max 16 (canvas_rows - 5) else s.field_h
+    in
+    let field_w = if canvas_cols > 0 then max 24 canvas_cols else s.field_w in
+    if s.field_w <> field_w || s.field_h <> field_h then
+      {s with field_w; field_h}
     else s
   in
   let dt =
@@ -470,6 +483,7 @@ let handled_keys () =
       Char "d";
       Char "D";
       Char "r";
+      Escape;
       Char "Esc";
     ]
 
