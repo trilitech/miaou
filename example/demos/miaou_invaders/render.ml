@@ -139,7 +139,7 @@ let draw_game s c =
     let weapon_fg =
       match s.shot_color with None -> 81 | Some color -> bonus_fg color
     in
-    let hud =
+    let hud_main =
       Printf.sprintf
         " Score:%d  Lives:%d  Lvl:%d  Weapon:%s P%s  BG:%s %s "
         s.score
@@ -150,7 +150,16 @@ let draw_game s c =
         theme.name
         (if s.ai_mode then "[AI]" else "")
     in
-    C.draw_text c ~row:0 ~col:2 ~style:(bold_style_of weapon_fg) hud ;
+    let hud_sub =
+      let bonus_label =
+        match s.shot_color with
+        | None -> "None"
+        | Some Ruby -> "Ruby"
+        | Some Emerald -> "Emerald"
+        | Some Sapphire -> "Sapphire"
+      in
+      Printf.sprintf " Driver: Matrix Layers  Bonus:%s " bonus_label
+    in
 
     (match s.phase with
     | Playing -> ()
@@ -301,7 +310,7 @@ let draw_game s c =
         in
         let half = String.length sprite / 2 in
         let ship_col = Float.to_int s.ship_x - half + cam_x in
-        let ship_row = rows - 2 + cam_y in
+        let ship_row = ship_row_for s.field_h + cam_y in
         let ship_fg =
           match s.shot_color with None -> 46 | Some color -> bonus_fg color
         in
@@ -343,6 +352,39 @@ let draw_game s c =
       "<-/->/h/l:move  Space:fire  p:pause  Collect $ for power  r:restart  \
        Esc:back"
     in
+
+    (* HUD panel composited on top of gameplay. *)
+    let hud_w =
+      min (cols - 2) (max (String.length hud_main) (String.length hud_sub) + 4)
+    in
+    let hud_h = 4 in
+    if hud_w > 8 && rows > 6 then begin
+      let hud = C.create ~rows:hud_h ~cols:hud_w in
+      let hud_row = max (ship_row_for s.field_h + 1) (rows - hud_h - 1) in
+      let hud_col = max 1 ((cols - hud_w) / 2) in
+      C.draw_box
+        hud
+        ~row:0
+        ~col:0
+        ~width:hud_w
+        ~height:hud_h
+        ~border:Rounded
+        ~style:(style_of 250) ;
+      C.fill_rect
+        hud
+        ~row:1
+        ~col:1
+        ~width:(hud_w - 2)
+        ~height:(hud_h - 2)
+        ~char:" "
+        ~style:{C.default_style with bg = 236} ;
+      C.draw_text hud ~row:1 ~col:2 ~style:(bold_style_of weapon_fg) hud_main ;
+      C.draw_text hud ~row:2 ~col:2 ~style:(style_of 252) hud_sub ;
+      C.compose
+        ~dst:c
+        ~layers:[{C.canvas = hud; row = hud_row; col = hud_col; opaque = true}]
+    end ;
+
     let hint_col = max 1 ((cols - String.length hint) / 2) in
     C.draw_text c ~row:(rows - 1) ~col:hint_col ~style:(style_of 240) hint
   end

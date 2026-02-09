@@ -178,6 +178,12 @@ let ship_sprite shot_color shot_power =
 let ship_half_width s =
   max 1 (String.length (ship_sprite s.shot_color s.shot_power) / 2)
 
+let ship_row_for field_h = max 3 (field_h - 2)
+
+let ship_y_for field_h = Float.of_int (ship_row_for field_h)
+
+let muzzle_y_for field_h = Float.of_int (max 1 (ship_row_for field_h - 1))
+
 let is_boss_level level = level mod 5 = 0
 
 let boss_hp_for level = 18 + (level * 4)
