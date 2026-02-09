@@ -1,6 +1,6 @@
 (library
- (name space_invaders_demo)
- (modules page)
+ (name miaou_invaders_demo)
+ (modules model logic render control game page)
  (preprocess
   (pps ppx_blob))
  (preprocessor_deps
@@ -16,7 +16,7 @@
 
 (executable
  (name main)
- (public_name miaou.space-invaders-demo)
+ (public_name miaou.miaou-invaders-demo)
  (package miaou)
  (modules main)
- (libraries space_invaders_demo miaou-runner.tui miaou-core.helpers eio_main))
+ (libraries miaou_invaders_demo miaou-runner.tui miaou-core.helpers eio_main))
