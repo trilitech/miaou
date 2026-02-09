@@ -5,27 +5,64 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-(** Matrix driver input handling - uses shared Input_parser. *)
+(** Matrix driver input handling — decoupled reader fiber with event queue.
+
+    A dedicated Eio fiber continuously awaits readability on the terminal fd
+    via {!Eio_unix.await_readable}, reads bytes with a non-blocking
+    {!Input_parser.refill_nonblocking}, parses keys, and pushes
+    {!Matrix_io.event} values into a mutex-protected queue.
+
+    The main tick loop drains the queue at the start of every tick and
+    processes all buffered events, giving sub-millisecond input latency
+    regardless of the TPS setting. *)
 
 module Parser = Miaou_driver_common.Input_parser
+
+(** {2 Event queue} *)
+
+module Event_queue : sig
+  type t
+
+  val create : unit -> t
+
+  (** Push an event (called from reader fiber). *)
+  val push : t -> Matrix_io.event -> unit
+
+  (** Drain all pending events into a list (oldest first).
+      Returns the empty list when the queue is empty. *)
+  val drain : t -> Matrix_io.event list
+end = struct
+  type t = {mu : Mutex.t; q : Matrix_io.event Queue.t}
+
+  let create () = {mu = Mutex.create (); q = Queue.create ()}
+
+  let push t ev =
+    Mutex.lock t.mu ;
+    Queue.push ev t.q ;
+    Mutex.unlock t.mu
+
+  let drain t =
+    Mutex.lock t.mu ;
+    let events = Queue.fold (fun acc ev -> ev :: acc) [] t.q in
+    Queue.clear t.q ;
+    Mutex.unlock t.mu ;
+    List.rev events
+end
+
+(** {2 Input reader} *)
 
 type t = {
   terminal : Matrix_terminal.t;
   parser : Parser.t;
   exit_flag : bool Atomic.t;
+  queue : Event_queue.t;
+  shutdown : bool Atomic.t;
   mutable last_refresh_time : float;
 }
 
-(* Refresh interval in seconds - controls how often service_cycle is called *)
+(* Refresh interval in seconds — controls how often a synthetic Refresh
+   event is injected so that service_cycle runs even when idle. *)
 let refresh_interval = 1.0
-
-let create terminal =
-  let fd = Matrix_terminal.fd terminal in
-  let exit_flag =
-    Matrix_terminal.install_signals terminal (fun () ->
-        Matrix_terminal.cleanup terminal)
-  in
-  {terminal; parser = Parser.create fd; exit_flag; last_refresh_time = 0.0}
 
 (** Convert Parser.key to event *)
 let key_to_event = function
@@ -34,50 +71,90 @@ let key_to_event = function
   | Parser.Refresh -> Matrix_io.Refresh
   | key -> Matrix_io.Key (Parser.key_to_string key)
 
-let poll t ~timeout_ms:_ =
-  (* Check exit flag *)
-  if Atomic.get t.exit_flag then Matrix_io.Quit
-  else if Matrix_terminal.resize_pending t.terminal then begin
+(** Check for non-input events (quit signal, resize, render_notify). *)
+let check_non_input_events (t : t) =
+  if Atomic.get t.exit_flag then (
+    Event_queue.push t.queue Matrix_io.Quit ;
+    true)
+  else if Matrix_terminal.resize_pending t.terminal then (
     Matrix_terminal.clear_resize_pending t.terminal ;
-    Matrix_io.Resize
-  end
-  else if Miaou_helpers.Render_notify.should_render () then Matrix_io.Refresh
-  else begin
-    (* Try to read input with minimal timeout - let Eio handle actual timing
-       to allow other fibers to run *)
-    if Parser.pending_length t.parser = 0 then
-      ignore (Parser.refill t.parser ~timeout_s:0.001) ;
-    (* Rate-limit refresh events *)
-    if Parser.pending_length t.parser = 0 then begin
-      let now = Unix.gettimeofday () in
-      if now -. t.last_refresh_time >= refresh_interval then begin
-        t.last_refresh_time <- now ;
-        Matrix_io.Refresh
+    Event_queue.push t.queue Matrix_io.Resize ;
+    true)
+  else if Miaou_helpers.Render_notify.should_render () then (
+    Event_queue.push t.queue Matrix_io.Refresh ;
+    true)
+  else false
+
+(** Inject a periodic Refresh event so service_cycle runs when idle. *)
+let maybe_inject_refresh (t : t) =
+  let now = Unix.gettimeofday () in
+  if now -. t.last_refresh_time >= refresh_interval then (
+    t.last_refresh_time <- now ;
+    Event_queue.push t.queue Matrix_io.Refresh)
+
+(** Parse all available keys from the parser buffer into the queue. *)
+let parse_all_into_queue (t : t) =
+  let rec go () =
+    match Parser.parse_key t.parser with
+    | Some key ->
+        Event_queue.push t.queue (key_to_event key) ;
+        go ()
+    | None -> ()
+  in
+  go ()
+
+(** Reader-fiber main loop.  Uses {!Eio_unix.await_readable} to yield to
+    the Eio scheduler while waiting for terminal input, then performs a
+    non-blocking read + parse burst. *)
+let reader_loop (t : t) _env =
+  let fd = Parser.fd t.parser in
+  while not (Atomic.get t.shutdown) do
+    if not (check_non_input_events t) then begin
+      (* Yield to the Eio scheduler until the fd has data *)
+      (try Eio_unix.await_readable fd with
+      | Eio.Cancel.Cancelled _ -> ()
+      | Unix.Unix_error (Unix.EINTR, _, _) -> ()) ;
+      if not (Atomic.get t.shutdown) then begin
+        let n = Parser.refill_nonblocking t.parser in
+        if n > 0 then parse_all_into_queue t else maybe_inject_refresh t
       end
-      else Matrix_io.Idle
     end
-    else
-      match Parser.parse_key t.parser with
-      | Some key -> key_to_event key
-      | None -> Matrix_io.Idle
-  end
+  done
 
-(** Convert event to Parser.key for draining *)
-let event_to_parser_key = function
-  | Matrix_io.Key "Up" -> Some Parser.Up
-  | Matrix_io.Key "Down" -> Some Parser.Down
-  | Matrix_io.Key "Left" -> Some Parser.Left
-  | Matrix_io.Key "Right" -> Some Parser.Right
-  | Matrix_io.Key "Tab" -> Some Parser.Tab
-  | Matrix_io.Key "Delete" -> Some Parser.Delete
-  | _ -> None
+let create terminal =
+  let fd = Matrix_terminal.fd terminal in
+  let exit_flag =
+    Matrix_terminal.install_signals terminal (fun () ->
+        Matrix_terminal.cleanup terminal)
+  in
+  {
+    terminal;
+    parser = Parser.create fd;
+    exit_flag;
+    queue = Event_queue.create ();
+    shutdown = Atomic.make false;
+    last_refresh_time = 0.0;
+  }
 
-(* Drain consecutive navigation keys to prevent scroll lag *)
-let drain_nav_keys t event =
-  match event_to_parser_key event with
-  | Some key -> Parser.drain_matching t.parser key
-  | None -> 0
+(** Start the background reader fiber.  Must be called after terminal
+    raw-mode setup, from inside an Eio switch. *)
+let start t =
+  let open Miaou_helpers.Fiber_runtime in
+  spawn (fun env -> reader_loop t env)
 
-(* Drain any pending Esc keys from buffer.
-   Call after modal close to prevent double-Esc navigation. *)
-let drain_esc_keys t = Parser.drain_esc t.parser
+(** Signal the reader fiber to stop. *)
+let stop t = Atomic.set t.shutdown true
+
+(** Drain all pending events (oldest first). *)
+let drain t = Event_queue.drain t.queue
+
+(** Legacy poll — for backward compatibility.  Drains the queue and returns
+    the first event, or Idle when the queue is empty. *)
+let poll t ~timeout_ms:_ =
+  match Event_queue.drain t.queue with ev :: _ -> ev | [] -> Matrix_io.Idle
+
+(* Drain nav/esc keys are no-ops with the decoupled reader — all buffered
+   keys are already in the queue and processed naturally each tick. *)
+let drain_nav_keys _t _event = 0
+
+let drain_esc_keys _t = 0

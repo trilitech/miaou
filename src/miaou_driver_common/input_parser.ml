@@ -54,6 +54,20 @@ let refill t ~timeout_s =
       with Unix.Unix_error (Unix.EINTR, _, _) -> 0
   with Unix.Unix_error (Unix.EINTR, _, _) -> 0
 
+(** Read bytes without waiting — caller must ensure fd is readable. *)
+let refill_nonblocking t =
+  let buf = Bytes.create 256 in
+  try
+    let n = Unix.read t.fd buf 0 256 in
+    if n <= 0 then 0
+    else begin
+      t.pending <- t.pending ^ Bytes.sub_string buf 0 n ;
+      n
+    end
+  with Unix.Unix_error (Unix.EINTR, _, _) -> 0
+
+let fd t = t.fd
+
 (** Consume n bytes from pending buffer *)
 let consume t n =
   let len = String.length t.pending in
