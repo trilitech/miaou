@@ -40,6 +40,32 @@
     v}
 *)
 
+(** {1 Color parameters}
+
+    Color fields in this module use ANSI SGR foreground color numbers encoded
+    as strings (for example ["31"] for red, ["38;5;196"] for 256-color bright
+    red).
+
+    These values are not plain palette indices like ["196"]; pass complete SGR
+    payloads as expected by [\027[<payload>m].
+
+    Useful forms:
+    - Basic ANSI colors: ["30"]..["37"]
+    - Bright ANSI colors: ["90"]..["97"]
+    - 256-color foreground: ["38;5;<n>"] where [n] is [0..255]
+
+    Precedence when rendering points:
+    - point [color] overrides series [color]
+    - series [color] overrides threshold [color]
+    - thresholds apply only when both point and series colors are absent
+
+    Example:
+    {[ let points = [{ x = 1.0; y = 2.0; color = Some "32" }] in
+       let series = { label = "temperature"; points; color = Some "38;5;203" } in
+       let chart = Line_chart_widget.create ~width:40 ~height:10 ~series:[series] () in
+       Line_chart_widget.render chart ~show_axes:true ~show_grid:false () ]}
+*)
+
 (** A 2D data point with an optional override color. *)
 type point = {x : float; y : float; color : string option}
 
