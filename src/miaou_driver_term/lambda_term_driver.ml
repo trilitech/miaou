@@ -10,6 +10,7 @@
 
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
+module Timer = Miaou_interfaces.Timer
 open Miaou_core.Tui_page
 module Navigation = Miaou_core.Navigation
 module Capture = Miaou_core.Tui_capture
@@ -843,6 +844,10 @@ let run (initial_page : (module PAGE_SIG)) :
         let clock_state = Clock.create_state () in
         Clock.register clock_state ;
 
+        (* Timer capability — page-scoped periodic/one-shot callbacks *)
+        let timer_state = Timer.create_state () in
+        Timer.register timer_state ;
+
         (* Key handler stack (pure) integration: thread alongside page state. *)
         (* Prepare key handler stack: push a frame for the page keymap once per page.
        We translate (key, state->state, desc) into a side-effect that records
@@ -858,6 +863,7 @@ let run (initial_page : (module PAGE_SIG)) :
         in
         let rec loop ps key_stack =
           Clock.tick clock_state ;
+          Timer.tick timer_state ;
           (* Check if a signal (Ctrl+C) requested exit - if so, exit gracefully *)
           if Atomic.get signal_exit_flag then
             (* Don't call cleanup() here - let it run via at_exit for proper cleanup timing *)
