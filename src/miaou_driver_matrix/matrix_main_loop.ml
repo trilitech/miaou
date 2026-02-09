@@ -10,6 +10,7 @@
 open Miaou_core
 module Narrow_modal = Miaou_core.Narrow_modal
 module Logger_capability = Miaou_interfaces.Logger_capability
+module Clock = Miaou_interfaces.Clock
 module Fibers = Miaou_helpers.Fiber_runtime
 module Widgets = Miaou_widgets_display.Widgets
 
@@ -97,6 +98,10 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   let esc_cooldown_until = ref 0.0 in
   let esc_cooldown_s = 0.2 in
 
+  (* Clock capability — provides dt/now/elapsed to pages and widgets *)
+  let clock_state = Clock.create_state () in
+  Clock.register clock_state ;
+
   (* Convert a packed state with pending navigation into the loop outcome. *)
   let nav_outcome packed =
     let (Packed ((module Page), ps)) = packed in
@@ -117,6 +122,7 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   (* Main loop *)
   let rec loop packed =
     let tick_start = Unix.gettimeofday () in
+    Clock.tick clock_state ;
     let (Packed ((module Page), ps)) = packed in
 
     (* Get current size *)
