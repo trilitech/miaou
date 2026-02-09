@@ -10,6 +10,7 @@ type t = {
   frame_time_ms : float;
   tps_cap : int;
   tick_time_ms : float;
+  scrub_interval_frames : int;
   debug : bool;
   enable_mouse : bool;
 }
@@ -26,6 +27,7 @@ let default =
     frame_time_ms = time_of_rate fps_cap;
     tps_cap;
     tick_time_ms = time_of_rate tps_cap;
+    scrub_interval_frames = 30;
     debug = false;
     enable_mouse = true;
   }
@@ -52,6 +54,14 @@ let load () =
     | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
     | _ -> false
   in
+  let scrub_interval_frames =
+    match Sys.getenv_opt "MIAOU_MATRIX_SCRUB_FRAMES" with
+    | Some s -> (
+        match int_of_string_opt s with
+        | Some n when n >= 0 && n <= 10000 -> n
+        | _ -> 30)
+    | None -> 30
+  in
   let enable_mouse =
     match Sys.getenv_opt "MIAOU_ENABLE_MOUSE" with
     | Some ("0" | "false" | "FALSE" | "no" | "NO") -> false
@@ -62,6 +72,7 @@ let load () =
     frame_time_ms = time_of_rate fps_cap;
     tps_cap;
     tick_time_ms = time_of_rate tps_cap;
+    scrub_interval_frames;
     debug;
     enable_mouse;
   }
