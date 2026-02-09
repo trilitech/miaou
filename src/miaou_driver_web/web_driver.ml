@@ -253,28 +253,24 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br
   let io : Matrix_io.t =
     {
       write = Output_buffer.write output;
-      poll =
-        (fun ~timeout_ms ->
-          (* Always drain pending events first so input is never starved *)
-          match Eio.Stream.take_nonblocking events with
-          | Some ev -> ev
-          | None -> (
-              let now = Unix.gettimeofday () in
-              if now -. !last_refresh >= refresh_interval then begin
-                last_refresh := now ;
-                Matrix_io.Refresh
-              end
-              else
-                let timeout_s = float_of_int timeout_ms /. 1000.0 in
-                match
-                  Eio.Time.with_timeout env#clock timeout_s (fun () ->
-                      Ok (Eio.Stream.take events))
-                with
-                | Ok ev -> ev
-                | Error `Timeout -> Matrix_io.Idle));
-      drain_nav_keys = (fun _ -> 0);
-      drain_esc_keys = (fun () -> 0);
-      drain = (fun () -> []);
+      drain =
+        (fun () ->
+          let acc = ref [] in
+          let rec take () =
+            match Eio.Stream.take_nonblocking events with
+            | Some ev ->
+                acc := ev :: !acc ;
+                take ()
+            | None -> ()
+          in
+          take () ;
+          (* Inject periodic Refresh so service_cycle runs when idle *)
+          let now = Unix.gettimeofday () in
+          if now -. !last_refresh >= refresh_interval then begin
+            last_refresh := now ;
+            acc := Matrix_io.Refresh :: !acc
+          end ;
+          List.rev !acc);
       size = (fun () -> (!current_rows, !current_cols));
       invalidate_size_cache = (fun () -> ());
     }

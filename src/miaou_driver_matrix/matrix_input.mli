@@ -33,16 +33,3 @@ val stop : t -> unit
 (** Drain all pending events from the queue (oldest first).
     Returns the empty list when nothing is buffered. *)
 val drain : t -> Matrix_io.event list
-
-(** Legacy poll — drains the queue and returns the first event, or
-    [Idle] when the queue is empty.
-    @param timeout_ms Ignored (kept for API compatibility). *)
-val poll : t -> timeout_ms:int -> Matrix_io.event
-
-(** No-op — retained for API compatibility.
-    With the decoupled reader, consecutive keys are naturally batched
-    in the queue and processed each tick. *)
-val drain_nav_keys : t -> Matrix_io.event -> int
-
-(** No-op — retained for API compatibility. *)
-val drain_esc_keys : t -> int
