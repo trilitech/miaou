@@ -24,3 +24,5 @@ final-bench.txt
 
 # Internal docs
 docs/gardening/
+docs/architecture.db
+docs/architecture-schema.sql
