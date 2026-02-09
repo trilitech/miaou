@@ -76,6 +76,9 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
       (* Start render domain - runs at 60 FPS in parallel *)
       Matrix_render_loop.start render_loop ;
 
+      (* Start decoupled input reader fiber *)
+      Matrix_input.start input ;
+
       (* Build context for the shared main loop *)
       let ctx : Matrix_main_loop.context =
         {config; buffer; parser; render_loop; io}
@@ -85,6 +88,7 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
       let result = Matrix_main_loop.run ctx ~env initial_page in
 
       (* Cleanup *)
+      Matrix_input.stop input ;
       Matrix_render_loop.shutdown render_loop ;
       Matrix_terminal.write terminal Matrix_ansi_writer.cursor_show ;
       Matrix_terminal.write terminal "\027[0m" ;
