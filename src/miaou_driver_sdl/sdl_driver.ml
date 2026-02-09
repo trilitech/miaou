@@ -9,6 +9,7 @@
 
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
+module Timer = Miaou_interfaces.Timer
 module Capture = Miaou_core.Tui_capture
 module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
@@ -603,6 +604,10 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       let clock_state = Clock.create_state () in
       Clock.register clock_state ;
 
+      (* Timer capability — page-scoped periodic/one-shot callbacks *)
+      let timer_state = Timer.create_state () in
+      Timer.register timer_state ;
+
       let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
           (ps : s Page_transition.Navigation.t) =
         let size = !size_ref in
@@ -694,6 +699,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
            (ps : s Page_transition.Navigation.t)
          ->
         Clock.tick clock_state ;
+        Timer.tick timer_state ;
         render_and_draw (module P) ps ;
         match poll_event ~timeout_ms:16 ~on_resize:update_size with
         | Quit -> `Quit
@@ -734,6 +740,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                       ~from_lines:(String.split_on_char '\n' from_text)
                       ~to_lines:(String.split_on_char '\n' to_text)
                       ~size ;
+                    Timer.clear_all timer_state ;
                     loop (module Next) ps_to);
               }
         | Key k ->
@@ -775,6 +782,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                     ~from_lines:(String.split_on_char '\n' from_text)
                     ~to_lines:(String.split_on_char '\n' to_text)
                     ~size ;
+                  Timer.clear_all timer_state ;
                   loop (module Next) ps_to
               | None -> `Quit
             else
@@ -847,6 +855,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                         ~from_lines:(String.split_on_char '\n' from_text)
                         ~to_lines:(String.split_on_char '\n' to_text)
                         ~size ;
+                      Timer.clear_all timer_state ;
                       loop (module Next) ps_to);
                 }
       in
