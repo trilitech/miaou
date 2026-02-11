@@ -22,16 +22,28 @@
         | _ -> ps
     ]}
 
-    {2 Benefits}
-    - No [next_page] field in page state
-    - No [next_page] accessor function required
-    - Clear, named navigation functions
-    - Pure functional style (no side effects)
+    {2 Type-safe navigation}
+
+    Navigation uses a variant type to prevent common mistakes:
+    - [Goto "page"] pushes the current page onto the history stack and
+      navigates to the named page.
+    - [Back] pops the previous page from the history stack.
+    - [Quit] exits the application.
+
+    Using a variant instead of magic strings makes it impossible to
+    accidentally use [goto "parent_page"] when [back] is intended,
+    which previously caused infinite navigation loops.
 *)
+
+(** Navigation target. *)
+type nav =
+  | Goto of string  (** Navigate to the named page (pushes current to stack) *)
+  | Back  (** Return to the previous page in the history stack *)
+  | Quit  (** Exit the application *)
 
 type 'a t = {
   s : 'a;  (** The page's own state *)
-  nav : string option;  (** Pending navigation target, if any *)
+  nav : nav option;  (** Pending navigation target, if any *)
 }
 
 (** [make s] wraps a page state with no pending navigation. *)
@@ -48,7 +60,7 @@ val quit : 'a t -> 'a t
 
 (** [pending ps] returns the pending navigation target, if any.
     Used by the framework after handlers return. *)
-val pending : 'a t -> string option
+val pending : 'a t -> nav option
 
 (** [update f ps] applies [f] to the inner state.
     Shorthand for [{ps with s = f ps.s}]. *)

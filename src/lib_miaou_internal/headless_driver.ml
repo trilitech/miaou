@@ -13,7 +13,9 @@ open LTerm_geom
 (* Helper: apply any pending navigation from modal callbacks to pstate *)
 let apply_pending_modal_nav ps =
   match Modal_manager.take_pending_navigation () with
-  | Some page -> Navigation.goto page ps
+  | Some (Navigation.Goto page) -> Navigation.goto page ps
+  | Some Navigation.Back -> Navigation.back ps
+  | Some Navigation.Quit -> Navigation.quit ps
   | None -> ps
 
 module Key_queue = struct
@@ -98,7 +100,7 @@ let set_limits ?iterations ?seconds () =
 let with_page_scope f = Fibers.with_page_scope f
 
 let run (initial_page : (module Tui_page.PAGE_SIG)) :
-    [`Quit | `SwitchTo of string] =
+    [`Quit | `Back | `SwitchTo of string] =
   with_page_scope (fun () ->
       let module P : Tui_page.PAGE_SIG = (val initial_page) in
       let start_time = Unix.gettimeofday () in
@@ -114,7 +116,13 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                !max_iterations_ref
                !max_seconds_ref)
       in
-      let rec loop iteration (ps : P.pstate) : [`Quit | `SwitchTo of string] =
+      let nav_to_outcome = function
+        | Navigation.Quit -> `Quit
+        | Navigation.Back -> `Back
+        | Navigation.Goto name -> `SwitchTo name
+      in
+      let rec loop iteration (ps : P.pstate) :
+          [`Quit | `Back | `SwitchTo of string] =
         exceed_guard iteration ;
         render_page_with (module P) ps ;
         match Key_queue.take () with
@@ -125,8 +133,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
              with _ -> ()) ;
             let ps' = P.refresh ps |> apply_pending_modal_nav in
             match Navigation.pending ps' with
-            | Some "__QUIT__" -> `Quit
-            | Some name -> `SwitchTo name
+            | Some nav -> nav_to_outcome nav
             | None -> loop (iteration + 1) ps')
         | Some k -> (
             (try
@@ -163,8 +170,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
               let ps' = apply_pending_modal_nav ps' in
               render_page_with (module P) ps' ;
               match Navigation.pending ps' with
-              | Some "__QUIT__" -> `Quit
-              | Some name -> `SwitchTo name
+              | Some nav -> nav_to_outcome nav
               | None -> loop (iteration + 1) ps')
       in
       set_page initial_page ;
@@ -177,7 +183,8 @@ module Stateful = struct
 
   let refresh_impl : (unit -> unit) ref = ref (fun () -> ())
 
-  let next_page_impl : (unit -> string option) ref = ref (fun () -> None)
+  let next_page_impl : (unit -> Navigation.nav option) ref =
+    ref (fun () -> None)
 
   let current_page_name : string option ref = ref None
 
@@ -253,8 +260,9 @@ module Stateful = struct
 
   let classify_next () =
     match !next_page_impl () with
-    | Some "__QUIT__" -> `Quit
-    | Some name -> `SwitchTo name
+    | Some Navigation.Quit -> `Quit
+    | Some Navigation.Back -> `Back
+    | Some (Navigation.Goto name) -> `SwitchTo name
     | None -> `Continue
 
   (* When the current page signals a navigation, try to switch automatically.
@@ -285,7 +293,7 @@ module Stateful = struct
       if i <= 0 then `Continue
       else
         match maybe_auto_switch () with
-        | (`Quit | `SwitchTo _) as r -> r
+        | (`Quit | `Back | `SwitchTo _) as r -> r
         | `Continue ->
             !refresh_impl () ;
             (if sleep > 0.0 then try Unix.sleepf sleep with _ -> ()) ;

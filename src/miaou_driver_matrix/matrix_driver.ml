@@ -17,7 +17,7 @@ let available = true
 module Fibers = Miaou_helpers.Fiber_runtime
 
 let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
-    [`Quit | `SwitchTo of string] =
+    [`Quit | `Back | `SwitchTo of string] =
   Fibers.with_page_switch (fun env _page_sw ->
       (* Load configuration *)
       let config =

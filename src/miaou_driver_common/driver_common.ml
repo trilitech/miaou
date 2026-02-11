@@ -50,7 +50,7 @@ module Make (Backend : DRIVER_BACKEND) = struct
     let rec loop : type s.
         (module PAGE_SIG with type state = s) ->
         s Navigation.t ->
-        [`Quit | `SwitchTo of string] =
+        [`Quit | `Back | `SwitchTo of string] =
      fun (module P : PAGE_SIG with type state = s) (ps : s Navigation.t) ->
       let size = Backend.detect_size () in
       let lterm_size = LTerm_geom.{rows = size.rows; cols = size.cols} in
@@ -68,8 +68,9 @@ module Make (Backend : DRIVER_BACKEND) = struct
       | Refresh -> (
           let ps' = P.refresh ps in
           match Navigation.pending ps' with
-          | Some "__QUIT__" -> `Quit
-          | Some name -> (
+          | Some Navigation.Quit -> `Quit
+          | Some Navigation.Back -> `Back
+          | Some (Navigation.Goto name) -> (
               match Registry.find name with
               | Some (module Next : PAGE_SIG) ->
                   let ps_to = Next.init () in
@@ -89,8 +90,9 @@ module Make (Backend : DRIVER_BACKEND) = struct
               | _ -> P.handle_key ps k ~size:lterm_size
           in
           match Navigation.pending ps' with
-          | Some "__QUIT__" -> `Quit
-          | Some name -> (
+          | Some Navigation.Quit -> `Quit
+          | Some Navigation.Back -> `Back
+          | Some (Navigation.Goto name) -> (
               match Registry.find name with
               | Some (module Next : PAGE_SIG) ->
                   let ps_to = Next.init () in

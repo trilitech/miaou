@@ -205,7 +205,7 @@ let parse_client_message events ~current_rows ~current_cols msg =
       | exception _ -> ())
   | exception _ -> ()
 
-exception Tui_done of ([`Quit | `SwitchTo of string] * (int * int))
+exception Tui_done of ([`Quit | `Back | `SwitchTo of string] * (int * int))
 
 (* Run the TUI over an established WebSocket connection.
    [~initial_size] can be passed to skip waiting for resize on page switch. *)
@@ -370,8 +370,8 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br
 let run ?(config = None) ?(port = 8080) ?auth
     ?(controller_html = Web_assets.index_html)
     ?(viewer_html = Web_assets.viewer_html) ?(extra_assets = [])
-    (initial_page : (module Tui_page.PAGE_SIG)) : [`Quit | `SwitchTo of string]
-    =
+    (initial_page : (module Tui_page.PAGE_SIG)) :
+    [`Quit | `Back | `SwitchTo of string] =
   Fibers.with_page_switch (fun env page_sw ->
       Printf.eprintf "Miaou web driver: http://127.0.0.1:%d\n%!" port ;
       let socket =
@@ -464,7 +464,7 @@ let run ?(config = None) ?(port = 8080) ?auth
                            in
                            match result with
                            | `Quit -> Web_websocket.close ws
-                           | `SwitchTo "__BACK__" -> (
+                           | `Back -> (
                                match !page_stack with
                                | [] -> Web_websocket.close ws
                                | prev :: rest ->

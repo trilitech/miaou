@@ -34,4 +34,4 @@ val run :
   context ->
   env:Eio_unix.Stdenv.base ->
   (module Miaou_core.Tui_page.PAGE_SIG) ->
-  [`Quit | `SwitchTo of string]
+  [`Quit | `Back | `SwitchTo of string]

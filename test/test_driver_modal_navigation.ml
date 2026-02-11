@@ -88,7 +88,9 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
       ~cancel_on:[]
       ~on_close:(fun _ outcome ->
         match outcome with
-        | `Commit -> Miaou_core.Modal_manager.set_pending_navigation "NEXT"
+        | `Commit ->
+            Miaou_core.Modal_manager.set_pending_navigation
+              (Miaou_core.Navigation.Goto "NEXT")
         | _ -> ())
 
   let init () =
@@ -153,6 +155,7 @@ let test_modal_consumes_enter_triggers_navigation () =
   check
     (Alcotest.of_pp (fun fmt -> function
       | `Quit -> Format.fprintf fmt "Quit"
+      | `Back -> Format.fprintf fmt "Back"
       | `SwitchTo s -> Format.fprintf fmt "SwitchTo %s" s))
     "navigation triggered"
     (`SwitchTo "NEXT")

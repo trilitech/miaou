@@ -130,7 +130,8 @@ let clear = Events.clear
 
 let run_with_key_source_for_tests = Term_test_runner.run_with_key_source
 
-let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
+let run (initial_page : (module PAGE_SIG)) :
+    [`Quit | `Back | `SwitchTo of string] =
   let run_with_page (module Page : PAGE_SIG) =
     Fibers.with_page_switch (fun _env _page_sw ->
         (* Ensure widgets render with terminal-friendly glyphs when using the lambda-term backend. *)
@@ -403,7 +404,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
         (* Helper: apply any pending navigation from modal callbacks to pstate *)
         let apply_pending_modal_nav ps =
           match Modal_manager.take_pending_navigation () with
-          | Some page -> Navigation.goto page ps
+          | Some (Navigation.Goto page) -> Navigation.goto page ps
+          | Some Navigation.Back -> Navigation.back ps
+          | Some Navigation.Quit -> Navigation.quit ps
           | None -> ps
         in
 
@@ -842,6 +845,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
         let pending_update : (Page.pstate -> Page.pstate) option ref =
           ref None
         in
+        (* Helper: convert a Navigation.nav to the driver outcome type *)
+        let nav_to_outcome = function
+          | Navigation.Quit -> `Quit
+          | Navigation.Back -> `Back
+          | Navigation.Goto page -> `SwitchTo page
+        in
         let rec loop ps key_stack =
           (* Check if a signal (Ctrl+C) requested exit - if so, exit gracefully *)
           if Atomic.get signal_exit_flag then
@@ -903,7 +912,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   |> apply_pending_modal_nav
                 in
                 match Navigation.pending ps' with
-                | Some page -> `SwitchTo page
+                | Some nav -> nav_to_outcome nav
                 | None ->
                     clear_and_render ps' key_stack ;
                     loop ps' key_stack)
@@ -929,7 +938,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                           |> apply_pending_modal_nav
                         in
                         match Navigation.pending ps' with
-                        | Some page -> `SwitchTo page
+                        | Some nav -> nav_to_outcome nav
                         | None ->
                             clear_and_render ps' key_stack ;
                             loop ps' key_stack)
@@ -942,7 +951,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                         |> apply_pending_modal_nav
                       in
                       match Navigation.pending ps' with
-                      | Some page -> `SwitchTo page
+                      | Some nav -> nav_to_outcome nav
                       | None ->
                           clear_and_render ps' key_stack ;
                           loop ps' key_stack)
@@ -962,21 +971,21 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     ps'
                   in
                   match Navigation.pending ps' with
-                  | Some page -> `SwitchTo page
+                  | Some nav -> nav_to_outcome nav
                   | None ->
                       clear_and_render ps' key_stack ;
                       loop ps' key_stack)
                 else
                   (* Non-modal Enter: go through on_key *)
                   match Navigation.pending ps with
-                  | Some page -> `SwitchTo page
+                  | Some nav -> nav_to_outcome nav
                   | None -> (
                       let size = detect_size () in
                       let ps', _result =
                         Page.on_key ps Miaou_core.Keys.Enter ~size
                       in
                       match Navigation.pending ps' with
-                      | Some page -> `SwitchTo page
+                      | Some nav -> nav_to_outcome nav
                       | None ->
                           clear_and_render ps' key_stack ;
                           loop ps' key_stack))
@@ -1008,7 +1017,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
                   let ps' = handle_key_like ps key key_stack in
                   match Navigation.pending ps' with
-                  | Some page -> `SwitchTo page
+                  | Some nav -> nav_to_outcome nav
                   | None ->
                       clear_and_render ps' key_stack ;
                       loop ps' key_stack)
@@ -1042,7 +1051,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   (* All keys go through on_key - no keymap dispatch *)
                   let ps' = handle_key_like ps key key_stack in
                   match Navigation.pending ps' with
-                  | Some page -> `SwitchTo page
+                  | Some nav -> nav_to_outcome nav
                   | None ->
                       clear_and_render ps' key_stack ;
                       loop ps' key_stack)
@@ -1220,7 +1229,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                           |> apply_pending_modal_nav
                         in
                         match Navigation.pending ps' with
-                        | Some page -> `SwitchTo page
+                        | Some nav -> nav_to_outcome nav
                         | None ->
                             clear_and_render ps' key_stack ;
                             loop ps' key_stack)
@@ -1233,7 +1242,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                         |> apply_pending_modal_nav
                       in
                       match Navigation.pending ps' with
-                      | Some page -> `SwitchTo page
+                      | Some nav -> nav_to_outcome nav
                       | None ->
                           clear_and_render ps' key_stack ;
                           loop ps' key_stack)
@@ -1246,8 +1255,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     let size = detect_size () in
                     let ps' = Page.handle_key ps key ~size in
                     match Navigation.pending ps' with
-                    | Some page -> `SwitchTo page
-                    | None -> `SwitchTo "__BACK__"
+                    | Some nav -> nav_to_outcome nav
+                    | None -> `Back
                 else if
                   (* If a modal is active, route all keys to the modal first and do not
                propagate them to the underlying page or key handler stack. This
@@ -1268,7 +1277,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   (* All keys go through on_key - no keymap dispatch *)
                   let ps' = handle_key_like ps key key_stack in
                   match Navigation.pending ps' with
-                  | Some page -> `SwitchTo page
+                  | Some nav -> nav_to_outcome nav
                   | None ->
                       clear_and_render ps' key_stack ;
                       loop ps' key_stack))

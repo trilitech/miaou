@@ -554,7 +554,7 @@ let render_page (type s) (module P : PAGE_SIG with type state = s)
     ~cols:size.cols
 
 let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
-    [`Quit | `SwitchTo of string] =
+    [`Quit | `Back | `SwitchTo of string] =
   let available = true in
   ignore available ;
   Fibers.with_page_scope (fun () ->
@@ -684,7 +684,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       let rec loop : type s.
           (module PAGE_SIG with type state = s) ->
           s Page_transition.Navigation.t ->
-          [`Quit | `SwitchTo of string] =
+          [`Quit | `Back | `SwitchTo of string] =
        fun (module P : PAGE_SIG with type state = s)
            (ps : s Page_transition.Navigation.t)
          ->
@@ -698,6 +698,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
               ps'
               {
                 on_quit = (fun () -> `Quit);
+                on_back = (fun () -> `Back);
                 on_same_page = (fun () -> loop (module P) ps');
                 on_new_page =
                   (fun (type a)
@@ -810,6 +811,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                 ps'
                 {
                   on_quit = (fun () -> `Quit);
+                  on_back = (fun () -> `Back);
                   on_same_page = (fun () -> loop (module P) ps');
                   on_new_page =
                     (fun (type a)

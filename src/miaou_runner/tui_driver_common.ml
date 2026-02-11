@@ -12,7 +12,7 @@ module Widgets = Miaou_widgets_display.Widgets
 module Registry = Miaou_core.Registry
 
 (* Local alias for outcome to ensure compilation when mli changes are applied *)
-type outcome = [`Quit | `SwitchTo of string]
+type outcome = [`Quit | `Back | `SwitchTo of string]
 
 type backend = {available : bool; run : (module PAGE_SIG) -> outcome}
 
@@ -56,7 +56,7 @@ let backend_choice ~sdl_available ~matrix_available ~web_available =
 let run ~term_backend ~sdl_backend ~matrix_backend ~web_backend
     (initial_page : (module PAGE_SIG)) : outcome =
   Widgets.set_backend `Terminal ;
-  (* Page stack for __BACK__ navigation *)
+  (* Page stack for Back navigation *)
   let page_stack = ref [] in
   let rec loop (page : (module PAGE_SIG)) : outcome =
     let outcome =
@@ -84,7 +84,7 @@ let run ~term_backend ~sdl_backend ~matrix_backend ~web_backend
     in
     match outcome with
     | `Quit -> `Quit
-    | `SwitchTo "__BACK__" -> (
+    | `Back -> (
         match !page_stack with
         | [] -> `Quit (* No history, quit *)
         | prev :: rest ->

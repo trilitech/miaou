@@ -20,6 +20,6 @@ val flush : unit -> unit
 
 val set_page : (module PAGE_SIG) -> unit
 
-type outcome = [`Quit | `SwitchTo of string]
+type outcome = [`Quit | `Back | `SwitchTo of string]
 
 val run : (module PAGE_SIG) -> outcome

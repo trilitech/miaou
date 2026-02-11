@@ -55,5 +55,5 @@ end
 (** Functor to create a complete driver from a backend implementation *)
 module Make (Backend : DRIVER_BACKEND) : sig
   (** Run the application with the given initial page *)
-  val run : (module PAGE_SIG) -> [`Quit | `SwitchTo of string]
+  val run : (module PAGE_SIG) -> [`Quit | `Back | `SwitchTo of string]
 end

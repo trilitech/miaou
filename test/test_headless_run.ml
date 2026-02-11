@@ -69,7 +69,7 @@ let test_run_loop () =
     bool
     "quit or switch"
     true
-    (match res with `Quit | `SwitchTo _ -> true)
+    (match res with `Quit | `Back | `SwitchTo _ -> true)
 
 let () =
   run
