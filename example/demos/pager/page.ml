@@ -203,37 +203,41 @@ module Inner = struct
     let pager_input_mode =
       match s.pager.Pager.input_mode with `Search_edit -> true | _ -> false
     in
-    match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        if pager_input_mode then
-          let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
+    if Miaou_helpers.Mouse.is_mouse_event key_str then
+      let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
+      {s with pager}
+    else
+      match Miaou.Core.Keys.of_string key_str with
+      | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+        ->
+          if pager_input_mode then
+            let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
+            {s with pager}
+          else go_back s
+      | Some (Miaou.Core.Keys.Char "a") when not pager_input_mode ->
+          let line =
+            Printf.sprintf "[%0.3f] new log entry" (Unix.gettimeofday ())
+          in
+          append_line s line
+      | Some (Miaou.Core.Keys.Char "s") when not pager_input_mode ->
+          toggle_streaming s
+      | Some (Miaou.Core.Keys.Char "f") when not pager_input_mode ->
+          let pager, _ = Pager.handle_key ~win s.pager ~key:"f" in
           {s with pager}
-        else go_back s
-    | Some (Miaou.Core.Keys.Char "a") when not pager_input_mode ->
-        let line =
-          Printf.sprintf "[%0.3f] new log entry" (Unix.gettimeofday ())
-        in
-        append_line s line
-    | Some (Miaou.Core.Keys.Char "s") when not pager_input_mode ->
-        toggle_streaming s
-    | Some (Miaou.Core.Keys.Char "f") when not pager_input_mode ->
-        let pager, _ = Pager.handle_key ~win s.pager ~key:"f" in
-        {s with pager}
-    | Some k ->
-        let key = Miaou.Core.Keys.to_string k in
-        if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
-          Printf.eprintf
-            "[DEMO] handle_key: raw='%s' parsed='%s' input_mode=%b\n%!"
-            key_str
-            key
-            pager_input_mode ;
-        let pager, _ = Pager.handle_key ~win s.pager ~key in
-        {s with pager}
-    | None ->
-        if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
-          Printf.eprintf "[DEMO] handle_key: raw='%s' -> None\n%!" key_str ;
-        s
+      | Some k ->
+          let key = Miaou.Core.Keys.to_string k in
+          if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+            Printf.eprintf
+              "[DEMO] handle_key: raw='%s' parsed='%s' input_mode=%b\n%!"
+              key_str
+              key
+              pager_input_mode ;
+          let pager, _ = Pager.handle_key ~win s.pager ~key in
+          {s with pager}
+      | None ->
+          if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+            Printf.eprintf "[DEMO] handle_key: raw='%s' -> None\n%!" key_str ;
+          s
 
   let move s _ = s
 

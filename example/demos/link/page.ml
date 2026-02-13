@@ -45,22 +45,25 @@ module Inner = struct
     {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
-    match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_back s
-    | Some k ->
-        let key = Miaou.Core.Keys.to_string k in
-        let link, acted = Link.handle_key s.link ~key in
-        let message =
-          if acted then
-            match s.target with
-            | Link.Internal id -> Printf.sprintf "Navigated to %s" id
-            | Link.External url -> Printf.sprintf "Would open %s" url
-          else s.message
-        in
-        {s with link; message}
-    | None -> s
+    let handle_link key =
+      let link, acted = Link.handle_key s.link ~key in
+      let message =
+        if acted then
+          match s.target with
+          | Link.Internal id -> Printf.sprintf "Navigated to %s" id
+          | Link.External url -> Printf.sprintf "Would open %s" url
+        else s.message
+      in
+      {s with link; message}
+    in
+    if Miaou_helpers.Mouse.is_mouse_event key_str then handle_link key_str
+    else
+      match Miaou.Core.Keys.of_string key_str with
+      | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+        ->
+          go_back s
+      | Some k -> handle_link (Miaou.Core.Keys.to_string k)
+      | None -> s
 
   let move s _ = s
 
