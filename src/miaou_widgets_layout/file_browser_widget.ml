@@ -435,7 +435,35 @@ let handle_key w ~key =
             pending_selection = None;
             history_idx = None;
           }
-      | _ -> w)
+      | "WheelUp" ->
+          {
+            w with
+            cursor =
+              List_nav.move_cursor
+                ~total
+                ~cursor:w.cursor
+                ~delta:(-Miaou_helpers.Mouse.wheel_scroll_lines);
+          }
+      | "WheelDown" ->
+          {
+            w with
+            cursor =
+              List_nav.move_cursor
+                ~total
+                ~cursor:w.cursor
+                ~delta:Miaou_helpers.Mouse.wheel_scroll_lines;
+          }
+      | key -> (
+          (* Check for mouse click to select entry *)
+          match Miaou_helpers.Mouse.parse_click key with
+          | Some {row; _} ->
+              (* Header is ~3 lines (path + separator + column header) *)
+              let header_lines = 3 in
+              let body_row = row - header_lines in
+              if body_row >= 1 && body_row <= total then
+                {w with cursor = List_nav.clamp 0 (total - 1) (body_row - 1)}
+              else w
+          | None -> w))
   | EditingPath -> (
       match (key, w.textbox) with
       | "Esc", _ ->

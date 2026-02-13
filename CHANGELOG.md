@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Left-bordered box** (`Widgets.render_left_border_box`): display helper for context/quote blocks with colored left border and optional background.
 - **Blocks spinner style** (`Spinner_widget.Blocks`): animated spinner with size+color gradient progression trail, configurable direction and block count.
 - **Alt+Enter key parsing** (`Input_parser.AltEnter`): universally-supported newline insertion key for textarea widgets.
+- **Mouse helper module** (`Miaou_helpers.Mouse`): utilities for parsing mouse events (clicks, drags, wheel) in widgets.
+- **Mouse support for widgets**: wheel scrolling and click handling added to:
+  - Pager: wheel scroll, click to position cursor (in cursor mode)
+  - Select: wheel scroll, click to select item
+  - File Browser: wheel scroll, click to select entry
+  - Textbox: click to position cursor
+  - Textarea: wheel scroll, click to position cursor
+  - Tabs: click to select tab
+  - Breadcrumbs: click on crumb to navigate
+  - Button: click to activate
+  - Link: click to navigate
+  - Checkbox/Radio/Switch: click to toggle
 
 ### Changed
 

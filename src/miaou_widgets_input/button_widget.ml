@@ -23,7 +23,15 @@ let on_key t ~key =
     | "Enter" | " " ->
         t.on_click () ;
         (t, Miaou_interfaces.Key_event.Handled)
-    | _ -> (t, Miaou_interfaces.Key_event.Bubble)
+    | key ->
+        (* Mouse click triggers button - but we can't verify bounds without
+           knowing our position, so we trust the dispatcher to only send
+           clicks that are relevant to us. For standalone buttons, any click
+           when focused should activate. *)
+        if Miaou_helpers.Mouse.is_click key then (
+          t.on_click () ;
+          (t, Miaou_interfaces.Key_event.Handled))
+        else (t, Miaou_interfaces.Key_event.Bubble)
 
 (** @deprecated Use [on_key] instead. Kept for backward compatibility. *)
 let handle_key t ~key =

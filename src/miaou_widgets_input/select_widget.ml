@@ -79,7 +79,35 @@ let handle_key_inner w ~key =
   | "Home" -> {w with cursor = 0}
   | "End" -> {w with cursor = max 0 (total - 1)}
   | "Esc" -> {w with cancelled = true}
-  | _ -> w
+  | "WheelUp" ->
+      {
+        w with
+        cursor =
+          move_cursor
+            ~total
+            ~cursor:w.cursor
+            ~delta:(-Miaou_helpers.Mouse.wheel_scroll_lines);
+      }
+  | "WheelDown" ->
+      {
+        w with
+        cursor =
+          move_cursor
+            ~total
+            ~cursor:w.cursor
+            ~delta:Miaou_helpers.Mouse.wheel_scroll_lines;
+      }
+  | key -> (
+      (* Check for mouse click to select item *)
+      match Miaou_helpers.Mouse.parse_click key with
+      | Some {row; _} ->
+          (* Header is 2 lines (title + hints), so body starts at row 3 *)
+          let header_lines = 2 in
+          let body_row = row - header_lines in
+          if body_row >= 1 && body_row <= total then
+            {w with cursor = clamp 0 (total - 1) (body_row - 1)}
+          else w
+      | None -> w)
 
 let render_inner
     ?(backend : Miaou_widgets_display.Widgets.backend =
@@ -241,9 +269,9 @@ let on_key (w : 'a t) ~key : 'a t * Miaou_interfaces.Key_event.result =
   let handled =
     match key with
     | "Up" | "Down" | "PageUp" | "PageDown" | "Home" | "End" | "Esc" | "Enter"
-    | "Space" | " " ->
+    | "Space" | " " | "WheelUp" | "WheelDown" ->
         true
-    | _ -> false
+    | _ -> Miaou_helpers.Mouse.is_click key
   in
   (w', Miaou_interfaces.Key_event.of_bool handled)
 

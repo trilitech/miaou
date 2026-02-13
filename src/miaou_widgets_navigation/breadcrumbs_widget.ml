@@ -65,7 +65,34 @@ let handle_event ?(bubble_unhandled = false) t ~key =
           f () ;
           (t, `Handled)
       | _ -> (t, if bubble_unhandled then `Bubble else `Handled))
-  | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
+  | _ -> (
+      (* Check for mouse click to select crumb *)
+      match Miaou_helpers.Mouse.parse_click key with
+      | Some {col; _} -> (
+          (* Calculate which crumb was clicked based on column position.
+             Each crumb is: "label" + " > " separator (3 chars). *)
+          let rec find_crumb idx pos crumbs =
+            match crumbs with
+            | [] -> None
+            | crumb :: rest ->
+                let crumb_width = String.length crumb.label in
+                let sep_width = if rest = [] then 0 else 3 in
+                (* " > " *)
+                let total = crumb_width + sep_width in
+                if col >= pos && col < pos + crumb_width then Some idx
+                else find_crumb (idx + 1) (pos + total) rest
+          in
+          match find_crumb 0 1 t.crumbs with
+          | Some idx -> (
+              let t' = {t with selected = idx} in
+              (* Also trigger on_enter if clicking *)
+              match List.nth_opt t'.crumbs idx with
+              | Some {on_enter = Some f; _} ->
+                  f () ;
+                  (t', `Handled)
+              | _ -> (t', `Handled))
+          | None -> (t, if bubble_unhandled then `Bubble else `Handled))
+      | None -> (t, if bubble_unhandled then `Bubble else `Handled))
 
 let handle_key t ~key =
   let t, status = handle_event t ~key in

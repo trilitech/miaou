@@ -95,7 +95,15 @@ let on_key st ~key =
       let left = String.sub s 0 st.cursor in
       let right = String.sub s st.cursor (String.length s - st.cursor) in
       ({st with buf = left ^ k ^ right; cursor = st.cursor + 1}, Handled)
-  | _ -> (st, Bubble)
+  | key -> (
+      (* Check for mouse click to position cursor *)
+      match Miaou_helpers.Mouse.parse_click key with
+      | Some {col; _} ->
+          (* Account for "[" prefix (1 char) *)
+          let text_col = col - 1 in
+          let new_cursor = max 0 (min (String.length st.buf) text_col) in
+          ({st with cursor = new_cursor}, Handled)
+      | None -> (st, Bubble))
 
 (** @deprecated Use [on_key] instead. Returns just state for backward compat. *)
 let handle_key st ~key =

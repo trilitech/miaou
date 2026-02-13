@@ -285,8 +285,33 @@ let on_key t ~key =
   | "Home" -> (move_home t, Handled)
   | "End" -> (move_end t, Handled)
   | "Esc" | "Escape" -> ({t with cancelled = true}, Handled)
+  | "WheelUp" ->
+      (* Scroll up by moving view, not cursor *)
+      let new_scroll =
+        max 0 (t.scroll_offset - Miaou_helpers.Mouse.wheel_scroll_lines)
+      in
+      ({t with scroll_offset = new_scroll}, Handled)
+  | "WheelDown" ->
+      let max_scroll = max 0 (Array.length t.lines - t.height + 2) in
+      let new_scroll =
+        min max_scroll (t.scroll_offset + Miaou_helpers.Mouse.wheel_scroll_lines)
+      in
+      ({t with scroll_offset = new_scroll}, Handled)
   | k when String.length k = 1 -> (insert_char t k, Handled)
-  | _ -> (t, Bubble)
+  | key -> (
+      (* Check for mouse click to position cursor *)
+      match Miaou_helpers.Mouse.parse_click key with
+      | Some {row; col} ->
+          (* Account for box border (1 row for top border) *)
+          let text_row = row - 1 + t.scroll_offset in
+          let text_col = col - 1 in
+          (* 1 for left border *)
+          let max_row = Array.length t.lines - 1 in
+          let new_row = max 0 (min max_row text_row) in
+          let max_col = String.length t.lines.(new_row) in
+          let new_col = max 0 (min max_col text_col) in
+          ({t with cursor_row = new_row; cursor_col = new_col}, Handled)
+      | None -> (t, Bubble))
 
 let handle_key t ~key =
   let t', _ = on_key t ~key in
