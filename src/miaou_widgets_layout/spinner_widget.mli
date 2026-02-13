@@ -7,23 +7,36 @@
 
 (** Animated spinner widget for indicating ongoing operations.
 
-    This widget provides a simple animated spinner with optional label,
+    This widget provides animated spinners with optional label,
     useful for showing that a background task is in progress.
+
+    Two styles are available:
+    - [Dots]: Classic braille dot spinner (⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+    - [Block]: Block cursor spinner inside a small box (renders as 3 lines)
 
     {b Typical usage}:
     {[
-      (* Create a spinner *)
+      (* Create a classic spinner *)
       let spinner = Spinner_widget.open_centered ~label:(Some "Loading...") () in
+
+      (* Or create a block cursor spinner *)
+      let spinner = Spinner_widget.open_centered ~style:Block ~label:(Some "Build") () in
 
       (* In your render loop, tick the spinner to advance animation *)
       let spinner' = Spinner_widget.tick spinner in
       let output = Spinner_widget.render spinner' in
-      (* Output: "⠋ Loading..." (glyph animates on each tick) *)
+      (* Dots: "⠋ Loading..." *)
+      (* Block: "┌─┐\n│█│\n└─┘\nBuild" *)
 
       (* Update the label *)
       let spinner' = Spinner_widget.set_label spinner' (Some "Processing...") in
     ]}
 *)
+
+(** Spinner style variants *)
+type style =
+  | Dots  (** Classic braille dot spinner: ⠋ ⠙ ⠹ ⠸ ... (single line) *)
+  | Block  (** Block cursor spinner: renders as 3x3 box with animated fill *)
 
 (** The spinner state *)
 type t
@@ -34,8 +47,9 @@ type t
 
     @param label Optional label displayed after the spinner glyph
     @param width Maximum width in columns (content truncated if longer, default: 60)
+    @param style Spinner style (default: [Dots])
 *)
-val open_centered : ?label:string -> ?width:int -> unit -> t
+val open_centered : ?label:string -> ?width:int -> ?style:style -> unit -> t
 
 (** {1 Animation} *)
 
@@ -56,6 +70,13 @@ val tick : t -> t
     @return Updated spinner with new label
 *)
 val set_label : t -> string option -> t
+
+(** Change the spinner style.
+
+    @param style New style ([Dots] or [Block])
+    @return Updated spinner with new style
+*)
+val set_style : t -> style -> t
 
 (** {1 Rendering} *)
 
