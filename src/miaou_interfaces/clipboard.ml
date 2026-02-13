@@ -69,10 +69,17 @@ let run_clipboard_cmd text cmd_fmt =
     Unix.close dev_null ;
     (* Wait for shell to finish *)
     Unix.sleepf 0.15 ;
+    let waited_pid, status = Unix.waitpid [Unix.WNOHANG] pid in
     let success =
-      match Unix.waitpid [Unix.WNOHANG] pid with
-      | _, Unix.WEXITED 0 -> true
-      | _ -> false
+      if waited_pid = 0 then begin
+        (* Process still running - wait a bit more then assume success *)
+        Unix.sleepf 0.1 ;
+        true
+      end
+      else
+        match status with
+        | Unix.WEXITED 0 -> true
+        | Unix.WEXITED _ | Unix.WSIGNALED _ | Unix.WSTOPPED _ -> false
     in
     (* Clean up temp file *)
     Unix.sleepf 0.05 ;
@@ -80,16 +87,20 @@ let run_clipboard_cmd text cmd_fmt =
     success
   with _ -> false
 
-(** Copy to system clipboard (Ctrl+V paste). *)
+(** Copy to system clipboard (Ctrl+V paste).
+    Uses setsid to run wl-copy in a new session so it survives parent exit. *)
 let copy_native text =
-  run_clipboard_cmd text "wl-copy < %s"
+  run_clipboard_cmd text "setsid wl-copy < %s"
+  || run_clipboard_cmd text "wl-copy < %s"
   || run_clipboard_cmd text "xclip -selection clipboard < %s"
   || run_clipboard_cmd text "xsel --clipboard --input < %s"
   || run_clipboard_cmd text "pbcopy < %s"
 
-(** Copy to primary selection (middle-click paste). *)
+(** Copy to primary selection (middle-click paste).
+    Uses setsid to run wl-copy in a new session so it survives parent exit. *)
 let copy_primary text =
-  run_clipboard_cmd text "wl-copy --primary < %s"
+  run_clipboard_cmd text "setsid wl-copy --primary < %s"
+  || run_clipboard_cmd text "wl-copy --primary < %s"
   || run_clipboard_cmd text "xclip -selection primary < %s"
   || run_clipboard_cmd text "xsel --primary --input < %s"
 (* macOS doesn't have primary selection *)
