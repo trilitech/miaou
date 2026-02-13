@@ -7,7 +7,8 @@
 
 type event =
   | Key of string
-  | Mouse of int * int
+  | MousePress of int * int  (** Mouse button pressed at (row, col) *)
+  | Mouse of int * int  (** Mouse button released (click) at (row, col) *)
   | MouseDrag of int * int  (** Mouse motion while button held *)
   | Resize
   | Refresh

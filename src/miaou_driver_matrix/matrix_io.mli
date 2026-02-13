@@ -15,7 +15,10 @@
 (** Input events produced by any backend. *)
 type event =
   | Key of string  (** Named key or character *)
-  | Mouse of int * int  (** Click at (row, col), 1-indexed *)
+  | MousePress of int * int
+      (** Mouse button pressed at (row, col), 1-indexed *)
+  | Mouse of int * int
+      (** Mouse button released (click) at (row, col), 1-indexed *)
   | MouseDrag of int * int  (** Mouse motion while button held, at (row, col) *)
   | Resize  (** Viewport was resized *)
   | Refresh  (** Time for service_cycle - rate limited *)

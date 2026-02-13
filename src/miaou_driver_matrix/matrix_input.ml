@@ -67,7 +67,8 @@ let refresh_interval = 1.0
 (** Convert Parser.key to event *)
 let key_to_event = function
   | Parser.Mouse {row; col; release} ->
-      if release then Matrix_io.Mouse (row, col) else Matrix_io.Refresh
+      if release then Matrix_io.Mouse (row, col)
+      else Matrix_io.MousePress (row, col)
   | Parser.MouseDrag {row; col} -> Matrix_io.MouseDrag (row, col)
   | Parser.Refresh -> Matrix_io.Refresh
   | key -> Matrix_io.Key (Parser.key_to_string key)

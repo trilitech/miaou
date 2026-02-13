@@ -111,6 +111,9 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   (* Clipboard capability — copy text via OSC 52 *)
   Clipboard.register ~write:ctx.io.write () ;
 
+  (* Text selection state for mouse-based copy *)
+  let selection = Matrix_selection.create () in
+
   (* Convert a packed state with pending navigation into the loop outcome. *)
   let nav_outcome packed =
     let (Packed ((module Page), ps)) = packed in
@@ -276,6 +279,24 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             view_output
         in
 
+        (* Apply selection highlight overlay *)
+        if Matrix_selection.has_selection selection then begin
+          let set_style ~row ~col ~reverse =
+            if row >= 0 && row < ops.rows && col >= 0 && col < ops.cols then
+              let cell = ops.get ~row ~col in
+              ops.set_char
+                ~row
+                ~col
+                ~char:cell.Matrix_cell.char
+                ~style:{cell.style with reverse}
+          in
+          Matrix_selection.apply_highlight
+            selection
+            ~set_style
+            ~rows:ops.rows
+            ~cols:ops.cols
+        end ;
+
         (* Render debug overlay if enabled *)
         if Lazy.force overlay_enabled then
           render_overlay_text
@@ -424,42 +445,74 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             (* Navigation requested — stop processing further events *)
             `Exit (nav_outcome (Packed ((module Page2), ps2)))
         | None -> `Continue (Packed ((module Page2), ps2)))
+    | Matrix_io.MousePress (row, col) ->
+        (* Mouse press starts a new selection *)
+        Matrix_selection.start_selection selection ~row ~col ;
+        Matrix_buffer.mark_all_dirty ctx.buffer ;
+        `Continue packed
     | Matrix_io.Mouse (row, col) ->
-        let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
-        (* Set modal size before handling keys *)
-        Modal_manager.set_current_size rows cols ;
-        let packed' =
-          if Modal_manager.has_active () then begin
-            Modal_manager.handle_key mouse_key ;
-            let ps' = Page.service_cycle (Page.refresh ps) 0 in
-            Packed ((module Page), ps')
-          end
-          else if Page.has_modal ps then
-            let ps' = Page.handle_modal_key ps mouse_key ~size in
-            Packed ((module Page), ps')
-          else
-            let ps' = Page.handle_key ps mouse_key ~size in
-            Packed ((module Page), ps')
-        in
-        `Continue packed'
+        (* Mouse release: if we have an active selection, finish it and copy *)
+        if Matrix_selection.is_active selection then begin
+          Matrix_selection.update_selection selection ~row ~col ;
+          let get_char ~row ~col =
+            let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
+            cell.Matrix_cell.char
+          in
+          (match
+             Matrix_selection.finish_selection selection ~get_char ~cols
+           with
+          | Some text when String.length text > 0 ->
+              Matrix_selection.copy_to_clipboard text
+          | _ -> ()) ;
+          Matrix_selection.clear selection ;
+          Matrix_buffer.mark_all_dirty ctx.buffer ;
+          `Continue packed
+        end
+        else begin
+          (* No active selection - treat as a click for the page *)
+          let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
+          Modal_manager.set_current_size rows cols ;
+          let packed' =
+            if Modal_manager.has_active () then begin
+              Modal_manager.handle_key mouse_key ;
+              let ps' = Page.service_cycle (Page.refresh ps) 0 in
+              Packed ((module Page), ps')
+            end
+            else if Page.has_modal ps then
+              let ps' = Page.handle_modal_key ps mouse_key ~size in
+              Packed ((module Page), ps')
+            else
+              let ps' = Page.handle_key ps mouse_key ~size in
+              Packed ((module Page), ps')
+          in
+          `Continue packed'
+        end
     | Matrix_io.MouseDrag (row, col) ->
-        (* Mouse drag events are sent as keys for widgets to handle *)
-        let drag_key = Printf.sprintf "MouseDrag:%d:%d" row col in
-        Modal_manager.set_current_size rows cols ;
-        let packed' =
-          if Modal_manager.has_active () then begin
-            Modal_manager.handle_key drag_key ;
-            let ps' = Page.service_cycle (Page.refresh ps) 0 in
-            Packed ((module Page), ps')
-          end
-          else if Page.has_modal ps then
-            let ps' = Page.handle_modal_key ps drag_key ~size in
-            Packed ((module Page), ps')
-          else
-            let ps' = Page.handle_key ps drag_key ~size in
-            Packed ((module Page), ps')
-        in
-        `Continue packed'
+        (* Mouse drag updates the selection if active *)
+        if Matrix_selection.is_active selection then begin
+          Matrix_selection.update_selection selection ~row ~col ;
+          Matrix_buffer.mark_all_dirty ctx.buffer ;
+          `Continue packed
+        end
+        else begin
+          (* No active selection - send drag key to page *)
+          let drag_key = Printf.sprintf "MouseDrag:%d:%d" row col in
+          Modal_manager.set_current_size rows cols ;
+          let packed' =
+            if Modal_manager.has_active () then begin
+              Modal_manager.handle_key drag_key ;
+              let ps' = Page.service_cycle (Page.refresh ps) 0 in
+              Packed ((module Page), ps')
+            end
+            else if Page.has_modal ps then
+              let ps' = Page.handle_modal_key ps drag_key ~size in
+              Packed ((module Page), ps')
+            else
+              let ps' = Page.handle_key ps drag_key ~size in
+              Packed ((module Page), ps')
+          in
+          `Continue packed'
+        end
   and check_navigation packed tick_start =
     let (Packed ((module Page), ps)) = packed in
     (* Check for pending navigation from modal callbacks *)

@@ -11,6 +11,7 @@
   matrix_input
   matrix_terminal
   matrix_render_loop
+  matrix_selection
   matrix_main_loop
   matrix_config
   matrix_driver)
