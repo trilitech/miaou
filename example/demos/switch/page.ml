@@ -37,9 +37,7 @@ module Inner = struct
       {s with switch = Switch.handle_key s.switch ~key:key_str}
     else
       match Miaou.Core.Keys.of_string key_str with
-      | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-        ->
-          go_back s
+      | Some Miaou.Core.Keys.Escape -> go_back s
       | Some (Miaou.Core.Keys.Char " ") | Some Miaou.Core.Keys.Enter ->
           {s with switch = Switch.handle_key s.switch ~key:"Enter"}
       | _ -> s

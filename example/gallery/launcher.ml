@@ -430,12 +430,15 @@ let handle_key ps key_str ~size =
     update ps (Move wheel_delta)
   else
     match Miaou_helpers.Mouse.parse_click key_str with
-    | Some {row; _} ->
+    | Some {row; col = _} ->
         let start, max_lines = launcher_window ~size ~cursor:s.cursor in
+        (* Items start at row 4: title(1) + instructions(2) + blank(3) + first item(4) *)
         let items_start_row = 4 in
         let idx_in_slice = row - items_start_row in
         if idx_in_slice >= 0 && idx_in_slice < max_lines then
           let idx = start + idx_in_slice in
+          (* Select the item and open it *)
+          let ps = update ps (Move (idx - s.cursor)) in
           open_demo ps idx
         else ps
     | None -> (
@@ -445,9 +448,7 @@ let handle_key ps key_str ~size =
         | Some Miaou.Core.Keys.Left -> update ps (Move (-1))
         | Some Miaou.Core.Keys.Right -> update ps (Move 1)
         | Some Miaou.Core.Keys.Enter -> open_demo ps s.cursor
-        | Some (Miaou.Core.Keys.Char "q")
-        | Some (Miaou.Core.Keys.Char "Esc")
-        | Some (Miaou.Core.Keys.Char "Escape") ->
+        | Some (Miaou.Core.Keys.Char "q") | Some Miaou.Core.Keys.Escape ->
             Navigation.quit ps
         | Some (Miaou.Core.Keys.Char " ") -> open_demo ps s.cursor
         | Some (Miaou.Core.Keys.Char "j") -> update ps (Move 1)

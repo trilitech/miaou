@@ -267,7 +267,7 @@ let current_input w =
   | Some tb -> textbox_get_text tb
   | None -> if w.path_buffer = "" then w.current_path else w.path_buffer
 
-let handle_key w ~key =
+let rec handle_key w ~key =
   (* Apply any pending path updates first *)
   let w = apply_pending_updates w in
   let selection_for_entry w e =
@@ -456,12 +456,17 @@ let handle_key w ~key =
       | key -> (
           (* Check for mouse click to select entry *)
           match Miaou_helpers.Mouse.parse_click key with
-          | Some {row; _} ->
-              (* Header is ~3 lines (path + separator + column header) *)
-              let header_lines = 3 in
-              let body_row = row - header_lines in
-              if body_row >= 1 && body_row <= total then
-                {w with cursor = List_nav.clamp 0 (total - 1) (body_row - 1)}
+          | Some {row; col = _} ->
+              (* Header is 1 line (path bar), so body starts at row 2.
+                 row is 1-indexed, so item at row 2 is index 0. *)
+              let header_lines = 1 in
+              let clicked_idx = row - header_lines - 1 in
+              if clicked_idx >= 0 && clicked_idx < total then
+                let w = {w with cursor = clicked_idx} in
+                (* Double-click activates entry (same as Enter) *)
+                if Miaou_helpers.Mouse.is_double_click key then
+                  handle_key w ~key:"Enter"
+                else w
               else w
           | None -> w))
   | EditingPath -> (

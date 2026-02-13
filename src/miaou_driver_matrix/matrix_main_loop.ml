@@ -455,9 +455,17 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
         Matrix_buffer.mark_all_dirty ctx.buffer ;
         `Continue packed
     | Matrix_io.Mouse (row, col, _button) ->
-        (* Mouse release: if we have an active selection, finish it and copy *)
-        if Matrix_selection.is_active selection then begin
-          Matrix_selection.update_selection selection ~row ~col ;
+        (* Mouse release: check if this is a click or a text selection.
+           For text selection to be valid, user must have dragged (anchor != current).
+           Single clicks and multi-clicks (double/triple) without drag are passed to widgets. *)
+        Matrix_selection.update_selection selection ~row ~col ;
+        let is_text_selection =
+          Matrix_selection.is_active selection
+          && (not (Matrix_selection.is_single_point selection))
+          && not (Matrix_selection.is_multi_click selection)
+        in
+        if is_text_selection then begin
+          (* This was a drag (text selection) - finish and copy *)
           let get_char ~row ~col =
             let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
             cell.Matrix_cell.char
@@ -473,8 +481,17 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
           `Continue packed
         end
         else begin
-          (* No active selection - treat as a click for the page *)
-          let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
+          (* Click (single, double, or triple) - dispatch to page *)
+          let click_count = Matrix_selection.click_count selection in
+          Matrix_selection.clear selection ;
+          Matrix_buffer.mark_all_dirty ctx.buffer ;
+          (* Use DoubleClick/TripleClick prefix for multi-clicks *)
+          let mouse_key =
+            match click_count with
+            | 2 -> Printf.sprintf "DoubleClick:%d:%d" row col
+            | 3 -> Printf.sprintf "TripleClick:%d:%d" row col
+            | _ -> Printf.sprintf "Mouse:%d:%d" row col
+          in
           Modal_manager.set_current_size rows cols ;
           let packed' =
             if Modal_manager.has_active () then begin

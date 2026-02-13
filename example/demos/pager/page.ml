@@ -208,8 +208,7 @@ module Inner = struct
       {s with pager}
     else
       match Miaou.Core.Keys.of_string key_str with
-      | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-        ->
+      | Some Miaou.Core.Keys.Escape ->
           if pager_input_mode then
             let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
             {s with pager}

@@ -64,7 +64,30 @@ let value_inner w = List.nth w.items w.cursor
 
 let get_selection_inner w = value_inner w
 
-let handle_key_inner w ~key =
+(* Compute which items are visible given current state and size.
+   Returns (start_index, max_shown, has_top_indicator). *)
+let compute_visible_window w ~(size : LTerm_geom.size) =
+  let total = List.length w.items in
+  let rows_total = size.rows in
+  let vertical_space =
+    let v = rows_total - 4 in
+    if v < 6 then 6 else if v > 40 then 40 else v
+  in
+  let show_all = total <= vertical_space in
+  let max_shown = if show_all then total else vertical_space in
+  let start =
+    if show_all then 0
+    else
+      let half = max_shown / 2 in
+      let s = w.cursor - half in
+      let s = if s < 0 then 0 else s in
+      let s = if s + max_shown > total then total - max_shown else s in
+      s
+  in
+  let has_top_indicator = start > 0 in
+  (start, max_shown, has_top_indicator)
+
+let handle_key_inner_with_size w ~key ~(size : LTerm_geom.size) =
   let total = List.length w.items in
   match key with
   | "Up" -> {w with cursor = move_cursor ~total ~cursor:w.cursor ~delta:(-1)}
@@ -100,14 +123,30 @@ let handle_key_inner w ~key =
   | key -> (
       (* Check for mouse click to select item *)
       match Miaou_helpers.Mouse.parse_click key with
-      | Some {row; _} ->
-          (* Header is 2 lines (title + hints), so body starts at row 3 *)
+      | Some {row; col = _} ->
+          (* Layout: header (2 lines) + optional top_indicator + items *)
+          let start, max_shown, has_top_indicator =
+            compute_visible_window w ~size
+          in
           let header_lines = 2 in
-          let body_row = row - header_lines in
-          if body_row >= 1 && body_row <= total then
-            {w with cursor = clamp 0 (total - 1) (body_row - 1)}
+          let top_indicator_lines = if has_top_indicator then 1 else 0 in
+          (* Row where items start (1-indexed) *)
+          let items_start_row = header_lines + top_indicator_lines + 1 in
+          (* Which visible item was clicked (0-indexed relative to visible slice) *)
+          let visible_item_idx = row - items_start_row in
+          if visible_item_idx >= 0 && visible_item_idx < max_shown then
+            (* Map back to absolute item index *)
+            let absolute_idx = start + visible_item_idx in
+            if absolute_idx >= 0 && absolute_idx < total then
+              {w with cursor = absolute_idx}
+            else w
           else w
       | None -> w)
+
+let handle_key_inner w ~key =
+  (* Fallback without size - use default *)
+  let default_size : LTerm_geom.size = {rows = 24; cols = 80} in
+  handle_key_inner_with_size w ~key ~size:default_size
 
 let render_inner
     ?(backend : Miaou_widgets_display.Widgets.backend =
@@ -254,10 +293,19 @@ let render
       Miaou_widgets_display.Widgets.get_backend ()) (w : 'a t) ~focus =
   render_for_backend backend w ~focus
 
-let handle_key_with_size (w : 'a t) ~key ~size:_ : 'a t =
-  (* handle_key_inner is size-agnostic currently; keep behaviour identical
-		while providing a size-aware API for future use. *)
-  let inner' = handle_key_inner w.inner ~key in
+let handle_key_with_size (w : 'a t) ~key ~(size : LTerm_geom.size) : 'a t =
+  (* Adjust size for max_visible, same as in render_with_size *)
+  let size : LTerm_geom.size =
+    match w.max_visible with
+    | None -> size
+    | Some mv ->
+        let desired = mv + 5 in
+        let rows =
+          if size.LTerm_geom.rows <= desired then size.rows else desired
+        in
+        {size with rows}
+  in
+  let inner' = handle_key_inner_with_size w.inner ~key ~size in
   if inner' == w.inner then w else {w with inner = inner'}
 
 let handle_key (w : 'a t) ~key : 'a t =

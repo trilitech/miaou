@@ -59,9 +59,7 @@ module Inner = struct
     if Miaou_helpers.Mouse.is_mouse_event key_str then handle_link key_str
     else
       match Miaou.Core.Keys.of_string key_str with
-      | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-        ->
-          go_back s
+      | Some Miaou.Core.Keys.Escape -> go_back s
       | Some k -> handle_link (Miaou.Core.Keys.to_string k)
       | None -> s
 

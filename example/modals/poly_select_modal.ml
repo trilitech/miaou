@@ -62,11 +62,12 @@ let back ps = ps
 
 let has_modal _ = false
 
-let handle_modal_key ps key ~size:_ =
+let handle_modal_key ps key ~size =
   (* Forward mouse events to the widget *)
   if Miaou_helpers.Mouse.is_mouse_event key then
     Miaou.Core.Navigation.update
-      (fun s -> Miaou_widgets_input.Select_widget.handle_key s ~key)
+      (fun s ->
+        Miaou_widgets_input.Select_widget.handle_key_with_size s ~key ~size)
       ps
   else ps
 
