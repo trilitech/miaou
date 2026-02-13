@@ -36,6 +36,7 @@
   braille_demo
   direct_page_demo
   box_widget_demo
+  textarea_demo
   focus_container_demo
   canvas_demo
   miaou_invaders_demo

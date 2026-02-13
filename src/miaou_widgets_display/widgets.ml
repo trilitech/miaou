@@ -459,8 +459,7 @@ let bg_selection s = (palette ()).selection_bg s
 let selection_fg = (palette ()).selection_fg
 
 (** Render a box with only a left border and colored background.
-    Similar to the style used in Claude Code / opencode for displaying
-    context sections like file content or messages.
+    Useful for displaying context sections, file content, or quoted messages.
 
     @param border_color ANSI 256 color for the left border (default: 75, blue)
     @param bg_color ANSI 256 color for background (default: 236, dark gray)
@@ -487,44 +486,6 @@ let render_left_border_box ?(border_color = 75) ?(bg_color = 236) ~cols content
     vline ^ bg bg_color padded
   in
   String.concat "\n" (List.map render_line lines)
-
-(** Render an animated block cursor spinner.
-    Shows a rectangle that cycles through animation states: [ ] -> [▌] -> [█] -> [▐] -> [ ]
-    This is a minimal, elegant loading indicator.
-
-    @param frame Animation frame number (cycles through 0-3)
-    @param color ANSI 256 color for the cursor (default: 255, white)
-*)
-let block_spinner_frames_unicode = [|" "; "▌"; "█"; "▐"|]
-
-let block_spinner_frames_ascii = [|" "; "["; "#"; "]"|]
-
-let render_block_spinner ?(color = 255) ~frame () =
-  let frames =
-    if Lazy.force use_ascii_borders then block_spinner_frames_ascii
-    else block_spinner_frames_unicode
-  in
-  let idx = frame mod Array.length frames in
-  fg color frames.(idx)
-
-(** Render a block spinner inside a box outline.
-    Shows: [ ] or [▌] or [█] or [▐] cycling.
-
-    @param frame Animation frame number
-    @param color ANSI 256 color (default: 255, white)
-*)
-let render_block_spinner_boxed ?(color = 255) ~frame () =
-  let inner = render_block_spinner ~color ~frame () in
-  let tl, tr, bl, br =
-    if Lazy.force use_ascii_borders then ("+", "+", "+", "+")
-    else ("┌", "┐", "└", "┘")
-  in
-  let h = if Lazy.force use_ascii_borders then "-" else "─" in
-  let v = if Lazy.force use_ascii_borders then "|" else "│" in
-  let top = tl ^ h ^ tr in
-  let mid = v ^ inner ^ v in
-  let bot = bl ^ h ^ br in
-  String.concat "\n" [top; mid; bot]
 
 (* Overlay the modal content centered onto the base screen. *)
 let overlay ~base ~content ~top ~left ~canvas_h ~canvas_w : string =

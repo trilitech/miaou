@@ -19,14 +19,14 @@
       (* Create a classic spinner *)
       let spinner = Spinner_widget.open_centered ~label:(Some "Loading...") () in
 
-      (* Or create a block cursor spinner *)
-      let spinner = Spinner_widget.open_centered ~style:Block ~label:(Some "Build") () in
+      (* Or create a blocks wave spinner *)
+      let spinner = Spinner_widget.open_centered ~style:Blocks ~label:(Some "Build") () in
 
       (* In your render loop, tick the spinner to advance animation *)
       let spinner' = Spinner_widget.tick spinner in
       let output = Spinner_widget.render spinner' in
       (* Dots: "⠋ Loading..." *)
-      (* Block: "┌─┐\n│█│\n└─┘\nBuild" *)
+      (* Blocks: "░░░█ Build" → "░░██ Build" → ... *)
 
       (* Update the label *)
       let spinner' = Spinner_widget.set_label spinner' (Some "Processing...") in
@@ -36,7 +36,15 @@
 (** Spinner style variants *)
 type style =
   | Dots  (** Classic braille dot spinner: ⠋ ⠙ ⠹ ⠸ ... (single line) *)
-  | Block  (** Block cursor spinner: renders as 3x3 box with animated fill *)
+  | Blocks  (** Animated blocks with gradient: ■ ■ ■ ■ ■ (moving highlight) *)
+
+(** Direction for blocks animation *)
+type direction =
+  | Left  (** Highlight moves left *)
+  | Right  (** Highlight moves right (default) *)
+
+(** Glyph style for blocks *)
+type glyph = Square  (** ■ (default) *) | Circle  (** ● *) | Dot  (** • *)
 
 (** The spinner state *)
 type t
@@ -48,8 +56,19 @@ type t
     @param label Optional label displayed after the spinner glyph
     @param width Maximum width in columns (content truncated if longer, default: 60)
     @param style Spinner style (default: [Dots])
+    @param blocks_count Number of blocks for [Blocks] style (default: 5, minimum: 2)
+    @param direction Direction for [Blocks] animation (default: [Right])
+    @param glyph Glyph style for [Blocks] (default: [Square])
 *)
-val open_centered : ?label:string -> ?width:int -> ?style:style -> unit -> t
+val open_centered :
+  ?label:string ->
+  ?width:int ->
+  ?style:style ->
+  ?blocks_count:int ->
+  ?direction:direction ->
+  ?glyph:glyph ->
+  unit ->
+  t
 
 (** {1 Animation} *)
 
