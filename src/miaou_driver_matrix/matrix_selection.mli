@@ -15,7 +15,7 @@
     {[
       let selection = Matrix_selection.create () in
       (* On mouse press: *)
-      Matrix_selection.start_selection selection ~row ~col ;
+      Matrix_selection.start_selection selection ~row ~col ~get_char ~cols ;
       (* On mouse drag: *)
       Matrix_selection.update_selection selection ~row ~col ;
       (* On mouse release: *)
@@ -42,8 +42,17 @@ val has_selection : t -> bool
 (** Check if a cell at (row, col) is within the current selection. *)
 val is_selected : t -> row:int -> col:int -> bool
 
-(** Start a new selection at the given position (on mouse press). *)
-val start_selection : t -> row:int -> col:int -> unit
+(** Start a new selection at the given position (on mouse press).
+    Detects double-click (select word) and triple-click (select line).
+    @param get_char Function to get character at (row, col) from buffer
+    @param cols Number of columns in the buffer *)
+val start_selection :
+  t ->
+  row:int ->
+  col:int ->
+  get_char:(row:int -> col:int -> string) ->
+  cols:int ->
+  unit
 
 (** Update the selection endpoint (on mouse drag). *)
 val update_selection : t -> row:int -> col:int -> unit

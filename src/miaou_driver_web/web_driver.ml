@@ -200,7 +200,8 @@ let parse_client_message events ~current_rows ~current_cols msg =
       | "mouse" ->
           let row = member "row" json |> to_int in
           let col = member "col" json |> to_int in
-          Eio.Stream.add events (Matrix_io.Mouse (row, col))
+          (* Web driver doesn't report button, default to left (0) *)
+          Eio.Stream.add events (Matrix_io.Mouse (row, col, 0))
       | _ -> ()
       | exception _ -> ())
   | exception _ -> ()

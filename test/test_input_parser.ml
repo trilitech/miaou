@@ -38,7 +38,8 @@ let test_key_to_string () =
     string
     "Mouse"
     "Mouse:5:10"
-    (Parser.key_to_string (Parser.Mouse {row = 5; col = 10; release = true})) ;
+    (Parser.key_to_string
+       (Parser.Mouse {row = 5; col = 10; button = 0; release = true})) ;
   check
     string
     "WheelUp"
@@ -211,13 +212,14 @@ let test_parse_mouse_sgr () =
   (* SGR mouse release: ESC [ < 0;10;5m *)
   let p, r = parser_with_input "\027[<0;10;5m" in
   (match Parser.parse_key p with
-  | Some (Parser.Mouse {row = 5; col = 10; release = true}) -> ()
-  | Some (Parser.Mouse {row; col; release}) ->
+  | Some (Parser.Mouse {row = 5; col = 10; button = 0; release = true}) -> ()
+  | Some (Parser.Mouse {row; col; button; release}) ->
       fail
         (Printf.sprintf
-           "Mouse parsed but wrong values: row=%d col=%d release=%b"
+           "Mouse parsed but wrong values: row=%d col=%d button=%d release=%b"
            row
            col
+           button
            release)
   | Some k ->
       fail (Printf.sprintf "Expected Mouse, got %s" (Parser.key_to_string k))

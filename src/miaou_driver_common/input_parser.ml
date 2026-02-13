@@ -22,7 +22,8 @@ type key =
   | Right
   | Delete
   | Ctrl of char  (** C-a, C-b, etc. *)
-  | Mouse of {row : int; col : int; release : bool}
+  | Mouse of {row : int; col : int; button : int; release : bool}
+      (** Mouse button event. [button] is 0=left, 1=middle, 2=right *)
   | MouseDrag of {row : int; col : int}
       (** Mouse motion while button held (bit 5 set in SGR button code) *)
   | WheelUp of {row : int; col : int}  (** Mouse wheel scroll up *)
@@ -228,7 +229,10 @@ let parse_key t =
                       else Some (WheelDown {row; col})
                         (* Check for motion/drag events (bit 5 set = 32) *)
                     else if btn land 32 <> 0 then Some (MouseDrag {row; col})
-                    else Some (Mouse {row; col; release = lastc = 'm'})
+                    else
+                      let button = btn land 3 in
+                      (* Bits 0-1 = button number *)
+                      Some (Mouse {row; col; button; release = lastc = 'm'})
                 | _ -> Some Escape
               with _ -> Some Escape
             else Some Escape
@@ -250,7 +254,7 @@ let parse_key t =
               consume t 3 ;
               let col = max 1 (Char.code x - 32) in
               let row = max 1 (Char.code y - 32) in
-              Some (Mouse {row; col; release = true})
+              Some (Mouse {row; col; button = 0; release = true})
             end
             else Some Escape
         | 'A' ->

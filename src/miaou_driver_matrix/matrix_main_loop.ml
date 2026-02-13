@@ -445,12 +445,16 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             (* Navigation requested — stop processing further events *)
             `Exit (nav_outcome (Packed ((module Page2), ps2)))
         | None -> `Continue (Packed ((module Page2), ps2)))
-    | Matrix_io.MousePress (row, col) ->
-        (* Mouse press starts a new selection *)
-        Matrix_selection.start_selection selection ~row ~col ;
+    | Matrix_io.MousePress (row, col, _button) ->
+        (* Mouse press starts a new selection (with double/triple click detection) *)
+        let get_char ~row ~col =
+          let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
+          cell.Matrix_cell.char
+        in
+        Matrix_selection.start_selection selection ~row ~col ~get_char ~cols ;
         Matrix_buffer.mark_all_dirty ctx.buffer ;
         `Continue packed
-    | Matrix_io.Mouse (row, col) ->
+    | Matrix_io.Mouse (row, col, _button) ->
         (* Mouse release: if we have an active selection, finish it and copy *)
         if Matrix_selection.is_active selection then begin
           Matrix_selection.update_selection selection ~row ~col ;

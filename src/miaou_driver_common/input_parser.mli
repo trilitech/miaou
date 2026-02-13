@@ -38,8 +38,9 @@ type key =
   | Right
   | Delete
   | Ctrl of char  (** Control + letter, e.g., Ctrl 'a' for C-a *)
-  | Mouse of {row : int; col : int; release : bool}
-      (** Mouse click. [release] is true for button release (actual click). *)
+  | Mouse of {row : int; col : int; button : int; release : bool}
+      (** Mouse click. [button] is 0=left, 1=middle, 2=right.
+          [release] is true for button release (actual click). *)
   | MouseDrag of {row : int; col : int}
       (** Mouse motion while button held. Emitted during drag operations. *)
   | WheelUp of {row : int; col : int}  (** Mouse wheel scroll up *)
