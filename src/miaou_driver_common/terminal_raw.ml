@@ -107,7 +107,9 @@ let disable_mouse t =
 
 let enable_mouse _t =
   try
-    print_string "\027[?1000h\027[?1006h" ;
+    (* 1002: Button event tracking (reports motion while button pressed)
+       1006: SGR extended mode (allows coordinates > 223) *)
+    print_string "\027[?1002h\027[?1006h" ;
     Stdlib.flush stdout
   with _ -> ()
 

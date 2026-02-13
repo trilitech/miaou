@@ -1306,7 +1306,9 @@ let run (initial_page : (module PAGE_SIG)) :
         enter_raw () ;
         (* Enable xterm mouse tracking: 1000 button events, 1006 SGR extended. *)
         (try
-           print_string "\027[?1000h\027[?1006h" ;
+           (* 1002: Button event tracking with motion while pressed
+              1006: SGR extended mode for coordinates > 223 *)
+           print_string "\027[?1002h\027[?1006h" ;
            Stdlib.flush stdout
          with _ -> ()) ;
         (* Log initial terminal size on startup *)

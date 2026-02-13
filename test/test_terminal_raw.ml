@@ -38,9 +38,11 @@ let test_size_fallback () =
 
 (* Test mouse escape sequences are well-formed *)
 let test_mouse_sequences () =
-  (* Enable sequence should contain the right codes *)
-  let enable_seq = "\027[?1000h\027[?1006h" in
-  check bool "enable contains 1000h" true (String.length enable_seq > 0) ;
+  (* Enable sequence should contain the right codes:
+     1002 = button event tracking with motion while pressed
+     1006 = SGR extended mode for large coordinates *)
+  let enable_seq = "\027[?1002h\027[?1006h" in
+  check bool "enable contains 1002h" true (String.length enable_seq > 0) ;
   (* Disable sequence should contain all modes *)
   let disable_seq =
     "\027[?1006l\027[?1015l\027[?1005l\027[?1003l\027[?1002l\027[?1000l"
