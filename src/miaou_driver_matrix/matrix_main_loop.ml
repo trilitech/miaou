@@ -446,13 +446,14 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             `Exit (nav_outcome (Packed ((module Page2), ps2)))
         | None -> `Continue (Packed ((module Page2), ps2)))
     | Matrix_io.MousePress (row, col, _button) ->
-        (* Mouse press starts a new selection (with double/triple click detection) *)
+        (* Mouse press starts a new selection (with double/triple click detection).
+           No mark_all_dirty needed - the selection highlight will be rendered
+           naturally on the next tick via apply_highlight in the back buffer. *)
         let get_char ~row ~col =
           let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
           cell.Matrix_cell.char
         in
         Matrix_selection.start_selection selection ~row ~col ~get_char ~cols ;
-        Matrix_buffer.mark_all_dirty ctx.buffer ;
         `Continue packed
     | Matrix_io.Mouse (row, col, _button) ->
         (* Mouse release: check if this is a click or a text selection.
@@ -465,7 +466,10 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
           && not (Matrix_selection.is_multi_click selection)
         in
         if is_text_selection then begin
-          (* This was a drag (text selection) - finish and copy *)
+          (* This was a drag (text selection) - finish and copy.
+             No mark_all_dirty needed - clearing the selection means
+             apply_highlight won't add reverse style on next tick,
+             and the diff will naturally update those cells. *)
           let get_char ~row ~col =
             let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
             cell.Matrix_cell.char
@@ -477,14 +481,14 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
               Matrix_selection.copy_to_clipboard text
           | _ -> ()) ;
           Matrix_selection.clear selection ;
-          Matrix_buffer.mark_all_dirty ctx.buffer ;
           `Continue packed
         end
         else begin
-          (* Click (single, double, or triple) - dispatch to page *)
+          (* Click (single, double, or triple) - dispatch to page.
+             No mark_all_dirty needed - selection was single-point or multi-click,
+             any minimal highlight will be cleared naturally on next tick. *)
           let click_count = Matrix_selection.click_count selection in
           Matrix_selection.clear selection ;
-          Matrix_buffer.mark_all_dirty ctx.buffer ;
           (* Use DoubleClick/TripleClick prefix for multi-clicks *)
           let mouse_key =
             match click_count with
@@ -509,10 +513,12 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
           `Continue packed'
         end
     | Matrix_io.MouseDrag (row, col) ->
-        (* Mouse drag updates the selection if active *)
+        (* Mouse drag updates the selection if active.
+           No mark_all_dirty needed - selection bounds update is picked up
+           naturally by apply_highlight on next tick. The diff will detect
+           cells that gained/lost reverse style and update them. *)
         if Matrix_selection.is_active selection then begin
           Matrix_selection.update_selection selection ~row ~col ;
-          Matrix_buffer.mark_all_dirty ctx.buffer ;
           `Continue packed
         end
         else begin
