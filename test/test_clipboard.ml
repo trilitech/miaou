@@ -46,16 +46,18 @@ let test_osc52_encode () =
 
 (* Test clipboard registration and copy *)
 let test_clipboard_copy () =
-  let copied_text = ref "" in
-  let write_fn s = copied_text := s in
-  Clipboard.register ~write:write_fn () ;
+  (* Note: copy_native may succeed if wl-copy/xclip is available,
+     in which case write_fn won't be called. We test on_copy instead. *)
+  let callback_text = ref "" in
+  let write_fn _ = () in
+  let on_copy text = callback_text := text in
+  Clipboard.register ~write:write_fn ~on_copy () ;
 
   let clip = Clipboard.require () in
   check bool "copy_available" true (clip.copy_available ()) ;
 
   clip.copy "test" ;
-  (* "test" in base64 is "dGVzdA==" *)
-  check string "copied text" "\027]52;c;dGVzdA==\007" !copied_text
+  check string "on_copy received text" "test" !callback_text
 
 (* Test clipboard with disabled *)
 let test_clipboard_disabled () =

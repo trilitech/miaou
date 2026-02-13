@@ -51,10 +51,59 @@ let osc52_encode text =
   let b64 = base64_encode text in
   Printf.sprintf "\027]52;c;%s\007" b64
 
+(** Try to copy using native clipboard tools (wl-copy, xclip, pbcopy).
+    Returns true if a tool was found and executed. *)
+let copy_native text =
+  (* Try clipboard tools in order of preference *)
+  let tools =
+    [
+      ("wl-copy", [|"wl-copy"; "--"|]);
+      (* Wayland *)
+      ("xclip", [|"xclip"; "-selection"; "clipboard"|]);
+      (* X11 *)
+      ("xsel", [|"xsel"; "--clipboard"; "--input"|]);
+      (* X11 alternative *)
+      ("pbcopy", [|"pbcopy"|]);
+      (* macOS *)
+    ]
+  in
+  let try_tool (cmd, argv) =
+    try
+      (* Check if command exists *)
+      let which_status =
+        Unix.system (Printf.sprintf "which %s >/dev/null 2>&1" cmd)
+      in
+      if which_status <> Unix.WEXITED 0 then false
+      else begin
+        (* Create pipe and fork *)
+        let pipe_read, pipe_write = Unix.pipe () in
+        match Unix.fork () with
+        | 0 ->
+            (* Child process *)
+            Unix.close pipe_write ;
+            Unix.dup2 pipe_read Unix.stdin ;
+            Unix.close pipe_read ;
+            (try Unix.execvp cmd argv with _ -> ()) ;
+            exit 1
+        | pid ->
+            (* Parent process *)
+            Unix.close pipe_read ;
+            let _ =
+              Unix.write_substring pipe_write text 0 (String.length text)
+            in
+            Unix.close pipe_write ;
+            let _, status = Unix.waitpid [] pid in
+            status = Unix.WEXITED 0
+      end
+    with _ -> false
+  in
+  List.exists try_tool tools
+
 let register ~write ?on_copy ?(enabled = true) () =
   let copy_fn =
     if enabled then (fun text ->
-      write (osc52_encode text) ;
+      (* Try native clipboard first, fall back to OSC 52 *)
+      if not (copy_native text) then write (osc52_encode text) ;
       match on_copy with Some f -> f text | None -> ())
     else fun _ -> ()
   in
