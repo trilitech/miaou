@@ -23,6 +23,8 @@ type key =
   | Delete
   | Ctrl of char  (** C-a, C-b, etc. *)
   | Mouse of {row : int; col : int; release : bool}
+  | WheelUp of {row : int; col : int}  (** Mouse wheel scroll up *)
+  | WheelDown of {row : int; col : int}  (** Mouse wheel scroll down *)
   | Refresh  (** Synthetic refresh marker *)
   | Unknown of string  (** Unrecognized escape sequence *)
 
@@ -140,7 +142,7 @@ let bytes_for_key = function
   | Escape -> 1
   | Refresh -> 1
   | Unknown _ -> 1
-  | Mouse _ -> 0 (* Handled specially *)
+  | Mouse _ | WheelUp _ | WheelDown _ -> 0 (* Handled specially *)
 
 (** Parse next key, consuming from buffer. *)
 let parse_key t =
@@ -213,10 +215,16 @@ let parse_key t =
                 let body = String.sub seq 3 (chunk_len - 4) in
                 let lastc = seq.[chunk_len - 1] in
                 match String.split_on_char ';' body with
-                | [_btn; col; row] ->
+                | [btn_str; col; row] ->
+                    let btn = int_of_string btn_str in
                     let col = int_of_string col in
                     let row = int_of_string (String.trim row) in
-                    Some (Mouse {row; col; release = lastc = 'm'})
+                    (* Check for wheel events (bit 6 set = 64) *)
+                    if btn land 64 <> 0 then
+                      (* Wheel: btn 64 = up, 65 = down *)
+                      if btn land 1 = 0 then Some (WheelUp {row; col})
+                      else Some (WheelDown {row; col})
+                    else Some (Mouse {row; col; release = lastc = 'm'})
                 | _ -> Some Escape
               with _ -> Some Escape
             else Some Escape
@@ -345,6 +353,8 @@ let key_to_string = function
   | Delete -> "Delete"
   | Ctrl c -> "C-" ^ String.make 1 c
   | Mouse {row; col; _} -> Printf.sprintf "Mouse:%d:%d" row col
+  | WheelUp _ -> "WheelUp"
+  | WheelDown _ -> "WheelDown"
   | Refresh -> "Refresh"
   | Unknown s -> s
 
