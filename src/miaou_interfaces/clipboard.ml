@@ -51,49 +51,61 @@ let osc52_encode text =
   let b64 = base64_encode text in
   Printf.sprintf "\027]52;c;%s\007" b64
 
-(** Try to copy using native clipboard tools.
-    Returns true if a tool was found and executed successfully.
-
-    Uses a temp file + shell redirection approach since piping stdin
-    via create_process doesn't work reliably with wl-copy on Wayland
+(** Run a shell command with text written to a temp file.
+    Uses temp file + shell redirection since piping stdin via
+    create_process doesn't work reliably with wl-copy on Wayland
     (OCaml 5 domains prevent using fork). *)
+let run_clipboard_cmd text cmd_fmt =
+  try
+    let tmp = Filename.temp_file "miaou_clip" ".txt" in
+    let oc = open_out tmp in
+    output_string oc text ;
+    close_out oc ;
+    let cmd = Printf.sprintf cmd_fmt (Filename.quote tmp) in
+    let dev_null = Unix.openfile "/dev/null" [Unix.O_RDWR] 0 in
+    let pid =
+      Unix.create_process "sh" [|"sh"; "-c"; cmd|] dev_null dev_null dev_null
+    in
+    Unix.close dev_null ;
+    (* Wait for shell to finish *)
+    Unix.sleepf 0.15 ;
+    let success =
+      match Unix.waitpid [Unix.WNOHANG] pid with
+      | _, Unix.WEXITED 0 -> true
+      | _ -> false
+    in
+    (* Clean up temp file *)
+    Unix.sleepf 0.05 ;
+    (try Unix.unlink tmp with _ -> ()) ;
+    success
+  with _ -> false
+
+(** Copy to system clipboard (Ctrl+V paste). *)
 let copy_native text =
-  let run_with_temp_file cmd_fmt =
-    try
-      let tmp = Filename.temp_file "miaou_clip" ".txt" in
-      let oc = open_out tmp in
-      output_string oc text ;
-      close_out oc ;
-      let cmd = Printf.sprintf cmd_fmt (Filename.quote tmp) in
-      let dev_null = Unix.openfile "/dev/null" [Unix.O_RDWR] 0 in
-      let pid =
-        Unix.create_process "sh" [|"sh"; "-c"; cmd|] dev_null dev_null dev_null
-      in
-      Unix.close dev_null ;
-      (* Wait for shell to finish *)
-      Unix.sleepf 0.15 ;
-      let success =
-        match Unix.waitpid [Unix.WNOHANG] pid with
-        | _, Unix.WEXITED 0 -> true
-        | _ -> false
-      in
-      (* Clean up temp file *)
-      Unix.sleepf 0.05 ;
-      (try Unix.unlink tmp with _ -> ()) ;
-      success
-    with _ -> false
-  in
-  (* Try clipboard tools in order of preference *)
-  run_with_temp_file "wl-copy < %s"
-  || run_with_temp_file "xclip -selection clipboard < %s"
-  || run_with_temp_file "xsel --clipboard --input < %s"
-  || run_with_temp_file "pbcopy < %s"
+  run_clipboard_cmd text "wl-copy < %s"
+  || run_clipboard_cmd text "xclip -selection clipboard < %s"
+  || run_clipboard_cmd text "xsel --clipboard --input < %s"
+  || run_clipboard_cmd text "pbcopy < %s"
+
+(** Copy to primary selection (middle-click paste). *)
+let copy_primary text =
+  run_clipboard_cmd text "wl-copy --primary < %s"
+  || run_clipboard_cmd text "xclip -selection primary < %s"
+  || run_clipboard_cmd text "xsel --primary --input < %s"
+(* macOS doesn't have primary selection *)
+
+(** Copy to both clipboard and primary selection. *)
+let copy_both text =
+  let _ = copy_native text in
+  let _ = copy_primary text in
+  true
 
 let register ~write ?on_copy ?(enabled = true) () =
   let copy_fn =
     if enabled then (fun text ->
-      (* Try native clipboard first, fall back to OSC 52 *)
-      if not (copy_native text) then write (osc52_encode text) ;
+      (* Copy to both clipboard and primary selection for middle-click paste.
+         Fall back to OSC 52 if native tools unavailable. *)
+      if not (copy_both text) then write (osc52_encode text) ;
       match on_copy with Some f -> f text | None -> ())
     else fun _ -> ()
   in
