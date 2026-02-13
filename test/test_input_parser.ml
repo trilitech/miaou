@@ -39,6 +39,16 @@ let test_key_to_string () =
     "Mouse"
     "Mouse:5:10"
     (Parser.key_to_string (Parser.Mouse {row = 5; col = 10; release = true})) ;
+  check
+    string
+    "WheelUp"
+    "WheelUp"
+    (Parser.key_to_string (Parser.WheelUp {row = 5; col = 10})) ;
+  check
+    string
+    "WheelDown"
+    "WheelDown"
+    (Parser.key_to_string (Parser.WheelDown {row = 5; col = 10})) ;
   check string "Refresh" "Refresh" (Parser.key_to_string Parser.Refresh) ;
   check string "Unknown" "xyz" (Parser.key_to_string (Parser.Unknown "xyz"))
 
@@ -216,6 +226,63 @@ let test_parse_mouse_sgr () =
   | _ -> fail "Expected Mouse with release=false") ;
   cleanup (p, r)
 
+(* Test SGR mouse wheel parsing *)
+let test_parse_mouse_wheel () =
+  (* WheelUp: ESC [ < 64;10;5M (button code 64 = bit 6 set, bit 0 clear) *)
+  let p, r = parser_with_input "\027[<64;10;5M" in
+  (match Parser.parse_key p with
+  | Some (Parser.WheelUp {row = 5; col = 10}) -> ()
+  | Some (Parser.WheelUp {row; col}) ->
+      fail
+        (Printf.sprintf
+           "WheelUp parsed but wrong values: row=%d col=%d"
+           row
+           col)
+  | Some k ->
+      fail (Printf.sprintf "Expected WheelUp, got %s" (Parser.key_to_string k))
+  | None -> fail "Expected WheelUp, got None") ;
+  cleanup (p, r) ;
+
+  (* WheelDown: ESC [ < 65;10;5M (button code 65 = bit 6 set, bit 0 set) *)
+  let p, r = parser_with_input "\027[<65;10;5M" in
+  (match Parser.parse_key p with
+  | Some (Parser.WheelDown {row = 5; col = 10}) -> ()
+  | Some (Parser.WheelDown {row; col}) ->
+      fail
+        (Printf.sprintf
+           "WheelDown parsed but wrong values: row=%d col=%d"
+           row
+           col)
+  | Some k ->
+      fail
+        (Printf.sprintf "Expected WheelDown, got %s" (Parser.key_to_string k))
+  | None -> fail "Expected WheelDown, got None") ;
+  cleanup (p, r) ;
+
+  (* WheelUp with modifier keys: button 64 + modifiers still detected as wheel *)
+  let p, r = parser_with_input "\027[<68;15;20M" in
+  (match Parser.parse_key p with
+  | Some (Parser.WheelUp {row = 20; col = 15}) -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected WheelUp with modifiers, got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected WheelUp with modifiers, got None") ;
+  cleanup (p, r) ;
+
+  (* WheelDown with modifier keys: button 65 + modifiers still detected as wheel *)
+  let p, r = parser_with_input "\027[<69;15;20M" in
+  (match Parser.parse_key p with
+  | Some (Parser.WheelDown {row = 20; col = 15}) -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected WheelDown with modifiers, got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected WheelDown with modifiers, got None") ;
+  cleanup (p, r)
+
 (* Test peek doesn't consume *)
 let test_peek_no_consume () =
   let p, r = parser_with_input "a" in
@@ -256,6 +323,7 @@ let () =
           test_case "escape unknown pair" `Quick test_parse_escape_unknown_pair;
           test_case "sequence" `Quick test_parse_sequence;
           test_case "mouse sgr" `Quick test_parse_mouse_sgr;
+          test_case "mouse wheel" `Quick test_parse_mouse_wheel;
         ] );
       ( "peek",
         [
