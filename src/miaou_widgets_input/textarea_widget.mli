@@ -92,7 +92,7 @@ val render : t -> focus:bool -> string
 (** Handle a keyboard input event.
 
     Supported keys:
-    - [S-Enter] / [Shift-Enter]: Insert newline
+    - [A-Enter] / [Alt-Enter]: Insert newline
     - Printable characters: Insert at cursor
     - [Backspace]: Delete before cursor (joins lines at boundary)
     - [Delete]: Delete at cursor (joins lines at boundary)

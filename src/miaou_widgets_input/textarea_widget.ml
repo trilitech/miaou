@@ -273,7 +273,7 @@ let render t ~focus:(_ : bool) =
 let on_key t ~key =
   let open Miaou_interfaces.Key_event in
   match key with
-  | "S-Enter" | "Shift-Enter" ->
+  | "A-Enter" | "Alt-Enter" ->
       (* Shift+Enter inserts newline *)
       (insert_newline t, Handled)
   | "Backspace" -> (backspace t, Handled)

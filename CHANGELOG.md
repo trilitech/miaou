@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - Unreleased
+
+### Added
+
+- **Textarea widget** (`miaou_widgets_input.Textarea_widget`): multiline text input with cursor navigation, line joining, and scroll support. Use Alt+Enter to insert newlines.
+- **Left-bordered box** (`Widgets.render_left_border_box`): display helper for context/quote blocks with colored left border and optional background.
+- **Blocks spinner style** (`Spinner_widget.Blocks`): animated spinner with size+color gradient progression trail, configurable direction and block count.
+- **Alt+Enter key parsing** (`Input_parser.AltEnter`): universally-supported newline insertion key for textarea widgets.
+
+### Changed
+
+- **Input parser**: added `AltEnter` key variant for Alt+Enter detection (ESC followed by newline).
+
 ## [0.3.0] - Unreleased
 
 ### Breaking Changes

@@ -23,7 +23,7 @@ module Inner = struct
         ~title:"Enter your message"
         ~width:50
         ~height:8
-        ~placeholder:"Type here... (Shift+Enter for newline)"
+        ~placeholder:"Type here... (Alt+Enter for newline)"
         ()
     in
     {textarea; next_page = None}
@@ -67,7 +67,7 @@ module Inner = struct
         String.concat "\n" preview_lines
     in
     let controls =
-      W.dim "Shift+Enter: newline | Arrows: move | Esc: back | t: tutorial"
+      W.dim "Alt+Enter: newline | Arrows: move | Esc: back | t: tutorial"
     in
     String.concat
       "\n"
