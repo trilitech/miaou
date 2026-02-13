@@ -51,53 +51,43 @@ let osc52_encode text =
   let b64 = base64_encode text in
   Printf.sprintf "\027]52;c;%s\007" b64
 
-(** Try to copy using native clipboard tools (wl-copy, xclip, pbcopy).
-    Returns true if a tool was found and executed. *)
+(** Try to copy using native clipboard tools.
+    Returns true if a tool was found and executed successfully.
+
+    Uses a temp file + shell redirection approach since piping stdin
+    via create_process doesn't work reliably with wl-copy on Wayland
+    (OCaml 5 domains prevent using fork). *)
 let copy_native text =
-  (* Try clipboard tools in order of preference *)
-  let tools =
-    [
-      ("wl-copy", [|"wl-copy"; "--"|]);
-      (* Wayland *)
-      ("xclip", [|"xclip"; "-selection"; "clipboard"|]);
-      (* X11 *)
-      ("xsel", [|"xsel"; "--clipboard"; "--input"|]);
-      (* X11 alternative *)
-      ("pbcopy", [|"pbcopy"|]);
-      (* macOS *)
-    ]
-  in
-  let try_tool (cmd, argv) =
+  let run_with_temp_file cmd_fmt =
     try
-      (* Check if command exists *)
-      let which_status =
-        Unix.system (Printf.sprintf "which %s >/dev/null 2>&1" cmd)
+      let tmp = Filename.temp_file "miaou_clip" ".txt" in
+      let oc = open_out tmp in
+      output_string oc text ;
+      close_out oc ;
+      let cmd = Printf.sprintf cmd_fmt (Filename.quote tmp) in
+      let dev_null = Unix.openfile "/dev/null" [Unix.O_RDWR] 0 in
+      let pid =
+        Unix.create_process "sh" [|"sh"; "-c"; cmd|] dev_null dev_null dev_null
       in
-      if which_status <> Unix.WEXITED 0 then false
-      else begin
-        (* Create pipe and fork *)
-        let pipe_read, pipe_write = Unix.pipe () in
-        match Unix.fork () with
-        | 0 ->
-            (* Child process *)
-            Unix.close pipe_write ;
-            Unix.dup2 pipe_read Unix.stdin ;
-            Unix.close pipe_read ;
-            (try Unix.execvp cmd argv with _ -> ()) ;
-            exit 1
-        | pid ->
-            (* Parent process *)
-            Unix.close pipe_read ;
-            let _ =
-              Unix.write_substring pipe_write text 0 (String.length text)
-            in
-            Unix.close pipe_write ;
-            let _, status = Unix.waitpid [] pid in
-            status = Unix.WEXITED 0
-      end
+      Unix.close dev_null ;
+      (* Wait for shell to finish *)
+      Unix.sleepf 0.15 ;
+      let success =
+        match Unix.waitpid [Unix.WNOHANG] pid with
+        | _, Unix.WEXITED 0 -> true
+        | _ -> false
+      in
+      (* Clean up temp file *)
+      Unix.sleepf 0.05 ;
+      (try Unix.unlink tmp with _ -> ()) ;
+      success
     with _ -> false
   in
-  List.exists try_tool tools
+  (* Try clipboard tools in order of preference *)
+  run_with_temp_file "wl-copy < %s"
+  || run_with_temp_file "xclip -selection clipboard < %s"
+  || run_with_temp_file "xsel --clipboard --input < %s"
+  || run_with_temp_file "pbcopy < %s"
 
 let register ~write ?on_copy ?(enabled = true) () =
   let copy_fn =
