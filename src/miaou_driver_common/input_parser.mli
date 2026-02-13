@@ -40,6 +40,8 @@ type key =
   | Ctrl of char  (** Control + letter, e.g., Ctrl 'a' for C-a *)
   | Mouse of {row : int; col : int; release : bool}
       (** Mouse click. [release] is true for button release (actual click). *)
+  | MouseDrag of {row : int; col : int}
+      (** Mouse motion while button held. Emitted during drag operations. *)
   | WheelUp of {row : int; col : int}  (** Mouse wheel scroll up *)
   | WheelDown of {row : int; col : int}  (** Mouse wheel scroll down *)
   | Refresh  (** Synthetic refresh marker (null byte) *)

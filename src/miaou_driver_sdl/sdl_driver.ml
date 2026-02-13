@@ -10,6 +10,7 @@
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
+module Clipboard = Miaou_interfaces.Clipboard
 module Capture = Miaou_core.Tui_capture
 module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
@@ -607,6 +608,10 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       (* Timer capability — page-scoped periodic/one-shot callbacks *)
       let timer_state = Timer.create_state () in
       Timer.register timer_state ;
+
+      (* Clipboard capability — use SDL's native clipboard API *)
+      let sdl_clipboard_copy text = ignore (Sdl.set_clipboard_text text) in
+      Clipboard.register ~write:sdl_clipboard_copy () ;
 
       let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
           (ps : s Page_transition.Navigation.t) =

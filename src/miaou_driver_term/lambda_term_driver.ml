@@ -11,6 +11,7 @@
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
+module Clipboard = Miaou_interfaces.Clipboard
 open Miaou_core.Tui_page
 module Navigation = Miaou_core.Navigation
 module Capture = Miaou_core.Tui_capture
@@ -847,6 +848,13 @@ let run (initial_page : (module PAGE_SIG)) :
         (* Timer capability — page-scoped periodic/one-shot callbacks *)
         let timer_state = Timer.create_state () in
         Timer.register timer_state ;
+
+        (* Clipboard capability — copy text via OSC 52 *)
+        let write_to_term s =
+          print_string s ;
+          Stdlib.flush stdout
+        in
+        Clipboard.register ~write:write_to_term () ;
 
         (* Key handler stack (pure) integration: thread alongside page state. *)
         (* Prepare key handler stack: push a frame for the page keymap once per page.

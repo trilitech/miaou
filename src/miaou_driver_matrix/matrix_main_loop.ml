@@ -12,6 +12,7 @@ module Narrow_modal = Miaou_core.Narrow_modal
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
+module Clipboard = Miaou_interfaces.Clipboard
 module Fibers = Miaou_helpers.Fiber_runtime
 module Widgets = Miaou_widgets_display.Widgets
 
@@ -106,6 +107,9 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   (* Timer capability — page-scoped periodic/one-shot callbacks *)
   let timer_state = Timer.create_state () in
   Timer.register timer_state ;
+
+  (* Clipboard capability — copy text via OSC 52 *)
+  Clipboard.register ~write:ctx.io.write () ;
 
   (* Convert a packed state with pending navigation into the loop outcome. *)
   let nav_outcome packed =
@@ -435,6 +439,24 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             Packed ((module Page), ps')
           else
             let ps' = Page.handle_key ps mouse_key ~size in
+            Packed ((module Page), ps')
+        in
+        `Continue packed'
+    | Matrix_io.MouseDrag (row, col) ->
+        (* Mouse drag events are sent as keys for widgets to handle *)
+        let drag_key = Printf.sprintf "MouseDrag:%d:%d" row col in
+        Modal_manager.set_current_size rows cols ;
+        let packed' =
+          if Modal_manager.has_active () then begin
+            Modal_manager.handle_key drag_key ;
+            let ps' = Page.service_cycle (Page.refresh ps) 0 in
+            Packed ((module Page), ps')
+          end
+          else if Page.has_modal ps then
+            let ps' = Page.handle_modal_key ps drag_key ~size in
+            Packed ((module Page), ps')
+          else
+            let ps' = Page.handle_key ps drag_key ~size in
             Packed ((module Page), ps')
         in
         `Continue packed'

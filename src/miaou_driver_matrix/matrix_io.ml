@@ -8,6 +8,7 @@
 type event =
   | Key of string
   | Mouse of int * int
+  | MouseDrag of int * int  (** Mouse motion while button held *)
   | Resize
   | Refresh
   | Idle

@@ -16,6 +16,7 @@
 type event =
   | Key of string  (** Named key or character *)
   | Mouse of int * int  (** Click at (row, col), 1-indexed *)
+  | MouseDrag of int * int  (** Mouse motion while button held, at (row, col) *)
   | Resize  (** Viewport was resized *)
   | Refresh  (** Time for service_cycle - rate limited *)
   | Idle  (** No input, not time for refresh *)

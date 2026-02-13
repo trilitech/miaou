@@ -311,6 +311,11 @@
  (libraries alcotest miaou-core.helpers))
 
 (test
+ (name test_clipboard)
+ (modules test_clipboard)
+ (libraries alcotest miaou-core.interfaces))
+
+(test
  (name test_canvas)
  (modules test_canvas)
  (libraries alcotest miaou-core.canvas))

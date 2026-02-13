@@ -10,6 +10,7 @@ module Capture = Miaou_core.Tui_capture
 module Fibers = Miaou_helpers.Fiber_runtime
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
+module Clipboard = Miaou_interfaces.Clipboard
 open LTerm_geom
 
 (* Helper: apply any pending navigation from modal callbacks to pstate *)
@@ -112,6 +113,8 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       (* Timer capability — page-scoped periodic/one-shot callbacks *)
       let timer_state = Timer.create_state () in
       Timer.register timer_state ;
+      (* Clipboard capability — no-op in headless mode *)
+      Clipboard.register ~write:(fun _ -> ()) () ;
       let exceed_guard iteration =
         let elapsed = Unix.gettimeofday () -. start_time in
         if iteration >= !max_iterations_ref || elapsed >= !max_seconds_ref then
@@ -214,6 +217,7 @@ module Stateful = struct
     Clock.register clock_state ;
     let timer_state = Timer.create_state () in
     Timer.register timer_state ;
+    Clipboard.register ~write:(fun _ -> ()) () ;
     let render () = render_page_with (module P) !ps in
     let handle_modal_key k =
       if Miaou_core.Modal_manager.has_active () then

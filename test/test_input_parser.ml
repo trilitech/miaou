@@ -49,6 +49,11 @@ let test_key_to_string () =
     "WheelDown"
     "WheelDown"
     (Parser.key_to_string (Parser.WheelDown {row = 5; col = 10})) ;
+  check
+    string
+    "MouseDrag"
+    "MouseDrag:5:10"
+    (Parser.key_to_string (Parser.MouseDrag {row = 5; col = 10})) ;
   check string "Refresh" "Refresh" (Parser.key_to_string Parser.Refresh) ;
   check string "Unknown" "xyz" (Parser.key_to_string (Parser.Unknown "xyz"))
 
@@ -283,6 +288,60 @@ let test_parse_mouse_wheel () =
   | None -> fail "Expected WheelDown with modifiers, got None") ;
   cleanup (p, r)
 
+(* Test SGR mouse drag parsing *)
+let test_parse_mouse_drag () =
+  (* MouseDrag: ESC [ < 32;10;5M (button code 32 = bit 5 set for motion) *)
+  let p, r = parser_with_input "\027[<32;10;5M" in
+  (match Parser.parse_key p with
+  | Some (Parser.MouseDrag {row = 5; col = 10}) -> ()
+  | Some (Parser.MouseDrag {row; col}) ->
+      fail
+        (Printf.sprintf
+           "MouseDrag parsed but wrong values: row=%d col=%d"
+           row
+           col)
+  | Some k ->
+      fail
+        (Printf.sprintf "Expected MouseDrag, got %s" (Parser.key_to_string k))
+  | None -> fail "Expected MouseDrag, got None") ;
+  cleanup (p, r) ;
+
+  (* MouseDrag with button 0 held: 32 + 0 = 32 *)
+  let p, r = parser_with_input "\027[<32;20;15M" in
+  (match Parser.parse_key p with
+  | Some (Parser.MouseDrag {row = 15; col = 20}) -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected MouseDrag btn0, got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected MouseDrag btn0, got None") ;
+  cleanup (p, r) ;
+
+  (* MouseDrag with button 1 held: 32 + 1 = 33 *)
+  let p, r = parser_with_input "\027[<33;20;15M" in
+  (match Parser.parse_key p with
+  | Some (Parser.MouseDrag {row = 15; col = 20}) -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected MouseDrag btn1, got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected MouseDrag btn1, got None") ;
+  cleanup (p, r) ;
+
+  (* MouseDrag with Shift modifier: 32 + 4 = 36 *)
+  let p, r = parser_with_input "\027[<36;5;10M" in
+  (match Parser.parse_key p with
+  | Some (Parser.MouseDrag {row = 10; col = 5}) -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected MouseDrag with Shift, got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected MouseDrag with Shift, got None") ;
+  cleanup (p, r)
+
 (* Test peek doesn't consume *)
 let test_peek_no_consume () =
   let p, r = parser_with_input "a" in
@@ -324,6 +383,7 @@ let () =
           test_case "sequence" `Quick test_parse_sequence;
           test_case "mouse sgr" `Quick test_parse_mouse_sgr;
           test_case "mouse wheel" `Quick test_parse_mouse_wheel;
+          test_case "mouse drag" `Quick test_parse_mouse_drag;
         ] );
       ( "peek",
         [

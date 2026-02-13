@@ -23,6 +23,8 @@ type key =
   | Delete
   | Ctrl of char  (** C-a, C-b, etc. *)
   | Mouse of {row : int; col : int; release : bool}
+  | MouseDrag of {row : int; col : int}
+      (** Mouse motion while button held (bit 5 set in SGR button code) *)
   | WheelUp of {row : int; col : int}  (** Mouse wheel scroll up *)
   | WheelDown of {row : int; col : int}  (** Mouse wheel scroll down *)
   | Refresh  (** Synthetic refresh marker *)
@@ -142,7 +144,7 @@ let bytes_for_key = function
   | Escape -> 1
   | Refresh -> 1
   | Unknown _ -> 1
-  | Mouse _ | WheelUp _ | WheelDown _ -> 0 (* Handled specially *)
+  | Mouse _ | MouseDrag _ | WheelUp _ | WheelDown _ -> 0 (* Handled specially *)
 
 (** Parse next key, consuming from buffer. *)
 let parse_key t =
@@ -224,6 +226,8 @@ let parse_key t =
                       (* Wheel: btn 64 = up, 65 = down *)
                       if btn land 1 = 0 then Some (WheelUp {row; col})
                       else Some (WheelDown {row; col})
+                        (* Check for motion/drag events (bit 5 set = 32) *)
+                    else if btn land 32 <> 0 then Some (MouseDrag {row; col})
                     else Some (Mouse {row; col; release = lastc = 'm'})
                 | _ -> Some Escape
               with _ -> Some Escape
@@ -353,6 +357,7 @@ let key_to_string = function
   | Delete -> "Delete"
   | Ctrl c -> "C-" ^ String.make 1 c
   | Mouse {row; col; _} -> Printf.sprintf "Mouse:%d:%d" row col
+  | MouseDrag {row; col} -> Printf.sprintf "MouseDrag:%d:%d" row col
   | WheelUp _ -> "WheelUp"
   | WheelDown _ -> "WheelDown"
   | Refresh -> "Refresh"
