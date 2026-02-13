@@ -8,41 +8,41 @@
 open Alcotest
 module Clipboard = Miaou_interfaces.Clipboard
 
-(* Test OSC 52 encoding *)
+(* Test OSC 52 encoding - uses BEL (\007) as terminator *)
 let test_osc52_encode () =
   (* Empty string *)
   let encoded = Clipboard.osc52_encode "" in
-  check string "empty string" "\027]52;c;\027\\" encoded ;
+  check string "empty string" "\027]52;c;\007" encoded ;
 
   (* Simple ASCII text *)
   let encoded = Clipboard.osc52_encode "Hello" in
   (* "Hello" in base64 is "SGVsbG8=" *)
-  check string "Hello" "\027]52;c;SGVsbG8=\027\\" encoded ;
+  check string "Hello" "\027]52;c;SGVsbG8=\007" encoded ;
 
   (* Text with spaces *)
   let encoded = Clipboard.osc52_encode "Hello World" in
   (* "Hello World" in base64 is "SGVsbG8gV29ybGQ=" *)
-  check string "Hello World" "\027]52;c;SGVsbG8gV29ybGQ=\027\\" encoded ;
+  check string "Hello World" "\027]52;c;SGVsbG8gV29ybGQ=\007" encoded ;
 
   (* Single character *)
   let encoded = Clipboard.osc52_encode "a" in
   (* "a" in base64 is "YQ==" *)
-  check string "single char" "\027]52;c;YQ==\027\\" encoded ;
+  check string "single char" "\027]52;c;YQ==\007" encoded ;
 
   (* Two characters *)
   let encoded = Clipboard.osc52_encode "ab" in
   (* "ab" in base64 is "YWI=" *)
-  check string "two chars" "\027]52;c;YWI=\027\\" encoded ;
+  check string "two chars" "\027]52;c;YWI=\007" encoded ;
 
   (* Three characters (no padding needed) *)
   let encoded = Clipboard.osc52_encode "abc" in
   (* "abc" in base64 is "YWJj" *)
-  check string "three chars" "\027]52;c;YWJj\027\\" encoded ;
+  check string "three chars" "\027]52;c;YWJj\007" encoded ;
 
   (* Newlines *)
   let encoded = Clipboard.osc52_encode "line1\nline2" in
   (* "line1\nline2" in base64 is "bGluZTEKbGluZTI=" *)
-  check string "newlines" "\027]52;c;bGluZTEKbGluZTI=\027\\" encoded
+  check string "newlines" "\027]52;c;bGluZTEKbGluZTI=\007" encoded
 
 (* Test clipboard registration and copy *)
 let test_clipboard_copy () =
@@ -55,7 +55,7 @@ let test_clipboard_copy () =
 
   clip.copy "test" ;
   (* "test" in base64 is "dGVzdA==" *)
-  check string "copied text" "\027]52;c;dGVzdA==\027\\" !copied_text
+  check string "copied text" "\027]52;c;dGVzdA==\007" !copied_text
 
 (* Test clipboard with disabled *)
 let test_clipboard_disabled () =

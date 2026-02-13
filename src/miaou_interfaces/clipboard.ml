@@ -43,12 +43,13 @@ let base64_encode s =
   Buffer.contents buf
 
 (** Encode text as OSC 52 escape sequence for clipboard.
-    Format: ESC ] 52 ; c ; <base64> ESC \
+    Format: ESC ] 52 ; c ; <base64> BEL
     - "c" specifies the clipboard selection (system clipboard)
-    - base64-encoded payload is the text to copy *)
+    - base64-encoded payload is the text to copy
+    - BEL (\007) is more widely supported than ESC \ as terminator *)
 let osc52_encode text =
   let b64 = base64_encode text in
-  Printf.sprintf "\027]52;c;%s\027\\" b64
+  Printf.sprintf "\027]52;c;%s\007" b64
 
 let register ~write ?on_copy ?(enabled = true) () =
   let copy_fn =

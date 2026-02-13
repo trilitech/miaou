@@ -71,5 +71,6 @@ val register :
 
 (** Encode text as an OSC 52 escape sequence.
     Exported for testing. The sequence format is:
-    [ESC ] 52 ; c ; <base64-encoded-text> ESC \] *)
+    [ESC ] 52 ; c ; <base64-encoded-text> BEL]
+    BEL (0x07) is used as terminator for wider terminal compatibility. *)
 val osc52_encode : string -> string
