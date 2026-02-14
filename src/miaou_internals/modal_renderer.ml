@@ -149,6 +149,22 @@ let render_overlay ~(cols : int option) ~base ?rows () =
               ~base:acc
               ()
           in
+          (* Compute and store the modal content position for click handling.
+             This mirrors center_modal's positioning logic:
+             - total_h = 2 (borders) + content_lines
+             - top = (rows - total_h) / 2
+             - content starts at top + 1 (after top border)
+             - left = geom.left, content starts at left + 1 (after left border) *)
+          let content_lines = List.length (String.split_on_char '\n' content) in
+          let total_h = 2 + content_lines in
+          let modal_top = max 0 ((rows_val - total_h) / 2) in
+          let content_top = modal_top + 1 in
+          (* +1 for top border *)
+          let content_left = geom.left + 1 in
+          (* +1 for left border *)
+          Modal_snapshot.set_rendered_position
+            ~top:content_top
+            ~left:content_left ;
           (try
              append_log
                (Printf.sprintf

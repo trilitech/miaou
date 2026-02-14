@@ -33,3 +33,13 @@ let provider :
 let set_provider f = provider := Some f
 
 let get_stack_snapshot () = match !provider with Some f -> f () | None -> []
+
+(** Last rendered modal geometry, stored by modal_renderer for use by click handling.
+    Contains (content_top_row, content_left_col) where content starts (1-indexed). *)
+let last_rendered_position : (int * int) option ref = ref None
+
+let set_rendered_position ~top ~left = last_rendered_position := Some (top, left)
+
+let get_rendered_position () = !last_rendered_position
+
+let clear_rendered_position () = last_rendered_position := None

@@ -55,8 +55,18 @@ module Inner = struct
     let ascii_box =
       BW.render ~title:"ASCII" ~style:Ascii ~width:box_w "Fallback style"
     in
+    (* Left-bordered box *)
+    let left_border_box =
+      W.render_left_border_box
+        ~border_color:75
+        ~bg_color:236
+        ~cols:box_w
+        "Left-bordered box\nWith colored bg\nFor context/quotes"
+    in
     let left_col = single_box ^ "\n\n" ^ double_box ^ "\n\n" ^ ascii_box in
-    let right_col = rounded_box ^ "\n\n" ^ nested_box in
+    let right_col =
+      rounded_box ^ "\n\n" ^ nested_box ^ "\n\n" ^ left_border_box
+    in
     let left_child =
       {
         Flex.render = (fun ~size:_ -> left_col);

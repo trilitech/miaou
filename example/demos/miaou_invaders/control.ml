@@ -331,8 +331,6 @@ let ai_control s =
 let handle_key s key_str ~size:_ =
   match Miaou.Core.Keys.of_string key_str with
   | Some Miaou.Core.Keys.Escape -> go_back s
-  | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape") ->
-      go_back s
   | Some Miaou.Core.Keys.Enter when s.show_title -> start_run s
   | Some (Miaou.Core.Keys.Char "d") when s.show_title ->
       start_run_with_mode s true
@@ -484,7 +482,6 @@ let handled_keys () =
       Char "D";
       Char "r";
       Escape;
-      Char "Esc";
     ]
 
 let back s = go_back s

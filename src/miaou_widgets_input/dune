@@ -3,6 +3,7 @@
  (public_name miaou-core.widgets.input)
  (modules
   textbox_widget
+  textarea_widget
   validated_textbox_widget
   select_widget
   select_widget_sdl

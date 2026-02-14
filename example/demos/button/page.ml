@@ -45,9 +45,7 @@ module Inner = struct
     let button, fired = Button.handle_key s.button ~key:key_str in
     let clicks = if fired then s.clicks + 1 else s.clicks in
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_back {s with button; clicks}
+    | Some Miaou.Core.Keys.Escape -> go_back {s with button; clicks}
     | _ -> {s with button; clicks}
 
   let move s _ = s

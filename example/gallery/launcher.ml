@@ -347,6 +347,13 @@ let demos =
           (module Box_widget_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
+      title = "Textarea";
+      open_demo =
+        goto
+          "demo_textarea"
+          (module Textarea_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
       title = "Focus Container";
       open_demo =
         goto
@@ -379,14 +386,7 @@ let update ps = function
 let open_demo ps idx =
   match List.nth_opt demos idx with Some d -> d.open_demo ps | None -> ps
 
-let view ps ~focus:_ ~size =
-  let s = ps.Navigation.s in
-  let module W = Miaou_widgets_display.Widgets in
-  let title = "MIAOU demo launcher" in
-  let instructions =
-    W.dim
-      "Use Up/Down (or j/k) to move, Enter to launch a demo, q or Esc to exit"
-  in
+let launcher_window ~size ~cursor =
   let header_overhead = if size.LTerm_geom.cols < 80 then 1 else 0 in
   let frame_overhead = 2 + 3 + header_overhead in
   let body_rows_available = max 0 (size.LTerm_geom.rows - frame_overhead) in
@@ -395,9 +395,20 @@ let view ps ~focus:_ ~size =
   let start =
     let total = List.length demos in
     let max_start = max 0 (total - max_lines) in
-    let desired = s.cursor - max_lines + 1 in
+    let desired = cursor - max_lines + 1 in
     max 0 (min desired max_start)
   in
+  (start, max_lines)
+
+let view ps ~focus:_ ~size =
+  let s = ps.Navigation.s in
+  let module W = Miaou_widgets_display.Widgets in
+  let title = "MIAOU demo launcher" in
+  let instructions =
+    W.dim
+      "Use Up/Down (or j/k) to move, Enter to launch a demo, q or Esc to exit"
+  in
+  let start, max_lines = launcher_window ~size ~cursor:s.cursor in
   let slice =
     List.filteri (fun i _ -> i >= start && i < start + max_lines) demos
   in
@@ -410,23 +421,40 @@ let view ps ~focus:_ ~size =
   in
   String.concat "\n" (title :: instructions :: "" :: items)
 
-let handle_key ps key_str ~size:_ =
+let handle_key ps key_str ~size =
   let s = ps.Navigation.s in
-  match Miaou.Core.Keys.of_string key_str with
-  | Some Miaou.Core.Keys.Up -> update ps (Move (-1))
-  | Some Miaou.Core.Keys.Down -> update ps (Move 1)
-  | Some Miaou.Core.Keys.Left -> update ps (Move (-1))
-  | Some Miaou.Core.Keys.Right -> update ps (Move 1)
-  | Some Miaou.Core.Keys.Enter -> open_demo ps s.cursor
-  | Some (Miaou.Core.Keys.Char "q")
-  | Some (Miaou.Core.Keys.Char "Esc")
-  | Some (Miaou.Core.Keys.Char "Escape") ->
-      Navigation.quit ps
-  | Some (Miaou.Core.Keys.Char " ") -> open_demo ps s.cursor
-  | Some (Miaou.Core.Keys.Char "j") -> update ps (Move 1)
-  | Some (Miaou.Core.Keys.Char "k") -> update ps (Move (-1))
-  | None -> ps
-  | _ -> ps
+  let wheel_delta = Miaou_helpers.Mouse.wheel_scroll_lines in
+  if Miaou_helpers.Mouse.is_wheel_up key_str then
+    update ps (Move (-wheel_delta))
+  else if Miaou_helpers.Mouse.is_wheel_down key_str then
+    update ps (Move wheel_delta)
+  else
+    match Miaou_helpers.Mouse.parse_click key_str with
+    | Some {row; col = _} ->
+        let start, max_lines = launcher_window ~size ~cursor:s.cursor in
+        (* Items start at row 4: title(1) + instructions(2) + blank(3) + first item(4) *)
+        let items_start_row = 4 in
+        let idx_in_slice = row - items_start_row in
+        if idx_in_slice >= 0 && idx_in_slice < max_lines then
+          let idx = start + idx_in_slice in
+          (* Select the item and open it *)
+          let ps = update ps (Move (idx - s.cursor)) in
+          open_demo ps idx
+        else ps
+    | None -> (
+        match Miaou.Core.Keys.of_string key_str with
+        | Some Miaou.Core.Keys.Up -> update ps (Move (-1))
+        | Some Miaou.Core.Keys.Down -> update ps (Move 1)
+        | Some Miaou.Core.Keys.Left -> update ps (Move (-1))
+        | Some Miaou.Core.Keys.Right -> update ps (Move 1)
+        | Some Miaou.Core.Keys.Enter -> open_demo ps s.cursor
+        | Some (Miaou.Core.Keys.Char "q") | Some Miaou.Core.Keys.Escape ->
+            Navigation.quit ps
+        | Some (Miaou.Core.Keys.Char " ") -> open_demo ps s.cursor
+        | Some (Miaou.Core.Keys.Char "j") -> update ps (Move 1)
+        | Some (Miaou.Core.Keys.Char "k") -> update ps (Move (-1))
+        | None -> ps
+        | _ -> ps)
 
 let on_key ps key ~size =
   let key_str = Miaou.Core.Keys.to_string key in

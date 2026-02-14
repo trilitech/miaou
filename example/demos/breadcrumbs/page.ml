@@ -60,9 +60,7 @@ module Inner = struct
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_back s
+    | Some Miaou.Core.Keys.Escape -> go_back s
     | _ ->
         let trail, handled =
           Breadcrumbs.handle_event ~bubble_unhandled:true s.trail ~key:key_str

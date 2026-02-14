@@ -89,8 +89,7 @@ module Inner = struct
     | Some (Miaou.Core.Keys.Char "q")
     | Some (Miaou.Core.Keys.Char "Q")
     | Some Miaou.Core.Keys.Backspace
-    | Some (Miaou.Core.Keys.Char "Esc")
-    | Some (Miaou.Core.Keys.Char "Escape") ->
+    | Some Miaou.Core.Keys.Escape ->
         go_back s
     | _ -> s
 

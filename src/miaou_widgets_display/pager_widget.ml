@@ -1019,7 +1019,28 @@ let handle_nav_key t ~key ~win ~total ~page =
             t.cursor <- max 0 (total - 1) ;
             ensure_cursor_visible t ;
             Some (t, true)
-        | _ -> None
+        | "WheelUp" ->
+            let _ = cursor_up ~n:Miaou_helpers.Mouse.wheel_scroll_lines t in
+            Some (t, true)
+        | "WheelDown" ->
+            let _ = cursor_down ~n:Miaou_helpers.Mouse.wheel_scroll_lines t in
+            Some (t, true)
+        | key -> (
+            (* Check for mouse click to position cursor *)
+            match Miaou_helpers.Mouse.parse_click key with
+            | Some {row; _} ->
+                (* Account for header lines (status bar + optional search prompt) *)
+                let header_lines =
+                  match t.input_mode with `Search_edit -> 2 | _ -> 1
+                in
+                let body_row = row - header_lines in
+                if body_row >= 1 then (
+                  let clicked_line = t.offset + body_row - 1 in
+                  let max_line = max 0 (total - 1) in
+                  t.cursor <- clamp 0 max_line clicked_line ;
+                  Some (t, true))
+                else None
+            | None -> None)
       else
         match key with
         | "Up" -> Some (with_auto_follow t (t.offset - 1), true)
@@ -1034,6 +1055,18 @@ let handle_nav_key t ~key ~win ~total ~page =
             t.offset <- max_offset ;
             t.follow <- t.streaming ;
             Some (t, true)
+        | "WheelUp" ->
+            Some
+              ( with_auto_follow
+                  t
+                  (t.offset - Miaou_helpers.Mouse.wheel_scroll_lines),
+                true )
+        | "WheelDown" ->
+            Some
+              ( with_auto_follow
+                  t
+                  (t.offset + Miaou_helpers.Mouse.wheel_scroll_lines),
+                true )
         | _ -> None)
 
 let handle_key ?win (t : t) ~key : t * bool =

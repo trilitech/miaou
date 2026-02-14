@@ -60,7 +60,29 @@ let handle_event ?(bubble_unhandled = false) t ~key =
   | Some Miaou_core.Keys.Right -> (move t `Right, `Handled)
   | Some Miaou_core.Keys.Home -> (move t `First, `Handled)
   | Some Miaou_core.Keys.End -> (move t `Last, `Handled)
-  | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
+  | _ -> (
+      (* Check for mouse click to select tab *)
+      match Miaou_helpers.Mouse.parse_click key with
+      | Some {col; _} -> (
+          (* Calculate which tab was clicked based on column position.
+             Each tab is: " label " (padded) + "|" separator.
+             Separator is 1 visible char. *)
+          let rec find_tab idx pos tabs =
+            match tabs with
+            | [] -> None
+            | tab :: rest ->
+                let tab_width = String.length tab.label + 2 in
+                (* " label " *)
+                let sep_width = if rest = [] then 0 else 1 in
+                (* "|" *)
+                let total = tab_width + sep_width in
+                if col >= pos && col < pos + tab_width then Some idx
+                else find_tab (idx + 1) (pos + total) rest
+          in
+          match find_tab 0 1 t.tabs with
+          | Some idx -> ({t with selected = idx}, `Handled)
+          | None -> (t, if bubble_unhandled then `Bubble else `Handled))
+      | None -> (t, if bubble_unhandled then `Bubble else `Handled))
 
 let handle_key t ~key =
   let t, _ = handle_event t ~key in

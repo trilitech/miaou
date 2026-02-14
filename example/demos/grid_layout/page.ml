@@ -56,9 +56,7 @@ module Inner = struct
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_back
+    | Some Miaou.Core.Keys.Escape -> go_back
     | _ -> s
 
   let move s _ = s

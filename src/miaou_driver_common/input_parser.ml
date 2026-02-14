@@ -12,6 +12,7 @@
 type key =
   | Char of string  (** Regular character or UTF-8 grapheme *)
   | Enter
+  | AltEnter  (** Alt+Enter (ESC followed by newline) *)
   | Tab
   | ShiftTab  (** Shift+Tab / backtab (ESC [ Z) *)
   | Backspace
@@ -79,6 +80,27 @@ let consume t n =
   if n >= len then t.pending <- ""
   else t.pending <- String.sub t.pending n (len - n)
 
+(** Try to find the end of a CSI sequence (terminated by ~, letter, etc.)
+    Returns Some (body, total_len) if complete, None if incomplete.
+    Body is the string between ESC[ and the terminator. *)
+let find_csi_end s =
+  (* CSI sequences: ESC [ <params> <terminator>
+     Params are digits and semicolons, terminator is usually ~ or a letter *)
+  let len = String.length s in
+  if len < 3 || s.[0] <> '\027' || s.[1] <> '[' then None
+  else
+    let rec find_term i =
+      if i >= len then None
+      else
+        let c = s.[i] in
+        if c = '~' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') then
+          let body = String.sub s 2 (i - 2) in
+          Some (body, i + 1)
+        else if (c >= '0' && c <= '9') || c = ';' then find_term (i + 1)
+        else None (* Invalid char in CSI *)
+    in
+    find_term 2
+
 (** Parse a key from buffer WITHOUT consuming it.
     Returns None if buffer is empty or contains incomplete sequence.
     This is the peek-then-consume pattern from lambda-term. *)
@@ -120,6 +142,11 @@ let peek_key t =
             if len >= 4 && String.get t.pending 3 = '~' then Some Delete
             else if len >= 4 then Some (Unknown "3")
             else None (* Incomplete *)
+        | '0' .. '9' -> (
+            (* Numeric CSI sequence - check if complete *)
+            match find_csi_end t.pending with
+            | Some (body, _len) -> Some (Unknown body)
+            | None -> None (* Incomplete *))
         | _ -> Some (Unknown (String.make 1 c))
       else if len >= 3 && String.get t.pending 1 = 'O' then
         let c = String.get t.pending 2 in
@@ -131,7 +158,10 @@ let peek_key t =
         | _ -> Some (Unknown (String.make 1 c))
       else if len = 1 then Some Escape
       else if len >= 2 then
-        Some (Unknown (String.make 1 (String.get t.pending 1)))
+        let c2 = String.get t.pending 1 in
+        (* Alt+Enter: ESC followed by \n or \r -> treat as AltEnter *)
+        if c2 = '\n' || c2 = '\r' then Some AltEnter
+        else Some (Unknown (String.make 1 c2))
       else None (* Incomplete ESC sequence *)
 
 (** Bytes to consume for a given key type *)
@@ -139,6 +169,7 @@ let bytes_for_key = function
   | Up | Down | Left | Right -> 3 (* ESC [ A/B/C/D *)
   | Tab | Backspace | Enter -> 1
   | ShiftTab -> 3 (* ESC [ Z *)
+  | AltEnter -> 2 (* ESC + newline *)
   | Char s -> String.length s
   | Ctrl _ -> 1
   | Delete -> 4 (* ESC [ 3 ~ *)
@@ -283,6 +314,26 @@ let parse_key t =
               consume t 3 ;
               Some (Unknown "3")
             end
+        | '0' .. '2' | '4' .. '9' -> (
+            (* Numeric CSI sequence (excluding '3' handled above) *)
+            (* Wait for complete sequence *)
+            let rec wait_for_terminator n =
+              if n <= 0 then ()
+              else
+                match find_csi_end t.pending with
+                | Some _ -> ()
+                | None ->
+                    ignore (refill t ~timeout_s:0.02) ;
+                    wait_for_terminator (n - 1)
+            in
+            wait_for_terminator 10 ;
+            match find_csi_end t.pending with
+            | Some (body, seq_len) ->
+                consume t seq_len ;
+                Some (Unknown body)
+            | None ->
+                consume t 3 ;
+                Some (Unknown (String.make 1 c)))
         | _ ->
             consume t 3 ;
             Some (Unknown (String.make 1 c))
@@ -298,11 +349,19 @@ let parse_key t =
         | _ -> Some (Unknown (String.make 1 c))
       end
       else if len >= 2 then begin
-        (* Treat unknown ESC-prefix as a plain Escape and keep trailing bytes.
-           This preserves Esc behavior while allowing the next key to be parsed
-           normally (e.g. Alt-modified input arrives as ESC + key). *)
-        consume t 1 ;
-        Some Escape
+        let c2 = String.get t.pending 1 in
+        (* Alt+Enter: ESC followed by \n or \r -> treat as AltEnter *)
+        if c2 = '\n' || c2 = '\r' then begin
+          consume t 2 ;
+          Some AltEnter
+        end
+        else begin
+          (* Treat unknown ESC-prefix as a plain Escape and keep trailing bytes.
+             This preserves Esc behavior while allowing the next key to be parsed
+             normally (e.g. Alt-modified input arrives as ESC + key). *)
+          consume t 1 ;
+          Some Escape
+        end
       end
       else begin
         consume t 1 ;
@@ -350,6 +409,7 @@ let drain_esc t =
 let key_to_string = function
   | Char s -> s
   | Enter -> "Enter"
+  | AltEnter -> "A-Enter"
   | Tab -> "Tab"
   | ShiftTab -> "S-Tab"
   | Backspace -> "Backspace"

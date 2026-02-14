@@ -22,7 +22,9 @@ let cleanup (_, r) = try Unix.close r with _ -> ()
 (* Test key_to_string conversion *)
 let test_key_to_string () =
   check string "Enter" "Enter" (Parser.key_to_string Parser.Enter) ;
+  check string "AltEnter" "A-Enter" (Parser.key_to_string Parser.AltEnter) ;
   check string "Tab" "Tab" (Parser.key_to_string Parser.Tab) ;
+  check string "ShiftTab" "S-Tab" (Parser.key_to_string Parser.ShiftTab) ;
   check string "Backspace" "Backspace" (Parser.key_to_string Parser.Backspace) ;
   check string "Escape" "Esc" (Parser.key_to_string Parser.Escape) ;
   check string "Up" "Up" (Parser.key_to_string Parser.Up) ;
@@ -163,6 +165,39 @@ let test_parse_arrow_keys () =
   (match Parser.parse_key p with
   | Some Parser.Delete -> ()
   | _ -> fail "Expected Delete") ;
+  cleanup (p, r) ;
+
+  (* Shift+Tab: ESC [ Z *)
+  let p, r = parser_with_input "\027[Z" in
+  (match Parser.parse_key p with
+  | Some Parser.ShiftTab -> ()
+  | _ -> fail "Expected ShiftTab") ;
+  cleanup (p, r)
+
+(* Test Alt+Enter parsing *)
+let test_parse_alt_enter () =
+  (* Alt+Enter: ESC followed by \n *)
+  let p, r = parser_with_input "\027\n" in
+  (match Parser.parse_key p with
+  | Some Parser.AltEnter -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected AltEnter (\\n), got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected AltEnter (\\n), got None") ;
+  cleanup (p, r) ;
+
+  (* Alt+Enter: ESC followed by \r *)
+  let p, r = parser_with_input "\027\r" in
+  (match Parser.parse_key p with
+  | Some Parser.AltEnter -> ()
+  | Some k ->
+      fail
+        (Printf.sprintf
+           "Expected AltEnter (\\r), got %s"
+           (Parser.key_to_string k))
+  | None -> fail "Expected AltEnter (\\r), got None") ;
   cleanup (p, r)
 
 (* Test escape alone *)
@@ -380,6 +415,7 @@ let () =
         [
           test_case "simple keys" `Quick test_parse_simple_keys;
           test_case "arrow keys" `Quick test_parse_arrow_keys;
+          test_case "alt enter" `Quick test_parse_alt_enter;
           test_case "escape" `Quick test_parse_escape;
           test_case "escape unknown pair" `Quick test_parse_escape_unknown_pair;
           test_case "sequence" `Quick test_parse_sequence;

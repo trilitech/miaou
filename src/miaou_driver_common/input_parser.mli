@@ -28,6 +28,7 @@
 type key =
   | Char of string  (** Regular character or UTF-8 grapheme *)
   | Enter
+  | AltEnter  (** Alt+Enter (ESC followed by newline) *)
   | Tab
   | ShiftTab  (** Shift+Tab / backtab (ESC [ Z) *)
   | Backspace

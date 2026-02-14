@@ -33,13 +33,14 @@ module Inner = struct
     {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
-    match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_back s
-    | Some (Miaou.Core.Keys.Char " ") | Some Miaou.Core.Keys.Enter ->
-        {s with switch = Switch.handle_key s.switch ~key:"Enter"}
-    | _ -> s
+    if Miaou_helpers.Mouse.is_mouse_event key_str then
+      {s with switch = Switch.handle_key s.switch ~key:key_str}
+    else
+      match Miaou.Core.Keys.of_string key_str with
+      | Some Miaou.Core.Keys.Escape -> go_back s
+      | Some (Miaou.Core.Keys.Char " ") | Some Miaou.Core.Keys.Enter ->
+          {s with switch = Switch.handle_key s.switch ~key:"Enter"}
+      | _ -> s
 
   let move s _ = s
 
