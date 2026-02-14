@@ -283,19 +283,50 @@ let cursor_mode t = t.cursor_mode
 
 let get_cursor_line t = t.cursor
 
-(* Ensure cursor is visible by adjusting offset if needed *)
+(* Ensure cursor is visible by adjusting offset if needed.
+   When wrap is enabled, we need to account for wrapped line heights. *)
 let ensure_cursor_visible t =
   let total = List.length t.lines in
-  (* Use body_win - 1 to keep cursor at least 1 line from bottom edge *)
-  let win = max 1 (t.last_body_win - 1) in
   if total = 0 then ()
-  else
+  else if not t.wrap then (
+    (* Simple case: 1 source line = 1 display line *)
+    let win = max 1 (t.last_body_win - 1) in
     let max_offset = max_offset_for ~total ~win in
     (* If cursor is above visible area, scroll up *)
     if t.cursor < t.offset then t.offset <- t.cursor
       (* If cursor is below visible area, scroll down *)
     else if t.cursor >= t.offset + win then
-      t.offset <- clamp 0 max_offset (t.cursor - win + 1)
+      t.offset <- clamp 0 max_offset (t.cursor - win + 1))
+  else
+    (* Wrapped case: need to count display lines from offset to cursor *)
+    let width = max 10 (t.last_cols - 2) in
+    let win = t.last_body_win in
+    (* If cursor is above visible area, scroll up *)
+    if t.cursor < t.offset then t.offset <- t.cursor
+    else
+      (* Count display lines from offset to cursor (inclusive) *)
+      let rec count_display_lines idx acc =
+        if idx > t.cursor then acc
+        else if idx >= total then acc
+        else
+          let line = List.nth t.lines idx in
+          let h = wrapped_line_count ~width line in
+          count_display_lines (idx + 1) (acc + h)
+      in
+      let display_lines_to_cursor = count_display_lines t.offset 0 in
+      (* If cursor would be below visible area, scroll down *)
+      if display_lines_to_cursor > win then
+        (* Find new offset such that cursor line fits in window *)
+        (* Start from cursor and go backwards, accumulating heights until we fill win *)
+        let rec find_new_offset idx acc =
+          if idx < 0 then 0
+          else
+            let line = List.nth t.lines idx in
+            let h = wrapped_line_count ~width line in
+            if acc + h > win then idx + 1
+            else find_new_offset (idx - 1) (acc + h)
+        in
+        t.offset <- clamp 0 (total - 1) (find_new_offset t.cursor 0)
 
 let set_cursor t line =
   let total = List.length t.lines in
@@ -854,7 +885,11 @@ let render ?cols ~win (t : t) ~focus : string =
         overlay_modal_centered ~cols ~rows:win body help_lines modal_width
     | _ -> body
   in
-  Widgets.render_frame ~title ~header ~body ~footer ~cols ()
+  (* Add ANSI reset at end of each line to prevent color spill to adjacent panels *)
+  let rendered = Widgets.render_frame ~title ~header ~body ~footer ~cols () in
+  rendered |> String.split_on_char '\n'
+  |> List.map (fun line -> line ^ "\027[0m")
+  |> String.concat "\n"
 
 (* Kept for compatibility; callers that can compute terminal cols should prefer
    calling [render ~win ~cols] directly to fully utilize available width. *)
