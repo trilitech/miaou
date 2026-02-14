@@ -14,6 +14,13 @@ type border_style = Single | Double | Rounded | Ascii | Heavy
 
 type padding = {left : int; right : int; top : int; bottom : int}
 
+type border_colors = {
+  c_top : int option;
+  c_bottom : int option;
+  c_left : int option;
+  c_right : int option;
+}
+
 type border_chars = {
   tl : string;
   tr : string;
@@ -84,28 +91,71 @@ let repeat s n =
 
 let render ?(title = "") ?(style = Single)
     ?(padding = {left = 0; right = 0; top = 0; bottom = 0}) ?height ?color
-    ~width content =
+    ?border_colors ~width content =
   let bc = resolve_chars style in
   let inner_w = max 0 (width - 2) in
   let content_w = max 0 (inner_w - padding.left - padding.right) in
-  let color_border s = match color with Some c -> W.fg c s | None -> s in
+  (* Color helpers: border_colors takes precedence over color *)
+  let color_with c s = match c with Some col -> W.fg col s | None -> s in
+  let color_top s =
+    match border_colors with
+    | Some {c_top = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  let color_bottom s =
+    match border_colors with
+    | Some {c_bottom = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  let color_left s =
+    match border_colors with
+    | Some {c_left = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  let color_right s =
+    match border_colors with
+    | Some {c_right = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  (* Corner colors: use adjacent side colors, preferring top/bottom for corners *)
+  let color_tl s =
+    match border_colors with
+    | Some {c_top = Some c; _} -> W.fg c s
+    | Some {c_left = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  let color_tr s =
+    match border_colors with
+    | Some {c_top = Some c; _} -> W.fg c s
+    | Some {c_right = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  let color_bl s =
+    match border_colors with
+    | Some {c_bottom = Some c; _} -> W.fg c s
+    | Some {c_left = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
+  let color_br s =
+    match border_colors with
+    | Some {c_bottom = Some c; _} -> W.fg c s
+    | Some {c_right = Some c; _} -> W.fg c s
+    | _ -> color_with color s
+  in
   (* Top border *)
   let top_border =
     if title <> "" then
       let t = " " ^ title ^ " " in
       let t_vis = H.visible_chars_count t in
       let remaining = max 0 (inner_w - 1 - t_vis) in
-      color_border bc.tl ^ color_border bc.h ^ t
-      ^ color_border (repeat bc.h remaining)
-      ^ color_border bc.tr
-    else
-      color_border bc.tl
-      ^ color_border (repeat bc.h inner_w)
-      ^ color_border bc.tr
+      color_tl bc.tl ^ color_top bc.h ^ t
+      ^ color_top (repeat bc.h remaining)
+      ^ color_tr bc.tr
+    else color_tl bc.tl ^ color_top (repeat bc.h inner_w) ^ color_tr bc.tr
   in
   (* Bottom border *)
   let bottom_border =
-    color_border bc.bl ^ color_border (repeat bc.h inner_w) ^ color_border bc.br
+    color_bl bc.bl ^ color_bottom (repeat bc.h inner_w) ^ color_br bc.br
   in
   (* Content lines *)
   let raw_lines =
@@ -124,13 +174,12 @@ let render ?(title = "") ?(style = Single)
       else line
     in
     let padded = H.pad_to_width truncated content_w ' ' in
-    color_border bc.v ^ pad_left_str ^ padded ^ pad_right_str
-    ^ color_border bc.v
+    color_left bc.v ^ pad_left_str ^ padded ^ pad_right_str ^ color_right bc.v
   in
   let content_rows = List.map format_line raw_lines in
   (* Add padding rows *)
   let empty_row =
-    color_border bc.v ^ String.make inner_w ' ' ^ color_border bc.v
+    color_left bc.v ^ String.make inner_w ' ' ^ color_right bc.v
   in
   let top_pad_rows = List.init padding.top (fun _ -> empty_row) in
   let bottom_pad_rows = List.init padding.bottom (fun _ -> empty_row) in
