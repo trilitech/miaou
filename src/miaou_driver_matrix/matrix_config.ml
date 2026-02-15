@@ -13,6 +13,7 @@ type t = {
   scrub_interval_frames : int;
   debug : bool;
   enable_mouse : bool;
+  handle_sigint : bool;
 }
 
 let time_of_rate rate =
@@ -30,6 +31,7 @@ let default =
     scrub_interval_frames = 30;
     debug = false;
     enable_mouse = true;
+    handle_sigint = true;
   }
 
 let load () =
@@ -75,6 +77,7 @@ let load () =
     scrub_interval_frames;
     debug;
     enable_mouse;
+    handle_sigint = true;
   }
 
 let with_mouse_disabled config = {config with enable_mouse = false}

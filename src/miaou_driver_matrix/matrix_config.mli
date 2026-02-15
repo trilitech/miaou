@@ -26,6 +26,9 @@ type t = {
   debug : bool;  (** Enable debug logging *)
   enable_mouse : bool;
       (** Enable mouse tracking (set to false for easier copy/paste) *)
+  handle_sigint : bool;
+      (** If false, SIGINT (Ctrl+C) is not intercepted, allowing the app
+          to receive it as a key event. Default: true *)
 }
 
 (** Default configuration: 60 FPS, 60 TPS, no debug. *)
