@@ -53,6 +53,8 @@ let enter_raw t =
           orig with
           Unix.c_icanon = false;
           Unix.c_echo = false;
+          Unix.c_isig = false;
+          (* Disable SIGINT/SIGQUIT/SIGSUSP generation *)
           Unix.c_vmin = 1;
           Unix.c_vtime = 0;
         }
@@ -273,7 +275,8 @@ let install_signals' t ~on_resize ~on_exit ?(handle_sigint = true) () =
              exit 130))
     with _ -> ()
   in
-  if handle_sigint then set_exit_handler Sys.sigint ;
+  if handle_sigint then set_exit_handler Sys.sigint
+  else Sys.set_signal Sys.sigint Sys.Signal_ignore ;
   set_exit_handler Sys.sigterm ;
   (try set_exit_handler Sys.sighup with _ -> ()) ;
   (try set_exit_handler Sys.sigquit with _ -> ()) ;
