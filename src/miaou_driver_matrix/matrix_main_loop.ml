@@ -314,13 +314,15 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
       Matrix_render_loop.force_render ctx.render_loop
     end ;
 
-    (* Periodic full clear+redraw to scrub any terminal artifacts. *)
+    (* Periodic forced full redraw to scrub any terminal artifacts.
+       We mark all cells dirty so the diff will re-emit every cell, but we
+       do NOT clear the screen first (\027[2J) as that causes visible flicker.
+       The diff-based overwrite naturally corrects any artifacts. *)
     incr frame_counter ;
     if
       ctx.config.scrub_interval_frames > 0
       && !frame_counter mod ctx.config.scrub_interval_frames = 0
     then begin
-      ctx.io.write "\027[2J\027[H" ;
       Matrix_buffer.mark_all_dirty ctx.buffer ;
       Matrix_render_loop.force_render ctx.render_loop
     end ;
