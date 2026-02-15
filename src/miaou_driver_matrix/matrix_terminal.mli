@@ -49,6 +49,13 @@ val write : t -> string -> unit
     The cleanup function will be called in the signal handler. *)
 val install_signals : t -> (unit -> unit) -> bool Atomic.t
 
+(** Like {!install_signals} but with optional control over which signals
+    are handled.
+    @param handle_sigint If false, SIGINT (Ctrl+C) is not intercepted,
+      allowing the app to receive it as a key event. Default: true *)
+val install_signals' :
+  t -> (unit -> unit) -> ?handle_sigint:bool -> unit -> bool Atomic.t
+
 (** Check if resize is pending (set by SIGWINCH). *)
 val resize_pending : t -> bool
 

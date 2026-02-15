@@ -68,6 +68,18 @@ val invalidate_size_cache : t -> unit
 val install_signals :
   t -> on_resize:(unit -> unit) -> on_exit:(unit -> unit) -> bool Atomic.t
 
+(** Like {!install_signals} but with optional control over which signals
+    are handled.
+    @param handle_sigint If false, SIGINT (Ctrl+C) is not intercepted,
+      allowing the app to receive it as a key event. Default: true *)
+val install_signals' :
+  t ->
+  on_resize:(unit -> unit) ->
+  on_exit:(unit -> unit) ->
+  ?handle_sigint:bool ->
+  unit ->
+  bool Atomic.t
+
 (** Check if a resize signal was received since last clear. *)
 val resize_pending : t -> bool
 

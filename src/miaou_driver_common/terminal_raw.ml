@@ -245,7 +245,7 @@ let size t =
 
 let invalidate_size_cache t = t.cached_size <- None
 
-let install_signals t ~on_resize ~on_exit =
+let install_signals' t ~on_resize ~on_exit ?(handle_sigint = true) () =
   let exit_flag = Atomic.make false in
   let sigwinch = 28 in
   (* Install resize handler *)
@@ -273,11 +273,14 @@ let install_signals t ~on_resize ~on_exit =
              exit 130))
     with _ -> ()
   in
-  set_exit_handler Sys.sigint ;
+  if handle_sigint then set_exit_handler Sys.sigint ;
   set_exit_handler Sys.sigterm ;
   (try set_exit_handler Sys.sighup with _ -> ()) ;
   (try set_exit_handler Sys.sigquit with _ -> ()) ;
   exit_flag
+
+let install_signals t ~on_resize ~on_exit =
+  install_signals' t ~on_resize ~on_exit ~handle_sigint:true ()
 
 let resize_pending t = Atomic.get t.resize_pending
 
