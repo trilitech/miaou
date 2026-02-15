@@ -1,4 +1,4 @@
-let run ?(enable_mouse = true) page =
+let run ?(enable_mouse = true) ?(handle_sigint = true) page =
   let term_backend =
     {
       Miaou_runner_common.Tui_driver_common.available =
@@ -13,11 +13,12 @@ let run ?(enable_mouse = true) page =
     }
   in
   let matrix_config =
-    if enable_mouse then None
-    else
-      Some
-        (Miaou_driver_matrix.Matrix_config.load ()
-        |> Miaou_driver_matrix.Matrix_config.with_mouse_disabled)
+    let base = Miaou_driver_matrix.Matrix_config.load () in
+    let config =
+      if enable_mouse then base
+      else Miaou_driver_matrix.Matrix_config.with_mouse_disabled base
+    in
+    Some {config with handle_sigint}
   in
   let matrix_backend =
     {
