@@ -38,7 +38,8 @@ val enter_raw : t -> unit
 (** Leave raw mode: restore original terminal settings. *)
 val leave_raw : t -> unit
 
-(** Enable SGR mouse tracking (1000h + 1006h). *)
+(** Enable SGR mouse tracking (1002h + 1006h).
+    Writes to /dev/tty for consistency with other terminal operations. *)
 val enable_mouse : t -> unit
 
 (** Disable mouse tracking. Idempotent, safe to call multiple times.

@@ -105,11 +105,23 @@ let disable_mouse t =
   (* Give terminal time to process escape sequences *)
   Unix.sleepf 0.05
 
-let enable_mouse _t =
+let enable_mouse t =
+  (* 1002: Button event tracking (reports motion while button pressed)
+     1006: SGR extended mode (allows coordinates > 223)
+     Write to tty_out_fd for consistency with other terminal operations. *)
+  let enable_seq = "\027[?1002h\027[?1006h" in
+  (try
+     ignore
+       (Unix.write
+          t.tty_out_fd
+          (Bytes.of_string enable_seq)
+          0
+          (String.length enable_seq)) ;
+     Unix.tcdrain t.tty_out_fd
+   with _ -> ()) ;
+  (* Also write to stdout as fallback *)
   try
-    (* 1002: Button event tracking (reports motion while button pressed)
-       1006: SGR extended mode (allows coordinates > 223) *)
-    print_string "\027[?1002h\027[?1006h" ;
+    print_string enable_seq ;
     Stdlib.flush stdout
   with _ -> ()
 
