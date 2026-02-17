@@ -42,8 +42,17 @@ module Inner = struct
     | Ok t -> {theme = t; error = None}
     | Error e -> {theme = Theme.default; error = Some (label ^ ": " ^ e)}
 
+  let load_theme_file ~label path =
+    if Sys.file_exists path then
+      match Theme_loader.load_file path with
+      | Ok t -> {theme = t; error = None}
+      | Error e -> {theme = Theme.default; error = Some (label ^ ": " ^ e)}
+    else load_theme ~label [%blob "theme.json"]
+
   let themes =
-    let dark = load_theme ~label:"dark" [%blob "themes/dark.json"] in
+    let dark =
+      load_theme_file ~label:"dark" "example/demos/style_system/theme.json"
+    in
     let light = load_theme ~label:"light" [%blob "themes/light.json"] in
     let high_contrast =
       load_theme ~label:"high-contrast" [%blob "themes/high-contrast.json"]

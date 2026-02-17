@@ -7,7 +7,8 @@
   (file README.md)
   (file themes/dark.json)
   (file themes/light.json)
-  (file themes/high-contrast.json))
+  (file themes/high-contrast.json)
+  (file theme.json))
  (libraries
   demo_shared
   miaou
