@@ -86,7 +86,12 @@ module Inner = struct
           body_lines |> List.map W.themed_contextual |> H.concat_lines
         in
         let label = if focused then title ^ " (focus)" else title in
-        Box.render ~title:label ~width:size.LTerm_geom.cols body)
+        Box.render
+          ~title:label
+          ~style:Box.None_
+          ~padding:{left = 1; right = 1; top = 0; bottom = 0}
+          ~width:size.LTerm_geom.cols
+          body)
 
   let row s size =
     let titles = ["Tokens"; "Context"; "Selection"; "Focus"] in

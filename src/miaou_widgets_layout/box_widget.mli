@@ -25,7 +25,7 @@
     +----------------------------+
     v} *)
 
-type border_style = Single | Double | Rounded | Ascii | Heavy
+type border_style = None_ | Single | Double | Rounded | Ascii | Heavy
 
 type padding = {left : int; right : int; top : int; bottom : int}
 
