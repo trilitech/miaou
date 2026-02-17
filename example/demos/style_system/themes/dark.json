@@ -15,7 +15,7 @@
   "border": { "fg": { "Fixed": 240 } },
   "border_focused": { "fg": { "Fixed": 81 }, "bold": true },
   "border_dim": { "fg": { "Fixed": 238 }, "dim": true },
-  "selection": { "fg": { "Fixed": 255 }, "bg": { "Fixed": 238 } },
+  "selection": { "fg": { "Fixed": 255 }, "bg": { "Fixed": 240 } },
   "default_border_style": "Rounded",
   "rules": {
     "flex-child:nth-child(even)": {
