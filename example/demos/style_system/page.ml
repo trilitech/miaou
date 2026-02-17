@@ -20,7 +20,13 @@ module Inner = struct
 
   type theme_choice = Dark | Light | High_contrast
 
-  type themes = {dark : Theme.t; light : Theme.t; high_contrast : Theme.t}
+  type loaded_theme = {theme : Theme.t; error : string option}
+
+  type themes = {
+    dark : loaded_theme;
+    light : loaded_theme;
+    high_contrast : loaded_theme;
+  }
 
   type state = {
     themes : themes;
@@ -33,10 +39,8 @@ module Inner = struct
 
   let load_theme ~label blob =
     match Theme_loader.of_json_string blob with
-    | Ok t -> t
-    | Error _ ->
-        let _ = label in
-        Theme.default
+    | Ok t -> {theme = t; error = None}
+    | Error e -> {theme = Theme.default; error = Some (label ^ ": " ^ e)}
 
   let themes =
     let dark = load_theme ~label:"dark" [%blob "themes/dark.json"] in
@@ -108,18 +112,27 @@ module Inner = struct
   let update s _ = s
 
   let view s ~focus:_ ~size =
-    Style_context.with_theme (current_theme s) (fun () ->
+    let current = current_theme s in
+    Style_context.with_theme current.theme (fun () ->
         let header = W.themed_emphasis "Style System Demo" in
         let sub =
           W.themed_muted
             "1/2/3 switch theme · Left/Right move focus · Esc returns"
         in
-        let theme_line = W.themed_text ("Theme: " ^ theme_name s.choice) in
+        let theme_line =
+          W.themed_text
+            ("Theme: " ^ theme_name s.choice ^ " (" ^ current.theme.name ^ ")")
+        in
+        let status_line =
+          match current.error with
+          | None -> W.themed_success "Theme parse: ok"
+          | Some e -> W.themed_error ("Theme parse: " ^ e)
+        in
         let row_height = max 6 (size.LTerm_geom.rows - 6) in
         let tiles =
           row s {LTerm_geom.cols = size.LTerm_geom.cols; rows = row_height}
         in
-        String.concat "\n\n" [header; sub; theme_line; tiles])
+        String.concat "\n\n" [header; sub; theme_line; status_line; tiles])
 
   let go_back s =
     {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
