@@ -28,16 +28,61 @@ let color_of_yojson = function
   | _ -> Error "Style.color"
 
 type t = {
-  fg : color option; [@yojson.option]
-  bg : color option; [@yojson.option]
-  bold : bool option; [@yojson.option]
-  dim : bool option; [@yojson.option]
-  italic : bool option; [@yojson.option]
-  underline : bool option; [@yojson.option]
-  reverse : bool option; [@yojson.option]
-  strikethrough : bool option; [@yojson.option]
+  fg : color option;
+  bg : color option;
+  bold : bool option;
+  dim : bool option;
+  italic : bool option;
+  underline : bool option;
+  reverse : bool option;
+  strikethrough : bool option;
 }
-[@@deriving yojson]
+
+let t_to_yojson t =
+  let field name value = (name, value) in
+  let opt_field name = function
+    | None -> None
+    | Some v -> Some (field name v)
+  in
+  let fields =
+    [
+      opt_field "fg" (Option.map color_to_yojson t.fg);
+      opt_field "bg" (Option.map color_to_yojson t.bg);
+      opt_field "bold" (Option.map (fun b -> `Bool b) t.bold);
+      opt_field "dim" (Option.map (fun b -> `Bool b) t.dim);
+      opt_field "italic" (Option.map (fun b -> `Bool b) t.italic);
+      opt_field "underline" (Option.map (fun b -> `Bool b) t.underline);
+      opt_field "reverse" (Option.map (fun b -> `Bool b) t.reverse);
+      opt_field "strikethrough" (Option.map (fun b -> `Bool b) t.strikethrough);
+    ]
+    |> List.filter_map (fun x -> x)
+  in
+  `Assoc fields
+
+let t_of_yojson json =
+  let ( let* ) = Result.bind in
+  let bool_of_yojson = function `Bool b -> Ok b | _ -> Error "bool" in
+  let parse_opt name parser fields =
+    match List.assoc_opt name fields with
+    | None | Some `Null -> Ok None
+    | Some v -> parser v |> Result.map (fun x -> Some x)
+  in
+  match json with
+  | `Assoc fields ->
+      let* fg = parse_opt "fg" color_of_yojson fields in
+      let* bg = parse_opt "bg" color_of_yojson fields in
+      let* bold = parse_opt "bold" bool_of_yojson fields in
+      let* dim = parse_opt "dim" bool_of_yojson fields in
+      let* italic = parse_opt "italic" bool_of_yojson fields in
+      let* underline = parse_opt "underline" bool_of_yojson fields in
+      let* reverse = parse_opt "reverse" bool_of_yojson fields in
+      let* strikethrough = parse_opt "strikethrough" bool_of_yojson fields in
+      Ok {fg; bg; bold; dim; italic; underline; reverse; strikethrough}
+  | _ -> Error "Style.t"
+
+let to_yojson = t_to_yojson
+
+let of_yojson = t_of_yojson
 
 let empty =
   {

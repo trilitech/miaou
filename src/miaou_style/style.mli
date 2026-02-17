@@ -44,17 +44,25 @@ val color_of_yojson : Yojson.Safe.t -> (color, string) result
     [None] means "inherit from parent/default", [Some v] means "explicitly set".
 *)
 type t = {
-  fg : color option; [@yojson.option]
-      (** Foreground color (256-color palette or adaptive) *)
-  bg : color option; [@yojson.option]  (** Background color *)
-  bold : bool option; [@yojson.option]  (** Bold text *)
-  dim : bool option; [@yojson.option]  (** Dim/faint text *)
-  italic : bool option; [@yojson.option]  (** Italic text *)
-  underline : bool option; [@yojson.option]  (** Underlined text *)
-  reverse : bool option; [@yojson.option]  (** Reverse video (swap fg/bg) *)
-  strikethrough : bool option; [@yojson.option]  (** Strikethrough text *)
+  fg : color option;  (** Foreground color (256-color palette or adaptive) *)
+  bg : color option;  (** Background color *)
+  bold : bool option;  (** Bold text *)
+  dim : bool option;  (** Dim/faint text *)
+  italic : bool option;  (** Italic text *)
+  underline : bool option;  (** Underlined text *)
+  reverse : bool option;  (** Reverse video (swap fg/bg) *)
+  strikethrough : bool option;  (** Strikethrough text *)
 }
-[@@deriving yojson]
+
+(** JSON encoding/decoding for styles (tolerant of missing fields). *)
+val t_to_yojson : t -> Yojson.Safe.t
+
+val t_of_yojson : Yojson.Safe.t -> (t, string) result
+
+(** Backward-compatible aliases expected by other modules. *)
+val to_yojson : t -> Yojson.Safe.t
+
+val of_yojson : Yojson.Safe.t -> (t, string) result
 
 (** Empty style - all fields are [None] (inherit everything) *)
 val empty : t
