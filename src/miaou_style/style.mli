@@ -34,14 +34,15 @@ type color =
     [None] means "inherit from parent/default", [Some v] means "explicitly set".
 *)
 type t = {
-  fg : color option;  (** Foreground color (256-color palette or adaptive) *)
-  bg : color option;  (** Background color *)
-  bold : bool option;  (** Bold text *)
-  dim : bool option;  (** Dim/faint text *)
-  italic : bool option;  (** Italic text *)
-  underline : bool option;  (** Underlined text *)
-  reverse : bool option;  (** Reverse video (swap fg/bg) *)
-  strikethrough : bool option;  (** Strikethrough text *)
+  fg : color option; [@yojson.option]
+      (** Foreground color (256-color palette or adaptive) *)
+  bg : color option; [@yojson.option]  (** Background color *)
+  bold : bool option; [@yojson.option]  (** Bold text *)
+  dim : bool option; [@yojson.option]  (** Dim/faint text *)
+  italic : bool option; [@yojson.option]  (** Italic text *)
+  underline : bool option; [@yojson.option]  (** Underlined text *)
+  reverse : bool option; [@yojson.option]  (** Reverse video (swap fg/bg) *)
+  strikethrough : bool option; [@yojson.option]  (** Strikethrough text *)
 }
 [@@deriving yojson]
 

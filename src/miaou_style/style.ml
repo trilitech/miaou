@@ -10,14 +10,14 @@ type adaptive_color = {light : int; dark : int} [@@deriving yojson]
 type color = Fixed of int | Adaptive of adaptive_color [@@deriving yojson]
 
 type t = {
-  fg : color option;
-  bg : color option;
-  bold : bool option;
-  dim : bool option;
-  italic : bool option;
-  underline : bool option;
-  reverse : bool option;
-  strikethrough : bool option;
+  fg : color option; [@yojson.option]
+  bg : color option; [@yojson.option]
+  bold : bool option; [@yojson.option]
+  dim : bool option; [@yojson.option]
+  italic : bool option; [@yojson.option]
+  underline : bool option; [@yojson.option]
+  reverse : bool option; [@yojson.option]
+  strikethrough : bool option; [@yojson.option]
 }
 [@@deriving yojson]
 
