@@ -7,6 +7,7 @@
 
 module W = Miaou_widgets_display.Widgets
 module Helpers = Miaou_helpers.Helpers
+module Style_context = Miaou_style.Style_context
 
 type track =
   | Px of int
@@ -148,9 +149,11 @@ let render t ~size =
     let col_sizes = resolve_tracks t.cols (max 0 (inner_w - col_gap_total)) in
     let row_sizes = resolve_tracks t.rows (max 0 (inner_h - row_gap_total)) in
     (* Pre-render all children into blocks of lines. *)
+    let child_count = List.length t.children in
     let rendered =
-      List.filter_map
-        (fun child ->
+      t.children
+      |> List.mapi (fun idx child -> (idx, child))
+      |> List.filter_map (fun (idx, child) ->
           let p = child.placement in
           if p.row < 0 || p.row >= n_rows || p.col < 0 || p.col >= n_cols then
             None
@@ -160,10 +163,16 @@ let render t ~size =
             let w = span_width col_sizes t.col_gap p.col cs in
             let h = span_height row_sizes t.row_gap p.row rs in
             let child_size = {LTerm_geom.rows = max 0 h; cols = max 0 w} in
-            let lines = split_lines (child.render ~size:child_size) in
+            (* Set up style context for this child with index info for :nth-child selectors *)
+            let lines =
+              Style_context.with_child_context
+                ~widget_name:"grid-cell"
+                ~index:idx
+                ~count:child_count
+                (fun () -> split_lines (child.render ~size:child_size))
+            in
             let block = pad_block lines ~width:w ~height:h in
             Some (p, cs, rs, block))
-        t.children
     in
     (* Build a "covered" map: for each cell, which rendered child covers it
      and what is the column offset within the span. *)
