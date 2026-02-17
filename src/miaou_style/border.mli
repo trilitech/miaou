@@ -19,7 +19,12 @@ type style =
   | Rounded  (** Rounded corners: ╭─╮ │ ╰─╯ *)
   | Ascii  (** ASCII-only: +-+ | +-+ *)
   | Heavy  (** Heavy/thick: ┏━┓ ┃ ┗━┛ *)
-[@@deriving yojson]
+
+(** JSON encoding/decoding for border styles.
+    Accepts string values ("Single", "Rounded", etc.) for convenience. *)
+val style_to_yojson : style -> Yojson.Safe.t
+
+val style_of_yojson : Yojson.Safe.t -> (style, string) result
 
 (** Border character set *)
 type chars = {
