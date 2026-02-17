@@ -1,6 +1,6 @@
 (lang dune 3.15)
 (name miaou)
-(version 0.3.2)
+(version 0.4.0)
 (generate_opam_files true)
 (license MIT)
 
