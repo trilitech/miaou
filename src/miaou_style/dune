@@ -1,7 +1,14 @@
 (library
  (name miaou_style)
  (public_name miaou-core.style)
- (modules style border selector theme theme_loader style_context)
+ (modules
+  style
+  border
+  selector
+  theme
+  theme_loader
+  style_context
+  builtin_themes)
  (instrumentation
   (backend bisect_ppx))
  (libraries yojson miaou_helpers)

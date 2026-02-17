@@ -143,13 +143,18 @@ let clear_and_render (type a)
       in
       Helpers.concat_lines (take max_rows lines)
   in
+  (* Apply themed foreground to any text without explicit foreground color.
+     This ensures visibility in light themes where terminal default fg may be white. *)
+  let out_themed =
+    Miaou_widgets_display.Widgets.apply_themed_foreground out_trimmed
+  in
   Capture.record_frame
     ~rows:size.LTerm_geom.rows
     ~cols:size.LTerm_geom.cols
-    out_trimmed ;
-  if out_trimmed <> !last_out_ref then (
-    print_string ("\027[2J\027[H" ^ out_trimmed) ;
+    out_themed ;
+  if out_themed <> !last_out_ref then (
+    print_string ("\027[2J\027[H" ^ out_themed) ;
     Stdlib.flush stdout ;
-    last_out_ref := out_trimmed)
+    last_out_ref := out_themed)
   else () ;
   last_size := size

@@ -21,6 +21,7 @@
   miaou-core.widgets.display
   miaou-core.widgets.input
   miaou-core.widgets.layout
+  miaou-core.style
   eio
   eio_main
   eio.unix

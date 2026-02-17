@@ -17,6 +17,7 @@
   miaou-core.interfaces
   miaou-core.widgets.layout
   miaou-core.widgets.display
+  miaou-core.style
   lambda-term))
 
 ;; Key handler stack module added for hierarchical key exclusivity

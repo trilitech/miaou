@@ -12,5 +12,6 @@
   miaou-core.internals
   miaou-core.helpers
   miaou-core.widgets.layout
+  miaou-core.style
   lambda-term
   unix))

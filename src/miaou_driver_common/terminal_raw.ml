@@ -188,39 +188,64 @@ let write t s =
 
 (* Size detection using stty - direct method without System capability *)
 let detect_size_direct () =
-  try
-    let pipe_read, pipe_write = Unix.pipe () in
-    let tty_fd = Unix.openfile "/dev/tty" [Unix.O_RDONLY] 0 in
-    let pid =
-      Unix.create_process
-        "stty"
-        [|"stty"; "size"|]
-        tty_fd
-        pipe_write
-        Unix.stderr
+  let run_stty ?stdin_fd argv =
+    try
+      let pipe_read, pipe_write = Unix.pipe () in
+      let stdin_fd =
+        match stdin_fd with
+        | Some fd -> fd
+        | None -> Unix.descr_of_in_channel Stdlib.stdin
+      in
+      (* Redirect stderr to /dev/null to suppress stty error messages *)
+      let dev_null = Unix.openfile "/dev/null" [Unix.O_WRONLY] 0 in
+      let pid =
+        Fun.protect
+          ~finally:(fun () -> Unix.close dev_null)
+          (fun () ->
+            Unix.create_process "stty" argv stdin_fd pipe_write dev_null)
+      in
+      Unix.close pipe_write ;
+      let buf = Buffer.create 32 in
+      let tmp = Bytes.create 64 in
+      let rec read_all () =
+        match Unix.read pipe_read tmp 0 64 with
+        | 0 -> ()
+        | n ->
+            Buffer.add_subbytes buf tmp 0 n ;
+            read_all ()
+      in
+      read_all () ;
+      Unix.close pipe_read ;
+      let _ = Unix.waitpid [] pid in
+      let output = String.trim (Buffer.contents buf) in
+      match String.split_on_char ' ' output with
+      | [r; c] ->
+          let rows = int_of_string r in
+          let cols = int_of_string c in
+          Some (rows, cols)
+      | _ -> None
+    with _ -> None
+  in
+  let try_stty argv =
+    let tty_fd =
+      try Some (Unix.openfile "/dev/tty" [Unix.O_RDONLY] 0) with _ -> None
     in
-    Unix.close tty_fd ;
-    Unix.close pipe_write ;
-    let buf = Buffer.create 32 in
-    let tmp = Bytes.create 64 in
-    let rec read_all () =
-      match Unix.read pipe_read tmp 0 64 with
-      | 0 -> ()
-      | n ->
-          Buffer.add_subbytes buf tmp 0 n ;
-          read_all ()
+    let res =
+      match tty_fd with
+      | Some fd ->
+          Fun.protect
+            ~finally:(fun () -> Unix.close fd)
+            (fun () -> run_stty ~stdin_fd:fd argv)
+      | None -> run_stty argv
     in
-    read_all () ;
-    Unix.close pipe_read ;
-    let _ = Unix.waitpid [] pid in
-    let output = String.trim (Buffer.contents buf) in
-    match String.split_on_char ' ' output with
-    | [r; c] ->
-        let rows = int_of_string r in
-        let cols = int_of_string c in
-        Some (rows, cols)
-    | _ -> None
-  with _ -> None
+    res
+  in
+  match try_stty [|"stty"; "size"; "-F"; "/proc/self/fd/1"|] with
+  | Some s -> Some s
+  | None -> (
+      match try_stty [|"stty"; "size"; "-F"; "/dev/tty"|] with
+      | Some s -> Some s
+      | None -> try_stty [|"stty"; "size"|])
 
 let detect_size_env () =
   match (Sys.getenv_opt "MIAOU_TUI_ROWS", Sys.getenv_opt "MIAOU_TUI_COLS") with

@@ -41,7 +41,7 @@ let render st ~focus:(_ : bool) =
   let _visible_len = String.length visible in
   (* Render with a simple visible cursor (underscore) at cursor_pos when focused. *)
   let with_cursor =
-    if show_placeholder then (* dim placeholder *) dim visible
+    if show_placeholder then (* dim placeholder *) themed_muted visible
     else
       let left = String.sub content 0 (min st.cursor (String.length content)) in
       let right =
@@ -49,14 +49,14 @@ let render st ~focus:(_ : bool) =
           String.sub content st.cursor (String.length content - st.cursor)
         else ""
       in
-      left ^ "_" ^ right
+      themed_text (left ^ "_" ^ right)
   in
   let padded =
     if String.length with_cursor >= st.width then
       String.sub with_cursor 0 (st.width - 1) ^ "…"
     else with_cursor ^ String.make (st.width - String.length with_cursor) ' '
   in
-  let box = "[" ^ padded ^ "]" in
+  let box = themed_border ("[" ^ padded ^ "]") in
   match st.title with Some t -> titleize t ^ "\n" ^ box | None -> box
 
 (** New unified key handler returning Key_event.result *)

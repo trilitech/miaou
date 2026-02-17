@@ -23,6 +23,8 @@ module Help_hint = Miaou_core.Help_hint
 module Driver_common = Miaou_driver_common.Driver_common
 module Fibers = Miaou_helpers.Fiber_runtime
 module Helpers = Miaou_helpers.Helpers
+module Style_context = Miaou_style.Style_context
+module Theme_loader = Miaou_style.Theme_loader
 
 (* Persistent session flags *)
 let narrow_warned = ref false
@@ -336,12 +338,26 @@ let run (initial_page : (module PAGE_SIG)) :
           (* Update FPS tracker *)
           update_loop_fps fps_tracker ;
 
+          (* Apply themed foreground to any text without explicit foreground color.
+             This ensures visibility in light themes where terminal default fg may be white. *)
+          let out_themed =
+            Miaou_widgets_display.Widgets.apply_themed_foreground out_trimmed
+          in
+
+          (* Apply themed background to fill the terminal with theme's background color *)
+          let out_themed =
+            Miaou_widgets_display.Widgets.apply_themed_background
+              ~rows:size.LTerm_geom.rows
+              ~cols:size.LTerm_geom.cols
+              out_themed
+          in
+
           (* Write only when output changed; keeps the terminal stable and avoids flicker. *)
           Capture.record_frame
             ~rows:size.LTerm_geom.rows
             ~cols:size.LTerm_geom.cols
-            out_trimmed ;
-          let full_out = out_trimmed ^ "\n" in
+            out_themed ;
+          let full_out = out_themed ^ "\n" in
           if full_out <> !last_out_ref then (
             record_render fps_tracker ;
             let next_lines = split_lines_preserve full_out in
@@ -1350,9 +1366,18 @@ let run (initial_page : (module PAGE_SIG)) :
        Applications using pager widgets should pass notify_render_from_pager_flag when creating pagers. *)
         (* Footer cache updated each loop; initialize ref *)
         footer_ref := None ;
-        clear_and_render ps0 init_stack ;
+        (* Load theme and wrap entire loop in mutable theme context.
+           This ensures both page views AND modal rendering inherit the theme,
+           and allows runtime theme updates via Style_context.set_theme.
+           CRITICAL: The initial clear_and_render MUST be inside the theme context
+           so that apply_themed_foreground can access the current theme via effects. *)
+        let theme = Theme_loader.load () in
         let outcome =
-          try loop ps0 init_stack
+          try
+            Style_context.with_mutable_theme theme (fun () ->
+                (* Initial render inside theme context so auto-theming works *)
+                clear_and_render ps0 init_stack ;
+                loop ps0 init_stack)
           with e ->
             (* Ensure cleanup runs even on exceptions *)
             cleanup () ;

@@ -58,6 +58,8 @@ type rule = {selector : Selector.t; widget_style : widget_style}
 
 type t = {
   name : string;
+  dark_mode : bool;
+      (** Whether this is a dark theme (true) or light theme (false) *)
   primary : Style.t;
   secondary : Style.t;
   accent : Style.t;
@@ -85,6 +87,7 @@ let empty_widget_style =
 let default =
   {
     name = "default";
+    dark_mode = true;
     primary = Style.make ~fg:(Style.Fixed 75) ~bold:true ();
     secondary = Style.make ~fg:(Style.Fixed 245) ();
     accent = Style.make ~fg:(Style.Fixed 135) ();
@@ -95,9 +98,10 @@ let default =
     text = Style.make ~fg:(Style.Fixed 252) ();
     text_muted = Style.make ~fg:(Style.Fixed 242) ~dim:true ();
     text_emphasized = Style.make ~fg:(Style.Fixed 255) ~bold:true ();
-    background = Style.empty;
-    (* Use terminal default *)
+    background = Style.make ~bg:(Style.Fixed 234) ();
+    (* Primary background for modals/popups - darker than secondary *)
     background_secondary = Style.make ~bg:(Style.Fixed 236) ();
+    (* Secondary background for dimmed areas *)
     border = Style.make ~fg:(Style.Fixed 240) ();
     border_focused = Style.make ~fg:(Style.Fixed 75) ~bold:true ();
     border_dim = Style.make ~fg:(Style.Fixed 238) ~dim:true ();
@@ -261,6 +265,7 @@ let merge ~base ~overlay =
     name =
       (if overlay.name = "" || overlay.name = "default" then base.name
        else overlay.name);
+    dark_mode = overlay.dark_mode;
     primary = merge_opt_style ~base:base.primary ~overlay:overlay.primary;
     secondary = merge_opt_style ~base:base.secondary ~overlay:overlay.secondary;
     accent = merge_opt_style ~base:base.accent ~overlay:overlay.accent;
@@ -412,9 +417,15 @@ let of_yojson json =
       if j = `Null then Ok Border.Rounded else Border.style_of_yojson j
     in
     let* rules = rules_of_yojson (member "rules" json) in
+    let dark_mode =
+      let j = member "dark_mode" json in
+      if j = `Null then true (* default to dark for backward compatibility *)
+      else to_bool j
+    in
     Ok
       {
         name;
+        dark_mode;
         primary;
         secondary;
         accent;

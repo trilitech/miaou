@@ -16,6 +16,8 @@ module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
 module Driver_common = Miaou_driver_common.Driver_common
 module Fibers = Miaou_helpers.Fiber_runtime
+module Style_context = Miaou_style.Style_context
+module Theme_loader = Miaou_style.Theme_loader
 
 module Page_transition = Miaou_driver_common.Driver_common.Page_transition_utils
 
@@ -872,7 +874,12 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
           Sdl.destroy_window win)
         (fun () ->
           let module P0 : PAGE_SIG = (val initial_page) in
-          loop (module P0) (P0.init ())))
+          (* Load theme and wrap entire loop in mutable theme context.
+             This ensures both page views AND modal rendering inherit the theme,
+             and allows runtime theme updates via Style_context.set_theme. *)
+          let theme = Theme_loader.load () in
+          Style_context.with_mutable_theme theme (fun () ->
+              loop (module P0) (P0.init ()))))
 
 let run ?config initial_page =
   let cfg = Option.value ~default:default_config config in

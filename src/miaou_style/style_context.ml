@@ -9,6 +9,9 @@ type _ Effect.t += Get_theme : Theme.t Effect.t
 
 type _ Effect.t += Get_match_context : Selector.match_context Effect.t
 
+(* Effect for updating the theme at runtime *)
+type _ Effect.t += Set_theme : Theme.t -> unit Effect.t
+
 let with_theme (theme : Theme.t) (f : unit -> 'a) : 'a =
   Effect.Deep.try_with
     f
@@ -23,6 +26,38 @@ let with_theme (theme : Theme.t) (f : unit -> 'a) : 'a =
                   Effect.Deep.continue k theme)
           | _ -> None);
     }
+
+let with_mutable_theme (initial : Theme.t) (f : unit -> 'a) : 'a =
+  let theme_ref = ref initial in
+  Effect.Deep.try_with
+    f
+    ()
+    {
+      effc =
+        (fun (type a) (eff : a Effect.t) ->
+          match eff with
+          | Get_theme ->
+              Some
+                (fun (k : (a, _) Effect.Deep.continuation) ->
+                  Effect.Deep.continue k !theme_ref)
+          | Set_theme new_theme ->
+              Some
+                (fun (k : (a, _) Effect.Deep.continuation) ->
+                  theme_ref := new_theme ;
+                  Effect.Deep.continue k ())
+          | _ -> None);
+    }
+
+let set_theme theme =
+  try Effect.perform (Set_theme theme)
+  with Effect.Unhandled (Set_theme _) ->
+    (* No mutable handler installed, silently ignore *)
+    ()
+
+let reload_theme () =
+  let theme = Theme_loader.load () in
+  set_theme theme ;
+  theme
 
 let with_context (theme : Theme.t) (ctx : Selector.match_context)
     (f : unit -> 'a) : 'a =
@@ -115,10 +150,15 @@ let border ?(focus = false) () =
 let default_border_style () = (current_theme ()).default_border_style
 
 let styled s =
+  let theme = current_theme () in
   let ws = current_style () in
-  Style.render ws.style s
+  let resolved = Style.to_resolved ~dark_mode:theme.dark_mode ws.style in
+  Style.apply resolved s
 
-let styled_with style s = Style.render style s
+let styled_with style s =
+  let theme = current_theme () in
+  let resolved = Style.to_resolved ~dark_mode:theme.dark_mode style in
+  Style.apply resolved s
 
 let widget_style name =
   let theme = current_theme () in

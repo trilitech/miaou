@@ -11,6 +11,8 @@ module Fibers = Miaou_helpers.Fiber_runtime
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
 module Clipboard = Miaou_interfaces.Clipboard
+module Style_context = Miaou_style.Style_context
+module Theme_loader = Miaou_style.Theme_loader
 open LTerm_geom
 
 (* Helper: apply any pending navigation from modal callbacks to pstate *)
@@ -187,10 +189,19 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
               | None -> loop (iteration + 1) ps')
       in
       set_page initial_page ;
-      loop 0 (P.init ()))
+      (* Load theme and wrap entire loop in mutable theme context.
+         This ensures both page views AND modal rendering inherit the theme,
+         and allows runtime theme updates via Style_context.set_theme. *)
+      let theme = Theme_loader.load () in
+      Style_context.with_mutable_theme theme (fun () -> loop 0 (P.init ())))
 
 module Stateful = struct
   let initialized = ref false
+
+  (* Store theme for use in render callbacks. The Stateful module uses closures
+     that are called outside any effect handler, so we need a mutable ref here.
+     This ref is read by render callbacks to get the current theme. *)
+  let theme_ref : Miaou_style.Theme.t ref = ref Miaou_style.Theme.default
 
   let send_key_impl : (string -> unit) ref = ref (fun _ -> ())
 
@@ -206,6 +217,14 @@ module Stateful = struct
      successful switch. Reset by [consume_last_switch]. *)
   let last_switch : string option ref = ref None
 
+  (* Allow tests to reload/change the theme *)
+  let set_theme theme = theme_ref := theme
+
+  let reload_theme () =
+    let theme = Theme_loader.load () in
+    theme_ref := theme ;
+    theme
+
   (* Install closures for a given page module. This is the shared
      initialisation logic used by both [init] and [switch_to_page].
      Accepts the packed existential [(module PAGE_SIG)] so it works
@@ -218,7 +237,11 @@ module Stateful = struct
     let timer_state = Timer.create_state () in
     Timer.register timer_state ;
     Clipboard.register ~write:(fun _ -> ()) () ;
-    let render () = render_page_with (module P) !ps in
+    (* Read theme from ref each render, allowing runtime updates *)
+    let render () =
+      Style_context.with_theme !theme_ref (fun () ->
+          render_page_with (module P) !ps)
+    in
     let handle_modal_key k =
       if Miaou_core.Modal_manager.has_active () then
         Miaou_core.Modal_manager.handle_key k

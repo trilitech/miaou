@@ -26,5 +26,6 @@
   miaou-widgets-display-sdl.widgets
   miaou-core.widgets.input
   miaou-core.widgets.layout
+  miaou-core.style
   tsdl
   tsdl-ttf))

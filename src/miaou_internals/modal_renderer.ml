@@ -7,6 +7,7 @@
 [@@@warning "-32-34-37-69"]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
+module Style_context = Miaou_style.Style_context
 
 let debug_enabled =
   lazy
@@ -117,37 +118,51 @@ let render_overlay ~(cols : int option) ~base ?rows () =
               ~left_opt
               ~max_width_opt
           in
-          let raw_content =
-            view_thunk
-              {LTerm_geom.rows = geom.max_content_h; cols = geom.content_width}
-          in
-          (try
-             let preview =
-               trim_preview raw_content ~max_lines:8 ~max_chars:400
-             in
-             append_log
-               (Printf.sprintf
-                  "RENDERER_FRAME_PREVIEW: title='%s'\n%s"
-                  title
-                  preview)
-           with _ -> ()) ;
-          let content = wrap_content_to_width raw_content geom.content_width in
-          let dim_background = dim_background || true in
-          (* Derive an adaptive max_height from the current base output lines.
-         Keep a higher floor so content like Select lists isn't clipped by header lines. *)
-          let max_height = geom.max_height in
-          let out =
-            Miaou_widgets_display.Widgets.center_modal
-              ~cols:(Some cols_val)
-              ~rows:rows_val
-              ~title
-              ~dim_background
-              ~left:geom.left
-              ~max_width:geom.max_width
-              ~max_height
-              ~content
-              ~base:acc
-              ()
+          (* Wrap modal rendering in the current theme context to ensure modals
+             inherit styling from the page's theme setup. This includes both the
+             view_thunk AND center_modal (for themed borders). If no theme context
+             is active, this falls back to Theme.default. *)
+          let theme = Style_context.current_theme () in
+          let out, content_line_count =
+            Style_context.with_theme theme (fun () ->
+                let raw_content =
+                  view_thunk
+                    {
+                      LTerm_geom.rows = geom.max_content_h;
+                      cols = geom.content_width;
+                    }
+                in
+                (try
+                   let preview =
+                     trim_preview raw_content ~max_lines:8 ~max_chars:400
+                   in
+                   append_log
+                     (Printf.sprintf
+                        "RENDERER_FRAME_PREVIEW: title='%s'\n%s"
+                        title
+                        preview)
+                 with _ -> ()) ;
+                let content =
+                  wrap_content_to_width raw_content geom.content_width
+                in
+                let dim_background = dim_background || true in
+                (* Derive an adaptive max_height from the current base output lines.
+                   Keep a higher floor so content like Select lists isn't clipped by header lines. *)
+                let max_height = geom.max_height in
+                let modal_out =
+                  Miaou_widgets_display.Widgets.center_modal
+                    ~cols:(Some cols_val)
+                    ~rows:rows_val
+                    ~title
+                    ~dim_background
+                    ~left:geom.left
+                    ~max_width:geom.max_width
+                    ~max_height
+                    ~content
+                    ~base:acc
+                    ()
+                in
+                (modal_out, List.length (String.split_on_char '\n' content)))
           in
           (* Compute and store the modal content position for click handling.
              This mirrors center_modal's positioning logic:
@@ -155,7 +170,7 @@ let render_overlay ~(cols : int option) ~base ?rows () =
              - top = (rows - total_h) / 2
              - content starts at top + 1 (after top border)
              - left = geom.left, content starts at left + 1 (after left border) *)
-          let content_lines = List.length (String.split_on_char '\n' content) in
+          let content_lines = content_line_count in
           let total_h = 2 + content_lines in
           let modal_top = max 0 ((rows_val - total_h) / 2) in
           let content_top = modal_top + 1 in

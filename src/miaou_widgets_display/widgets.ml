@@ -30,24 +30,24 @@ let cyan s = ansi "36" s
 
 (* ============================================================================
    THEMED STYLING SYSTEM
-   
+
    Miaou uses a two-layer styling approach:
-   
+
    1. SEMANTIC STYLES (explicit) - Use these when you want to convey meaning:
       - themed_primary, themed_error, themed_success, themed_warning, etc.
       - Widget authors choose these intentionally based on content semantics
-   
+
    2. CONTEXTUAL STYLES (automatic) - Applied by the style context:
       - Based on widget name, focus state, position (nth-child), etc.
       - Configured via CSS-like selectors in theme JSON
       - Parents set up context, children get styled automatically
-   
+
    IMPORTANT FOR WIDGET AUTHORS:
    - ALWAYS use themed_* functions for semantic meaning (errors, success, etc.)
    - Use themed_text for normal content (NOT raw fg/bg with hardcoded numbers)
    - The raw fg/bg functions are for special cases only (gradients, charts)
    - Contextual styling (focus, selection, zebra stripes) is automatic
-   
+
    See AGENTS.md and PAGE_SIG documentation for full guidelines.
    ============================================================================ *)
 
@@ -57,7 +57,7 @@ module Style_context = Miaou_style.Style_context
 (* --- Semantic style functions --- *)
 
 (** Apply a Style.t to a string, producing ANSI-formatted output *)
-let styled style s = Style.render style s
+let styled style s = Style_context.styled_with style s
 
 (** Primary content - main UI elements, important text *)
 let themed_primary s = styled (Style_context.primary ()) s
@@ -133,20 +133,138 @@ let apply_bg_fill ~bg s =
   Buffer.add_string buf reset ;
   Buffer.contents buf
 
+(** Apply themed foreground color to text that has no foreground set.
+    This ensures all text is visible regardless of terminal defaults.
+    Essential for light themes where default foreground may be invisible.
+
+    The algorithm:
+    - Split text into segments by ANSI escape sequences
+    - For each plain text segment not preceded by a foreground color code,
+      wrap it with the theme's text foreground color
+    - Preserve all existing ANSI codes *)
+let apply_themed_foreground content =
+  let theme = Style_context.current_theme () in
+  let text_style = theme.Miaou_style.Theme.text in
+  let dark_mode = theme.Miaou_style.Theme.dark_mode in
+  let resolved = Style.to_resolved ~dark_mode text_style in
+  let fg = resolved.Style.r_fg in
+  if fg < 0 then content (* No text color in theme *)
+  else
+    let fg_prefix = Printf.sprintf "\027[38;5;%dm" fg in
+    let reset_fg = "\027[39m" in
+    (* Regex to match ANSI escape sequences *)
+    let ansi_re = Str.regexp "\027\\[[0-9;]*m" in
+    (* Split into tokens: either ANSI codes or plain text *)
+    let tokens = Str.full_split ansi_re content in
+    (* Track whether we have an active foreground color *)
+    let has_fg = ref false in
+    let result = Buffer.create (String.length content * 2) in
+    let code_sets_fg codes i =
+      if i + 1 < Array.length codes && codes.(i) = "38" then
+        match codes.(i + 1) with
+        | "5" -> i + 2 < Array.length codes
+        | "2" -> i + 4 < Array.length codes
+        | _ -> false
+      else false
+    in
+    let code_resets_fg code = code = "0" || code = "39" || code = "" in
+    let code_sets_fg_simple code =
+      String.length code = 2
+      && ((code.[0] = '3' && code.[1] >= '0' && code.[1] <= '7')
+         || (code.[0] = '9' && code.[1] >= '0' && code.[1] <= '7'))
+    in
+    List.iter
+      (function
+        | Str.Delim code ->
+            (* Check if this code sets or resets foreground *)
+            if String.length code > 2 then (
+              let inner = String.sub code 2 (String.length code - 3) in
+              let parts =
+                if inner = "" then [||]
+                else String.split_on_char ';' inner |> Array.of_list
+              in
+              let fg_seen = ref !has_fg in
+              let i = ref 0 in
+              while !i < Array.length parts do
+                let part = parts.(!i) in
+                if code_resets_fg part then fg_seen := false
+                else if code_sets_fg_simple part then fg_seen := true
+                else if code_sets_fg parts !i then fg_seen := true ;
+                if part = "38" && !i + 1 < Array.length parts then
+                  match parts.(!i + 1) with
+                  | "5" -> i := !i + 2
+                  | "2" -> i := !i + 4
+                  | _ -> i := !i + 1
+                else i := !i + 1
+              done ;
+              has_fg := !fg_seen) ;
+            Buffer.add_string result code
+        | Str.Text txt ->
+            if txt <> "" then
+              if !has_fg then Buffer.add_string result txt
+              else (
+                (* No foreground set - apply theme's text color *)
+                Buffer.add_string result fg_prefix ;
+                Buffer.add_string result txt ;
+                Buffer.add_string result reset_fg))
+      tokens ;
+    Buffer.contents result
+
 (** Apply contextual background to full line width without overriding text. *)
 let themed_contextual_fill s =
   let style = Style_context.current_style () in
   let resolved = Style.to_resolved style.style in
   if resolved.r_bg < 0 then s else apply_bg_fill ~bg:resolved.r_bg s
 
+(** Apply theme background to entire content, padding lines to full width.
+    This ensures the terminal background is filled with the theme's color. *)
+let apply_themed_background ~rows ~cols content =
+  let theme = Style_context.current_theme () in
+  let bg_style = theme.Miaou_style.Theme.background in
+  let resolved =
+    Style.to_resolved ~dark_mode:theme.Miaou_style.Theme.dark_mode bg_style
+  in
+  if resolved.Style.r_bg < 0 then content
+  else
+    let lines = String.split_on_char '\n' content in
+    let line_count = List.length lines in
+    (* Pad or truncate to exact row count *)
+    let lines =
+      if line_count < rows then
+        lines @ List.init (rows - line_count) (fun _ -> "")
+      else if line_count > rows then List.filteri (fun i _ -> i < rows) lines
+      else lines
+    in
+    (* Apply background fill to each line *)
+    let lines =
+      List.map
+        (fun line ->
+          let vis_len = Miaou_helpers.Helpers.visible_chars_count line in
+          let padded =
+            if vis_len >= cols then line
+            else line ^ String.make (cols - vis_len) ' '
+          in
+          apply_bg_fill ~bg:resolved.Style.r_bg padded)
+        lines
+    in
+    String.concat "\n" lines
+
 (** Get the resolved widget style for the current context.
     Returns a Theme.widget_style record with style, border_style, etc. *)
 let current_widget_style () = Style_context.current_style ()
 
-(* Legacy color functions - these will be replaced by themed versions gradually *)
-let color_border s = fg 75 (bold s)
+(* Modal border and title colors - use themed border_focused style *)
+let color_border s = themed_border ~focus:true s
 
-let title_highlight s = bg 75 (fg 15 (bold s))
+let title_highlight s =
+  (* Title uses accent foreground on secondary background for subtle styling *)
+  let accent = Style_context.accent () in
+  let bg_secondary = Style_context.background_secondary () in
+  let fg_color = match accent.fg with Some (Style.Fixed c) -> c | _ -> 75 in
+  let bg_color =
+    match bg_secondary.bg with Some (Style.Fixed c) -> c | _ -> 238
+  in
+  bg bg_color (fg fg_color (bold s))
 
 let is_utf8_lead = Miaou_helpers.Helpers.is_utf8_lead
 
@@ -403,11 +521,15 @@ let highlight_matches ~(is_regex : bool) ~(query : string option)
         with _ -> line)
 
 let footer_hints (pairs : (string * string) list) : string =
-  let parts = List.map (fun (k, v) -> dim (fg 242 (k ^ ": ")) ^ v) pairs in
+  let parts =
+    List.map (fun (k, v) -> themed_secondary (k ^ ": ") ^ themed_text v) pairs
+  in
   String.concat "    " parts
 
 let footer_hints_wrapped ~cols (pairs : (string * string) list) : string =
-  let segments = List.map (fun (k, v) -> dim (fg 242 (k ^ ": ")) ^ v) pairs in
+  let segments =
+    List.map (fun (k, v) -> themed_secondary (k ^ ": ") ^ themed_text v) pairs
+  in
   let space = "    " in
   let lines = ref [] in
   let current = ref "" in
@@ -436,7 +558,9 @@ let footer_hints_wrapped_capped ~cols ~max_lines
     (pairs : (string * string) list) : string =
   if max_lines <= 0 then ""
   else
-    let segments = List.map (fun (k, v) -> dim (fg 242 (k ^ ": ")) ^ v) pairs in
+    let segments =
+      List.map (fun (k, v) -> themed_secondary (k ^ ": ") ^ themed_text v) pairs
+    in
     let space = "    " in
     let lines = ref [] in
     let current = ref "" in
@@ -477,7 +601,7 @@ let footer_hints_wrapped_capped ~cols ~max_lines
       else rendered
     in
     if List.length rendered < List.length !lines || !overflow then
-      let ellipsis = dim (fg 244 "… more (? for all)") in
+      let ellipsis = themed_muted "… more (? for all)" in
       let trimmed =
         if List.length rendered = max_lines then
           let all_but_last, _last =
@@ -498,9 +622,9 @@ let footer_hints_wrapped_capped ~cols ~max_lines
 
 let titleize title =
   let left = " " in
-  let star = fg 45 "★ " in
-  let t = fg 213 title in
-  bg 238 (fg 255 (left ^ bold (star ^ t)))
+  let star = themed_accent "★ " in
+  let t = themed_primary title in
+  themed_background (left ^ bold (star ^ t))
 
 let render_frame ~title ?(header = []) ?cols ~body ~footer () : string =
   let cols = match cols with Some c -> c | None -> 80 in
@@ -626,13 +750,21 @@ let overlay ~base ~content ~top ~left ~canvas_h ~canvas_w : string =
       content_lines
   in
   let set_overlay (base_line : string) (overlay_line : string) : string =
+    (* base_line should already be padded to canvas_w by caller (e.g. dim_line).
+       We only pad to reach 'left' position if needed for overlay placement. *)
     let base_v = visible_chars_count base_line in
     let pad_left = max 0 (left - base_v) in
     let base_padded =
       if pad_left > 0 then base_line ^ String.make pad_left ' ' else base_line
     in
     let span = min c_w (max 0 (canvas_w - left)) in
-    let pre = String.make (max 0 left) ' ' in
+    (* Use the beginning of the base line up to 'left' position, preserving styling *)
+    let pre =
+      if left <= 0 then ""
+      else
+        let idx = visible_byte_index_of_pos base_padded left in
+        String.sub base_padded 0 idx
+    in
     let idx_left = visible_byte_index_of_pos base_padded left in
     let ov =
       let s = overlay_line in
@@ -662,6 +794,24 @@ let overlay ~base ~content ~top ~left ~canvas_h ~canvas_w : string =
       if idx_post < String.length base_padded then
         String.sub base_padded idx_post (String.length base_padded - idx_post)
       else ""
+    in
+    (* Extract any ANSI prefix from base_line (e.g., background color) and prepend
+       to post so it inherits the same styling. The prefix is everything before
+       the first visible character. *)
+    let base_prefix =
+      let len = String.length base_line in
+      let rec find_first_visible i =
+        if i >= len then i
+        else if is_esc_start base_line i then
+          let j = skip_ansi_until_m base_line (i + 2) in
+          find_first_visible j
+        else i
+      in
+      let first_vis = find_first_visible 0 in
+      if first_vis > 0 then String.sub base_line 0 first_vis else ""
+    in
+    let post =
+      if post <> "" && base_prefix <> "" then base_prefix ^ post else post
     in
     pre ^ ov ^ post
   in
@@ -766,6 +916,21 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
       let prefix = String.sub s 0 byte_idx in
       prefix ^ "…"
   in
+  (* Get modal background color from theme. Try background first, then
+     background_secondary as fallback. Modals need an explicit background
+     to avoid showing through to terminal default. *)
+  let modal_bg =
+    let bg_style = Style_context.background () in
+    match bg_style.bg with
+    | Some (Style.Fixed c) -> Some c
+    | _ -> (
+        (* Fallback to background_secondary *)
+        let bg_sec = Style_context.background_secondary () in
+        match bg_sec.bg with Some (Style.Fixed c) -> Some c | _ -> None)
+  in
+  let fill_bg s =
+    match modal_bg with Some c -> apply_bg_fill ~bg:c s | None -> s
+  in
   let pad_line s =
     let s' = clip s in
     let left_spaces = String.make padding ' ' in
@@ -774,9 +939,15 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     let right_spaces =
       if right_len > 0 then String.make right_len ' ' else ""
     in
-    let mid = insert_before_reset s' "" in
-    color_border glyph_vline ^ left_spaces ^ mid ^ right_spaces
-    ^ color_border glyph_vline
+    (* Build the content part and apply background fill.
+       We need to ensure the background is applied to the entire line
+       including any spaces, and survives any ANSI resets in the content. *)
+    let content = left_spaces ^ s' ^ right_spaces in
+    let content_with_bg = fill_bg content in
+    (* Both borders need bg fill so they don't show terminal default *)
+    let left_border = fill_bg (color_border glyph_vline) in
+    let right_border = fill_bg (color_border glyph_vline) in
+    left_border ^ content_with_bg ^ right_border
   in
   let rec replicate n acc =
     if n <= 0 then List.rev acc else replicate (n - 1) ("" :: acc)
@@ -784,9 +955,11 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
   let top_pad = replicate padding [] in
   let bot_pad = replicate padding [] in
   let boxed_colored_lines =
-    (top_bar_colored :: List.map pad_line top_pad)
+    (* Apply background fill to border lines as well as content lines *)
+    (fill_bg top_bar_colored :: List.map pad_line top_pad)
     @ List.map pad_line cont_lines
-    @ List.map pad_line bot_pad @ [bottom_bar_colored]
+    @ List.map pad_line bot_pad
+    @ [fill_bg bottom_bar_colored]
   in
   let boxed_colored =
     let buf = Buffer.create (total_h * (total_w + 1)) in
@@ -797,14 +970,9 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
       boxed_colored_lines ;
     Buffer.contents buf
   in
-  let base_to_use =
-    if dim_background then
-      String.concat
-        "\n"
-        (List.map (fun l -> dim l) (String.split_on_char '\n' base))
-    else base
-  in
-  let base_line_count = List.length (String.split_on_char '\n' base_to_use) in
+  (* Determine canvas dimensions first, as we need cols for padding dimmed lines *)
+  let base_lines_raw = String.split_on_char '\n' base in
+  let base_line_count = List.length base_lines_raw in
   let rows =
     match rows with Some r -> max r base_line_count | None -> base_line_count
   in
@@ -812,8 +980,34 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     match cols with
     | Some c -> c
     | None ->
-        visible_chars_count
-          (List.hd (String.split_on_char '\n' base_to_use @ [base_to_use]))
+        List.fold_left
+          (fun acc l -> max acc (visible_chars_count l))
+          0
+          base_lines_raw
+  in
+  let base_to_use =
+    if dim_background then
+      (* For dimmed background, we need to both dim the text AND apply a
+         background color. Use background_secondary for the dimmed area,
+         which should be a slightly different shade than the main background. *)
+      let dim_bg =
+        let bg_sec = Style_context.background_secondary () in
+        match bg_sec.bg with Some (Style.Fixed c) -> Some c | _ -> None
+      in
+      let dim_line l =
+        let dimmed = dim l in
+        (* Pad the line to full canvas width so background covers entire row *)
+        let vis_len = visible_chars_count dimmed in
+        let padded =
+          if vis_len < cols then dimmed ^ String.make (cols - vis_len) ' '
+          else dimmed
+        in
+        match dim_bg with
+        | Some c -> apply_bg_fill ~bg:c padded
+        | None -> padded
+      in
+      String.concat "\n" (List.map dim_line base_lines_raw)
+    else base
   in
   let left =
     match left with Some l -> max 0 l | None -> max 0 ((cols - total_w) / 2)

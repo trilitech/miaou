@@ -48,6 +48,8 @@ type rule = {selector : Selector.t; widget_style : widget_style}
 type t = {
   (* Metadata *)
   name : string;  (** Theme name (e.g., "dark", "light") *)
+  dark_mode : bool;
+      (** Whether this is a dark theme (affects color resolution for Adaptive colors) *)
   (* Semantic styles *)
   primary : Style.t;  (** Primary accent color *)
   secondary : Style.t;  (** Secondary color *)

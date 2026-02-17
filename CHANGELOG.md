@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Cascading style system** (`miaou_style`): semantic styles + CSS-like selectors with effect-based context (`Style_context`).
 - **Theme JSON support** with discovery/merge rules and optional validation for low-contrast fg/bg combinations.
+- **Built-in themes** (`Builtin_themes`): 11 popular themes included directly in the library:
+  - Dark: catppuccin-mocha, dracula, nord, gruvbox-dark, tokyonight, opencode, oled
+  - Light: catppuccin-latte, nord-light, gruvbox-light, tokyonight-day
+  - `opencode` and `oled` themes use borderless style for a clean, minimal look
+  - `oled` theme features true black background (#000000) with soft pastel colors for OLED screens
+- **Theme registry API**: `Builtin_themes.list_builtin()`, `get_builtin(id)`, `is_builtin(id)` for discovering and loading built-in themes.
+- **Smart theme loading**: `Theme_loader.load_any(name)` checks built-in themes first, then user themes; `list_all_themes()` returns combined list.
 - **Style system demo** (`miaou.style_system-demo`) with runtime theme switching and contextual styling.
 
 ### Changed

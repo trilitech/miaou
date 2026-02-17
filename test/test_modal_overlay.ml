@@ -1,6 +1,6 @@
 open Alcotest
 
-let test_overlay_blanks_left () =
+let test_overlay_preserves_left () =
   let open Miaou_widgets_display.Widgets in
   let base_top = "Ready to get started?" in
   let base =
@@ -19,7 +19,9 @@ let test_overlay_blanks_left () =
     if String.length first_line >= 8 then String.sub first_line 0 8
     else first_line
   in
-  check string "left area cleared" "        " prefix
+  (* Overlay should preserve the base content to the left of the modal,
+     retaining any styling (e.g., dimmed backdrop colors) *)
+  check string "left area preserved" "Ready to" prefix
 
 let test_center_modal_respects_rows () =
   let open Miaou_widgets_display.Widgets in
@@ -63,7 +65,8 @@ let () =
     [
       ( "overlay",
         [
-          test_case "blank-left" `Quick (fun _ -> test_overlay_blanks_left ());
+          test_case "preserves-left" `Quick (fun _ ->
+              test_overlay_preserves_left ());
           test_case "centered-with-rows" `Quick (fun _ ->
               test_center_modal_respects_rows ());
         ] );

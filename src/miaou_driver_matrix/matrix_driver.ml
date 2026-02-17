@@ -67,6 +67,22 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
       Matrix_terminal.enter_raw terminal ;
       if config.enable_mouse then Matrix_terminal.enable_mouse terminal ;
 
+      (* Re-check size after raw mode; some terminals report 80x24 initially *)
+      let sleep_s seconds = Eio.Time.sleep env#clock seconds in
+      let rec read_size_retry attempts last =
+        if attempts <= 0 then last
+        else (
+          Matrix_terminal.invalidate_size_cache terminal ;
+          let s = Matrix_terminal.size terminal in
+          if s <> last && s <> (24, 80) then s
+          else (
+            sleep_s 0.02 ;
+            read_size_retry (attempts - 1) s))
+      in
+      let rows2, cols2 = read_size_retry 5 (rows, cols) in
+      if rows2 <> rows || cols2 <> cols then
+        Matrix_buffer.resize buffer ~rows:rows2 ~cols:cols2 ;
+
       (* Hide cursor *)
       Matrix_terminal.write terminal Matrix_ansi_writer.cursor_hide ;
 

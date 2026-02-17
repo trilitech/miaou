@@ -252,24 +252,27 @@ let style_equal a b =
   a.fg = b.fg && a.bg = b.bg && a.bold = b.bold && a.dim = b.dim
   && a.underline = b.underline && a.reverse = b.reverse
 
-let emit_sgr buf style =
+let emit_sgr ?(default_fg = -1) ?(default_bg = -1) buf style =
   (* Build SGR parameter list for the given style *)
   Buffer.add_string buf "\027[0" ;
   if style.bold then Buffer.add_string buf ";1" ;
   if style.dim then Buffer.add_string buf ";2" ;
   if style.underline then Buffer.add_string buf ";4" ;
   if style.reverse then Buffer.add_string buf ";7" ;
-  if style.fg >= 0 then begin
+  (* Use theme default if fg/bg not set *)
+  let fg = if style.fg >= 0 then style.fg else default_fg in
+  let bg = if style.bg >= 0 then style.bg else default_bg in
+  if fg >= 0 then begin
     Buffer.add_string buf ";38;5;" ;
-    Buffer.add_string buf (string_of_int style.fg)
+    Buffer.add_string buf (string_of_int fg)
   end ;
-  if style.bg >= 0 then begin
+  if bg >= 0 then begin
     Buffer.add_string buf ";48;5;" ;
-    Buffer.add_string buf (string_of_int style.bg)
+    Buffer.add_string buf (string_of_int bg)
   end ;
   Buffer.add_char buf 'm'
 
-let to_ansi t =
+let to_ansi_with_defaults ?(default_fg = -1) ?(default_bg = -1) t =
   if t.rows = 0 || t.cols = 0 then ""
   else
     (* Estimate: ~4 bytes per cell on average *)
@@ -280,7 +283,7 @@ let to_ansi t =
       for c = 0 to t.cols - 1 do
         let cell = t.grid.(r).(c) in
         if not (style_equal !current_style cell.style) then begin
-          emit_sgr buf cell.style ;
+          emit_sgr ~default_fg ~default_bg buf cell.style ;
           current_style := cell.style
         end ;
         Buffer.add_string buf cell.char
@@ -290,6 +293,8 @@ let to_ansi t =
     if not (style_equal !current_style default_style) then
       Buffer.add_string buf "\027[0m" ;
     Buffer.contents buf
+
+let to_ansi t = to_ansi_with_defaults t
 
 let iter t ~f =
   for r = 0 to t.rows - 1 do
