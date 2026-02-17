@@ -68,6 +68,7 @@ module Inner = struct
   let render_tile ~index ~cursor ~title ~size =
     let focused = index = cursor in
     Style_context.with_child_context
+      ~widget_name:"flex-child"
       ~focused
       ~selected:focused
       ~index
