@@ -42,16 +42,24 @@ module Inner = struct
     | Ok t -> {theme = t; error = None}
     | Error e -> {theme = Theme.default; error = Some (label ^ ": " ^ e)}
 
-  let load_theme_file ~label path =
+  let load_theme_file ~label path ~fallback =
     if Sys.file_exists path then
       match Theme_loader.load_file path with
       | Ok t -> {theme = t; error = None}
-      | Error e -> {theme = Theme.default; error = Some (label ^ ": " ^ e)}
-    else load_theme ~label [%blob "theme.json"]
+      | Error e ->
+          {
+            theme = fallback;
+            error = Some (label ^ ": " ^ e ^ " (fallback applied)");
+          }
+    else {theme = fallback; error = None}
 
   let themes =
+    let dark_fallback = load_theme ~label:"dark" [%blob "theme.json"] in
     let dark =
-      load_theme_file ~label:"dark" "example/demos/style_system/theme.json"
+      load_theme_file
+        ~label:"dark"
+        "example/demos/style_system/theme.json"
+        ~fallback:dark_fallback.theme
     in
     let light = load_theme ~label:"light" [%blob "themes/light.json"] in
     let high_contrast =
