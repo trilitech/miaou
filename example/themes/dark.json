@@ -1,0 +1,39 @@
+{
+  "name": "dark",
+  "primary": { "fg": { "Fixed": 75 }, "bold": true },
+  "secondary": { "fg": { "Fixed": 245 } },
+  "accent": { "fg": { "Fixed": 135 } },
+  "error": { "fg": { "Fixed": 196 } },
+  "warning": { "fg": { "Fixed": 208 } },
+  "success": { "fg": { "Fixed": 46 } },
+  "info": { "fg": { "Fixed": 81 } },
+  "text": { "fg": { "Fixed": 252 } },
+  "text_muted": { "fg": { "Fixed": 242 }, "dim": true },
+  "text_emphasized": { "fg": { "Fixed": 255 }, "bold": true },
+  "background": {},
+  "background_secondary": { "bg": { "Fixed": 236 } },
+  "border": { "fg": { "Fixed": 240 } },
+  "border_focused": { "fg": { "Fixed": 75 }, "bold": true },
+  "border_dim": { "fg": { "Fixed": 238 }, "dim": true },
+  "selection": { "fg": { "Fixed": 255 }, "bg": { "Fixed": 238 } },
+  "default_border_style": "Rounded",
+  "rules": {
+    "table:focus": {
+      "style": { "fg": { "Fixed": 255 } },
+      "border_fg": { "Fixed": 75 }
+    },
+    "table > :nth-child(even)": {
+      "style": { "bg": { "Fixed": 236 } }
+    },
+    "table > :nth-child(odd)": {
+      "style": { "bg": { "Fixed": 234 } }
+    },
+    "flex_layout > :first-child": {
+      "style": {},
+      "border_style": "Double"
+    },
+    "modal .button:focus": {
+      "style": { "fg": { "Fixed": 255 }, "bold": true, "reverse": true }
+    }
+  }
+}

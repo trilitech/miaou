@@ -17,6 +17,7 @@ depends: [
   "rresult"
   "uri"
   "yojson"
+  "ppx_deriving_yojson"
   "imagelib"
   "qrc"
   "ppx_blob"

@@ -1,0 +1,9 @@
+(library
+ (name miaou_style)
+ (public_name miaou-core.style)
+ (modules style border selector theme theme_loader style_context)
+ (instrumentation
+  (backend bisect_ppx))
+ (libraries yojson miaou_helpers)
+ (preprocess
+  (pps ppx_deriving_yojson)))
