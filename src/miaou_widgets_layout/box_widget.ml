@@ -177,12 +177,15 @@ let render ?(title = "") ?(style = Single)
       else line
     in
     let padded = H.pad_to_width truncated content_w ' ' in
-    color_left bc.v ^ pad_left_str ^ padded ^ pad_right_str ^ color_right bc.v
+    let inner = pad_left_str ^ padded ^ pad_right_str in
+    let inner = W.themed_contextual_fill inner in
+    color_left bc.v ^ inner ^ color_right bc.v
   in
   let content_rows = List.map format_line raw_lines in
   (* Add padding rows *)
   let empty_row =
-    color_left bc.v ^ String.make inner_w ' ' ^ color_right bc.v
+    let inner = String.make inner_w ' ' |> W.themed_contextual_fill in
+    color_left bc.v ^ inner ^ color_right bc.v
   in
   let top_pad_rows = List.init padding.top (fun _ -> empty_row) in
   let bottom_pad_rows = List.init padding.bottom (fun _ -> empty_row) in

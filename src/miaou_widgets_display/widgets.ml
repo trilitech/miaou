@@ -108,6 +108,37 @@ let themed_background_alt s = styled (Style_context.background_secondary ()) s
     from the theme. The style is determined by Style_context.current_style(). *)
 let themed_contextual s = Style_context.styled s
 
+let apply_bg_fill ~bg s =
+  let prefix = "\027[48;5;" ^ string_of_int bg ^ "m" in
+  let reset = Style.ansi_reset in
+  let len_s = String.length s in
+  let len_reset = String.length reset in
+  let rec find_sub start =
+    if start + len_reset > len_s then None
+    else if String.sub s start len_reset = reset then Some start
+    else find_sub (start + 1)
+  in
+  let buf = Buffer.create (len_s + 16) in
+  Buffer.add_string buf prefix ;
+  let rec loop i =
+    match find_sub i with
+    | None -> Buffer.add_string buf (String.sub s i (len_s - i))
+    | Some j ->
+        Buffer.add_string buf (String.sub s i (j - i)) ;
+        Buffer.add_string buf reset ;
+        Buffer.add_string buf prefix ;
+        loop (j + len_reset)
+  in
+  loop 0 ;
+  Buffer.add_string buf reset ;
+  Buffer.contents buf
+
+(** Apply contextual background to full line width without overriding text. *)
+let themed_contextual_fill s =
+  let style = Style_context.current_style () in
+  let resolved = Style.to_resolved style.style in
+  if resolved.r_bg < 0 then s else apply_bg_fill ~bg:resolved.r_bg s
+
 (** Get the resolved widget style for the current context.
     Returns a Theme.widget_style record with style, border_style, etc. *)
 let current_widget_style () = Style_context.current_style ()
@@ -478,7 +509,7 @@ let render_frame ~title ?(header = []) ?cols ~body ~footer () : string =
   let header_s =
     match header with [] -> "" | lst -> String.concat "\n" lst ^ "\n"
   in
-  let pad_to_cols (s : string) : string =
+  let pad_to_cols_lines (s : string) : string list =
     let lines = String.split_on_char '\n' s in
     let pad_line l =
       let v = visible_chars_count l in
@@ -489,10 +520,18 @@ let render_frame ~title ?(header = []) ?cols ~body ~footer () : string =
         prefix ^ "…"
       else pad_to_width l cols ' '
     in
-    String.concat "\n" (List.map pad_line lines)
+    List.map pad_line lines
   in
-  let body_s = pad_to_cols (header_s ^ body) in
-  let footer_s = pad_to_cols footer in
+  let body_s =
+    pad_to_cols_lines (header_s ^ body)
+    |> List.map themed_contextual_fill
+    |> String.concat "\n"
+  in
+  let footer_s =
+    pad_to_cols_lines footer
+    |> List.map themed_contextual_fill
+    |> String.concat "\n"
+  in
   String.concat "\n" [title_line; sep; body_s; footer_s]
 
 let color_for_status s =
