@@ -84,7 +84,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
 
         (* Title *)
         (match t.title with
-        | Some title -> lines := W.bold title :: !lines
+        | Some title -> lines := W.themed_emphasis title :: !lines
         | None -> ()) ;
 
         (* Chart area *)
@@ -219,7 +219,7 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
 
         (* Title *)
         (match t.title with
-        | Some title -> lines := W.bold title :: !lines
+        | Some title -> lines := W.themed_emphasis title :: !lines
         | None -> ()) ;
 
         (* Chart *)
