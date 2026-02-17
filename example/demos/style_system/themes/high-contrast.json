@@ -10,9 +10,11 @@
   "text": { "fg": { "Fixed": 231 } },
   "text_muted": { "fg": { "Fixed": 250 } },
   "text_emphasized": { "fg": { "Fixed": 231 }, "bold": true },
+  "background": {},
   "background_secondary": { "bg": { "Fixed": 234 } },
   "border": { "fg": { "Fixed": 231 } },
   "border_focused": { "fg": { "Fixed": 226 }, "bold": true },
+  "border_dim": { "fg": { "Fixed": 250 } },
   "selection": { "fg": { "Fixed": 16 }, "bg": { "Fixed": 226 } },
   "default_border_style": "Heavy",
   "rules": {

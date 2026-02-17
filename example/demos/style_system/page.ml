@@ -63,7 +63,12 @@ module Inner = struct
 
   let render_tile ~index ~cursor ~title ~size =
     let focused = index = cursor in
-    Style_context.with_child_context ~focused ~selected:focused (fun () ->
+    Style_context.with_child_context
+      ~focused
+      ~selected:focused
+      ~index
+      ~count:4
+      (fun () ->
         let body_lines =
           [
             "Contextual background";
