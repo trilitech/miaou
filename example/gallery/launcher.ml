@@ -347,6 +347,13 @@ let demos =
           (module Box_widget_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
+      title = "Style System";
+      open_demo =
+        goto
+          "demo_style_system"
+          (module Style_system_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
       title = "Textarea";
       open_demo =
         goto
