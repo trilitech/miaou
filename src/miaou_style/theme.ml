@@ -11,7 +11,48 @@ type widget_style = {
   border_fg : Style.color option;
   border_bg : Style.color option;
 }
-[@@deriving yojson]
+
+let widget_style_to_yojson ws =
+  let field name value = (name, value) in
+  let opt_field name = function
+    | None -> None
+    | Some v -> Some (field name v)
+  in
+  let fields =
+    [
+      Some (field "style" (Style.t_to_yojson ws.style));
+      opt_field
+        "border_style"
+        (Option.map Border.style_to_yojson ws.border_style);
+      opt_field "border_fg" (Option.map Style.color_to_yojson ws.border_fg);
+      opt_field "border_bg" (Option.map Style.color_to_yojson ws.border_bg);
+    ]
+    |> List.filter_map (fun x -> x)
+  in
+  `Assoc fields
+
+let widget_style_of_yojson json =
+  let ( let* ) = Result.bind in
+  let parse_opt name parser fields =
+    match List.assoc_opt name fields with
+    | None | Some `Null -> Ok None
+    | Some v -> parser v |> Result.map (fun x -> Some x)
+  in
+  match json with
+  | `Assoc fields ->
+      let style =
+        match List.assoc_opt "style" fields with
+        | None | Some `Null -> Ok Style.empty
+        | Some v -> Style.t_of_yojson v
+      in
+      let* style = style in
+      let* border_style =
+        parse_opt "border_style" Border.style_of_yojson fields
+      in
+      let* border_fg = parse_opt "border_fg" Style.color_of_yojson fields in
+      let* border_bg = parse_opt "border_bg" Style.color_of_yojson fields in
+      Ok {style; border_style; border_fg; border_bg}
+  | _ -> Error "Theme.widget_style"
 
 type rule = {selector : Selector.t; widget_style : widget_style}
 

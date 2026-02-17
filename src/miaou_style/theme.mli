@@ -35,7 +35,11 @@ type widget_style = {
   border_fg : Style.color option;  (** Optional border foreground color *)
   border_bg : Style.color option;  (** Optional border background color *)
 }
-[@@deriving yojson]
+
+(** JSON encoding/decoding for widget styles (tolerant of missing fields). *)
+val widget_style_to_yojson : widget_style -> Yojson.Safe.t
+
+val widget_style_of_yojson : Yojson.Safe.t -> (widget_style, string) result
 
 (** A style rule: selector -> widget style *)
 type rule = {selector : Selector.t; widget_style : widget_style}
