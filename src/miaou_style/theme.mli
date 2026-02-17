@@ -96,6 +96,12 @@ val resolve_style : t -> Selector.match_context -> widget_style
 (** Get semantic style by name (e.g., "primary", "error", "text") *)
 val get_semantic_style : t -> string -> Style.t option
 
+(** {2 Validation} *)
+
+(** Validate theme styles for low-contrast fg/bg combinations.
+    Returns a list of human-readable warnings. *)
+val validate : ?contrast:float -> ?dark_mode:bool -> t -> string list
+
 (** {2 Theme merging} *)
 
 (** Merge two themes. Values from [overlay] take precedence when set. *)

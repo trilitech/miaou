@@ -128,11 +128,21 @@ module Inner = struct
           | None -> W.themed_success "Theme parse: ok"
           | Some e -> W.themed_error ("Theme parse: " ^ e)
         in
+        let warnings =
+          if current.error = None then
+            let warnings = Theme.validate current.theme in
+            match warnings with
+            | [] -> []
+            | w :: _ -> [W.themed_warning ("Theme warning: " ^ w)]
+          else []
+        in
         let row_height = max 6 (size.LTerm_geom.rows - 6) in
         let tiles =
           row s {LTerm_geom.cols = size.LTerm_geom.cols; rows = row_height}
         in
-        String.concat "\n\n" [header; sub; theme_line; status_line; tiles])
+        String.concat
+          "\n\n"
+          ((header :: sub :: theme_line :: status_line :: warnings) @ [tiles]))
 
   let go_back s =
     {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}

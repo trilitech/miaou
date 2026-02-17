@@ -154,6 +154,106 @@ let get_semantic_style theme name =
   | "selection" -> Some theme.selection
   | _ -> None
 
+let rgb_of_256 =
+  let basic =
+    [|
+      (0, 0, 0);
+      (128, 0, 0);
+      (0, 128, 0);
+      (128, 128, 0);
+      (0, 0, 128);
+      (128, 0, 128);
+      (0, 128, 128);
+      (192, 192, 192);
+      (128, 128, 128);
+      (255, 0, 0);
+      (0, 255, 0);
+      (255, 255, 0);
+      (0, 0, 255);
+      (255, 0, 255);
+      (0, 255, 255);
+      (255, 255, 255);
+    |]
+  in
+  fun idx ->
+    if idx < 0 then (0, 0, 0)
+    else if idx < 16 then basic.(idx)
+    else if idx < 232 then
+      let i = idx - 16 in
+      let r = i / 36 in
+      let g = i mod 36 / 6 in
+      let b = i mod 6 in
+      let ramp = [|0; 95; 135; 175; 215; 255|] in
+      (ramp.(r), ramp.(g), ramp.(b))
+    else
+      let v = 8 + ((idx - 232) * 10) in
+      (v, v, v)
+
+let luminance (r, g, b) =
+  let f x =
+    let xf = float_of_int x /. 255.0 in
+    if xf <= 0.03928 then xf /. 12.92 else ((xf +. 0.055) /. 1.055) ** 2.4
+  in
+  (0.2126 *. f r) +. (0.7152 *. f g) +. (0.0722 *. f b)
+
+let contrast_ratio a b =
+  let l1 = luminance a in
+  let l2 = luminance b in
+  let hi, lo = if l1 >= l2 then (l1, l2) else (l2, l1) in
+  (hi +. 0.05) /. (lo +. 0.05)
+
+let validate_style ?(contrast = 4.5) ?(dark_mode = true) name style =
+  match (style.Style.fg, style.Style.bg) with
+  | Some fg, Some bg ->
+      let fg = Style.resolve_color ~dark_mode fg in
+      let bg = Style.resolve_color ~dark_mode bg in
+      if fg < 0 || bg < 0 then []
+      else if fg = bg then [name ^ ": fg/bg are identical"]
+      else
+        let ratio = contrast_ratio (rgb_of_256 fg) (rgb_of_256 bg) in
+        if ratio < contrast then
+          [
+            Printf.sprintf
+              "%s: low contrast %.2f (fg %d, bg %d)"
+              name
+              ratio
+              fg
+              bg;
+          ]
+        else []
+  | _ -> []
+
+let validate ?(contrast = 4.5) ?(dark_mode = true) theme =
+  let semantic =
+    [
+      ("primary", theme.primary);
+      ("secondary", theme.secondary);
+      ("accent", theme.accent);
+      ("error", theme.error);
+      ("warning", theme.warning);
+      ("success", theme.success);
+      ("info", theme.info);
+      ("text", theme.text);
+      ("text_muted", theme.text_muted);
+      ("text_emphasized", theme.text_emphasized);
+      ("selection", theme.selection);
+      ("background", theme.background);
+      ("background_secondary", theme.background_secondary);
+    ]
+  in
+  let semantic_warnings =
+    semantic
+    |> List.concat_map (fun (name, style) ->
+        validate_style ~contrast ~dark_mode name style)
+  in
+  let rule_warnings =
+    theme.rules
+    |> List.concat_map (fun rule ->
+        let name = "rule " ^ Selector.to_string rule.selector in
+        validate_style ~contrast ~dark_mode name rule.widget_style.style)
+  in
+  semantic_warnings @ rule_warnings
+
 let merge_opt_style ~base ~overlay = Style.patch ~base ~overlay
 
 let merge ~base ~overlay =
