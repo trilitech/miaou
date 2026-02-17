@@ -29,6 +29,7 @@
   unix
   miaou-core.helpers
   miaou-core.interfaces
+  miaou-core.style
   qrc
   imagelib
   imagelib.unix))

@@ -28,6 +28,91 @@ let magenta s = ansi "35" s
 
 let cyan s = ansi "36" s
 
+(* ============================================================================
+   THEMED STYLING SYSTEM
+   
+   Miaou uses a two-layer styling approach:
+   
+   1. SEMANTIC STYLES (explicit) - Use these when you want to convey meaning:
+      - themed_primary, themed_error, themed_success, themed_warning, etc.
+      - Widget authors choose these intentionally based on content semantics
+   
+   2. CONTEXTUAL STYLES (automatic) - Applied by the style context:
+      - Based on widget name, focus state, position (nth-child), etc.
+      - Configured via CSS-like selectors in theme JSON
+      - Parents set up context, children get styled automatically
+   
+   IMPORTANT FOR WIDGET AUTHORS:
+   - ALWAYS use themed_* functions for semantic meaning (errors, success, etc.)
+   - Use themed_text for normal content (NOT raw fg/bg with hardcoded numbers)
+   - The raw fg/bg functions are for special cases only (gradients, charts)
+   - Contextual styling (focus, selection, zebra stripes) is automatic
+   
+   See AGENTS.md and PAGE_SIG documentation for full guidelines.
+   ============================================================================ *)
+
+module Style = Miaou_style.Style
+module Style_context = Miaou_style.Style_context
+
+(* --- Semantic style functions --- *)
+
+(** Apply a Style.t to a string, producing ANSI-formatted output *)
+let styled style s = Style.render style s
+
+(** Primary content - main UI elements, important text *)
+let themed_primary s = styled (Style_context.primary ()) s
+
+(** Secondary content - less prominent elements *)
+let themed_secondary s = styled (Style_context.secondary ()) s
+
+(** Accent - highlights, links, interactive elements *)
+let themed_accent s = styled (Style_context.accent ()) s
+
+(** Error state - validation errors, failures, critical issues *)
+let themed_error s = styled (Style_context.error ()) s
+
+(** Warning state - cautions, potential issues *)
+let themed_warning s = styled (Style_context.warning ()) s
+
+(** Success state - confirmations, completed actions *)
+let themed_success s = styled (Style_context.success ()) s
+
+(** Info state - neutral information, tips *)
+let themed_info s = styled (Style_context.info ()) s
+
+(** Normal text - default readable content *)
+let themed_text s = styled (Style_context.text ()) s
+
+(** Muted text - less important, secondary information *)
+let themed_muted s = styled (Style_context.text_muted ()) s
+
+(** Emphasized text - bold/highlighted content *)
+let themed_emphasis s = styled (Style_context.text_emphasized ()) s
+
+(** Border styling - for widget frames and separators *)
+let themed_border ?(focus = false) s = styled (Style_context.border ~focus ()) s
+
+(** Selection highlight - for selected items in lists/tables *)
+let themed_selection s = styled (Style_context.selection ()) s
+
+(** Background - primary background color *)
+let themed_background s = styled (Style_context.background ()) s
+
+(** Alternate background - for contrast (e.g., alternate rows) *)
+let themed_background_alt s = styled (Style_context.background_secondary ()) s
+
+(* --- Contextual style application --- *)
+
+(** Apply the current contextual style (based on widget name, focus, position).
+    Use this when rendering content that should respect CSS-like selector rules
+    from the theme. The style is determined by Style_context.current_style(). *)
+let themed_contextual s = Style_context.styled s
+
+(** Get the resolved widget style for the current context.
+    Returns a Theme.widget_style record with style, border_style, etc. *)
+let current_widget_style () = Style_context.current_style ()
+
+(* Legacy color functions - these will be replaced by themed versions gradually *)
 let color_border s = fg 75 (bold s)
 
 let title_highlight s = bg 75 (fg 15 (bold s))
