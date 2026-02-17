@@ -1,0 +1,29 @@
+{
+  "name": "light",
+  "primary": { "fg": { "Fixed": 25 }, "bold": true },
+  "secondary": { "fg": { "Fixed": 60 } },
+  "accent": { "fg": { "Fixed": 27 } },
+  "error": { "fg": { "Fixed": 160 } },
+  "warning": { "fg": { "Fixed": 172 } },
+  "success": { "fg": { "Fixed": 28 } },
+  "info": { "fg": { "Fixed": 33 } },
+  "text": { "fg": { "Fixed": 16 } },
+  "text_muted": { "fg": { "Fixed": 244 }, "dim": true },
+  "text_emphasized": { "fg": { "Fixed": 17 }, "bold": true },
+  "background_secondary": { "bg": { "Fixed": 254 } },
+  "border": { "fg": { "Fixed": 245 } },
+  "border_focused": { "fg": { "Fixed": 25 }, "bold": true },
+  "selection": { "fg": { "Fixed": 16 }, "bg": { "Fixed": 252 } },
+  "default_border_style": "Single",
+  "rules": {
+    "flex-child:nth-child(even)": {
+      "style": { "bg": { "Fixed": 254 } }
+    },
+    "flex-child:nth-child(odd)": {
+      "style": { "bg": { "Fixed": 253 } }
+    },
+    "flex-child:focus": {
+      "style": { "bg": { "Fixed": 252 }, "bold": true }
+    }
+  }
+}
