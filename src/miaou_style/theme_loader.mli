@@ -44,11 +44,29 @@ val load_file : string -> (Theme.t, string) result
 
 (** {2 Theme management} *)
 
-(** List available named themes *)
+(** List available named themes from user themes directory *)
 val list_themes : unit -> string list
+
+(** List all available themes (built-in + user themes).
+    Returns a list of [(id, display_name, is_builtin)] tuples. *)
+val list_all_themes : unit -> (string * string * bool) list
 
 (** Reload the theme (useful after file changes) *)
 val reload : unit -> Theme.t
+
+(** {2 Smart loading} *)
+
+(** Load a theme by name, checking built-in themes first, then user themes.
+    This is the preferred way to load a theme by name.
+
+    Example:
+    {[
+      match Theme_loader.load_any "dracula" with
+      | Some theme -> Style_context.set_theme theme
+      | None -> (* theme not found *)
+    ]}
+*)
+val load_any : string -> Theme.t option
 
 (** {2 Parsing helpers} *)
 

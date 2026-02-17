@@ -24,6 +24,7 @@
   miaou-core.interfaces
   miaou-core.internals
   miaou-core.widgets.display
+  miaou-core.style
   eio
   eio_main
   eio.unix))

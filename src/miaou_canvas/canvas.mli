@@ -175,6 +175,12 @@ val compose_new : rows:int -> cols:int -> layers:layer list -> t
     changes between cells. *)
 val to_ansi : t -> string
 
+(** [to_ansi_with_defaults ~default_fg ~default_bg t] renders the canvas
+    with fallback colors for cells that don't specify fg/bg (i.e., [-1]).
+    Use this to ensure canvas content is visible regardless of terminal
+    theme - pass the current theme's text and background colors. *)
+val to_ansi_with_defaults : ?default_fg:int -> ?default_bg:int -> t -> string
+
 (** {1 Iteration} *)
 
 (** [iter t ~f] calls [f ~row ~col cell] for every cell in row-major

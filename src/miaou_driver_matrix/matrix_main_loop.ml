@@ -15,6 +15,8 @@ module Timer = Miaou_interfaces.Timer
 module Clipboard = Miaou_interfaces.Clipboard
 module Fibers = Miaou_helpers.Fiber_runtime
 module Widgets = Miaou_widgets_display.Widgets
+module Style_context = Miaou_style.Style_context
+module Theme_loader = Miaou_style.Theme_loader
 
 (* One-time narrow terminal warning flag *)
 let narrow_warned = ref false
@@ -92,7 +94,10 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   let frame_counter = ref 0 in
 
   (* Track last size for narrow warning detection *)
-  let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
+  let last_size =
+    let rows, cols = ctx.io.size () in
+    ref {LTerm_geom.rows; cols}
+  in
 
   (* Esc cooldown: after closing a modal with Esc, suppress further Esc keys
      for a short period to prevent key-repeat from reaching the underlying page
@@ -263,6 +268,20 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
     (* Update TPS tracker *)
     update_tps tps_tracker ;
 
+    (* Apply themed foreground to any text without explicit foreground color.
+       This ensures visibility in light themes where terminal default fg may be white. *)
+    let view_output =
+      Miaou_widgets_display.Widgets.apply_themed_foreground view_output
+    in
+
+    (* Apply themed background to fill the terminal with theme's background color *)
+    let view_output =
+      Miaou_widgets_display.Widgets.apply_themed_background
+        ~rows
+        ~cols
+        view_output
+    in
+
     (* Update back buffer with new view - thread-safe batch operation *)
     Matrix_buffer.with_back_buffer ctx.buffer (fun ops ->
         (* Clear back buffer *)
@@ -361,7 +380,7 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
         let ps' = Page.service_cycle (Page.refresh ps) 0 in
         `Continue (Packed ((module Page), ps'))
     | Matrix_io.Idle -> `Continue packed
-    | Matrix_io.Key key -> (
+    | Matrix_io.Key key ->
         (* Debug: log received key if MIAOU_DEBUG is set *)
         if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
           let oc =
@@ -374,79 +393,84 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             (Modal_manager.has_active ())
             (Page.has_modal ps) ;
           close_out oc) ;
-        (* Set modal size before handling keys *)
-        Modal_manager.set_current_size rows cols ;
-        (* Helper: detect whether the transient narrow modal is currently active *)
-        let is_narrow_modal_active () =
-          match Modal_manager.top_title_opt () with
-          | Some t when t = "Narrow terminal" -> true
-          | _ -> false
-        in
-        let packed' =
-          (* Check if modal is active - if so, send keys to modal instead of page *)
-          if Modal_manager.has_active () then begin
-            (* If the narrow modal is active, close it on any key *)
-            if is_narrow_modal_active () then Modal_manager.close_top `Cancel
-            else Modal_manager.handle_key key ;
-            (* If modal was closed by Esc, activate cooldown *)
-            if
+        (* Ctrl+C always quits, regardless of modal state *)
+        if key = "C-c" then (
+          Matrix_render_loop.shutdown ctx.render_loop ;
+          `Exit `Quit)
+        else (
+          (* Set modal size before handling keys *)
+          Modal_manager.set_current_size rows cols ;
+          (* Helper: detect whether the transient narrow modal is currently active *)
+          let is_narrow_modal_active () =
+            match Modal_manager.top_title_opt () with
+            | Some t when t = "Narrow terminal" -> true
+            | _ -> false
+          in
+          let packed' =
+            (* Check if modal is active - if so, send keys to modal instead of page *)
+            if Modal_manager.has_active () then begin
+              (* If the narrow modal is active, close it on any key *)
+              if is_narrow_modal_active () then Modal_manager.close_top `Cancel
+              else Modal_manager.handle_key key ;
+              (* If modal was closed by Esc, activate cooldown *)
+              if
+                (key = "Esc" || key = "Escape")
+                && not (Modal_manager.has_active ())
+              then esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s ;
+              (* After modal handles key, run service_cycle *)
+              let ps' = Page.service_cycle (Page.refresh ps) 0 in
+              Packed ((module Page), ps')
+            end
+            else if Page.has_modal ps then begin
+              (* Page has its own modal - use page's modal key handler *)
+              let ps' =
+                match Keys.of_string key with
+                | Some typed_key ->
+                    let ps', _result = Page.on_modal_key ps typed_key ~size in
+                    ps'
+                | None ->
+                    (* Fallback to legacy handle_modal_key for unparseable keys *)
+                    Page.handle_modal_key ps key ~size
+              in
+              (* If modal was closed by Esc, activate cooldown *)
+              if (key = "Esc" || key = "Escape") && not (Page.has_modal ps')
+              then esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s ;
+              Packed ((module Page), ps')
+            end
+            else if
+              (* Suppress Esc keys during cooldown period after modal close *)
               (key = "Esc" || key = "Escape")
-              && not (Modal_manager.has_active ())
-            then esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s ;
-            (* After modal handles key, run service_cycle *)
-            let ps' = Page.service_cycle (Page.refresh ps) 0 in
-            Packed ((module Page), ps')
-          end
-          else if Page.has_modal ps then begin
-            (* Page has its own modal - use page's modal key handler *)
-            let ps' =
-              match Keys.of_string key with
-              | Some typed_key ->
-                  let ps', _result = Page.on_modal_key ps typed_key ~size in
-                  ps'
-              | None ->
-                  (* Fallback to legacy handle_modal_key for unparseable keys *)
-                  Page.handle_modal_key ps key ~size
-            in
-            (* If modal was closed by Esc, activate cooldown *)
-            if (key = "Esc" || key = "Escape") && not (Page.has_modal ps') then
-              esc_cooldown_until := Unix.gettimeofday () +. esc_cooldown_s ;
-            Packed ((module Page), ps')
-          end
-          else if
-            (* Suppress Esc keys during cooldown period after modal close *)
-            (key = "Esc" || key = "Escape")
-            && Unix.gettimeofday () < !esc_cooldown_until
-          then packed
-          else
-            (* All keys go through on_key *)
-            let ps' =
-              match Keys.of_string key with
-              | Some typed_key ->
-                  let ps', _result = Page.on_key ps typed_key ~size in
-                  ps'
-              | None ->
-                  (* Fallback to legacy handle_key for unparseable keys *)
-                  Page.handle_key ps key ~size
-            in
-            Packed ((module Page), ps')
-        in
-        (* Check navigation after each key — if a key triggers navigation,
+              && Unix.gettimeofday () < !esc_cooldown_until
+            then packed
+            else
+              (* All keys go through on_key *)
+              let ps' =
+                match Keys.of_string key with
+                | Some typed_key ->
+                    let ps', _result = Page.on_key ps typed_key ~size in
+                    ps'
+                | None ->
+                    (* Fallback to legacy handle_key for unparseable keys *)
+                    Page.handle_key ps key ~size
+              in
+              Packed ((module Page), ps')
+          in
+          (* Check navigation after each key — if a key triggers navigation,
            stop processing remaining events in this tick *)
-        let (Packed ((module Page2), ps2)) = packed' in
-        let ps2 =
-          match Modal_manager.take_pending_navigation () with
-          | Some (Navigation.Goto page) -> Navigation.goto page ps2
-          | Some Navigation.Back -> Navigation.back ps2
-          | Some Navigation.Quit -> Navigation.quit ps2
-          | None -> ps2
-        in
-        let next = Navigation.pending ps2 in
-        match next with
-        | Some _ ->
-            (* Navigation requested — stop processing further events *)
-            `Exit (nav_outcome (Packed ((module Page2), ps2)))
-        | None -> `Continue (Packed ((module Page2), ps2)))
+          let (Packed ((module Page2), ps2)) = packed' in
+          let ps2 =
+            match Modal_manager.take_pending_navigation () with
+            | Some (Navigation.Goto page) -> Navigation.goto page ps2
+            | Some Navigation.Back -> Navigation.back ps2
+            | Some Navigation.Quit -> Navigation.quit ps2
+            | None -> ps2
+          in
+          let next = Navigation.pending ps2 in
+          match next with
+          | Some _ ->
+              (* Navigation requested — stop processing further events *)
+              `Exit (nav_outcome (Packed ((module Page2), ps2)))
+          | None -> `Continue (Packed ((module Page2), ps2)))
     | Matrix_io.MousePress (row, col, _button) ->
         (* Mouse press starts a new selection (with double/triple click detection).
            No mark_all_dirty needed - the selection highlight will be rendered
@@ -587,4 +611,9 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
 
   (* Start with initial page *)
   let (module P) = initial_page in
-  loop (Packed ((module P), P.init ()))
+  (* Load theme and wrap entire loop in mutable theme context.
+     This ensures both page views AND modal rendering inherit the theme,
+     and allows runtime theme updates via Style_context.set_theme. *)
+  let theme = Theme_loader.load () in
+  Style_context.with_mutable_theme theme (fun () ->
+      loop (Packed ((module P), P.init ())))

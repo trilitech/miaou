@@ -7,6 +7,7 @@
   table_widget
   table_widget_sdl
   tree_widget
+  list_widget
   description_list
   sparkline_widget
   line_chart_widget

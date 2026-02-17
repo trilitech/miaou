@@ -10,7 +10,7 @@
   "text": { "fg": { "Fixed": 16 } },
   "text_muted": { "fg": { "Fixed": 244 }, "dim": true },
   "text_emphasized": { "fg": { "Fixed": 17 }, "bold": true },
-  "background": {},
+  "background": { "bg": { "Fixed": 231 } },
   "background_secondary": { "bg": { "Fixed": 254 } },
   "border": { "fg": { "Fixed": 245 } },
   "border_focused": { "fg": { "Fixed": 25 }, "bold": true },

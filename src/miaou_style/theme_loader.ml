@@ -104,4 +104,24 @@ let list_themes () =
           |> List.sort String.compare
         with _ -> [])
 
+let list_all_themes () =
+  (* Built-in themes *)
+  let builtins =
+    Builtin_themes.list_builtin ()
+    |> List.map (fun t -> (t.Builtin_themes.id, t.Builtin_themes.name, true))
+  in
+  (* User themes *)
+  let user_themes =
+    list_themes ()
+    |> List.filter (fun id -> not (Builtin_themes.is_builtin id))
+    |> List.map (fun id -> (id, String.capitalize_ascii id, false))
+  in
+  builtins @ user_themes
+
 let reload () = load ()
+
+let load_any name =
+  (* Try built-in first *)
+  match Builtin_themes.get_builtin name with
+  | Some theme -> Some theme
+  | None -> load_named name

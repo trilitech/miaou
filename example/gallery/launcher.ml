@@ -9,16 +9,17 @@
 
 module FB = Miaou_widgets_layout.File_browser_widget
 module Navigation = Miaou.Core.Navigation
+module List_widget = Miaou_widgets_display.List_widget
 
 type step = {title : string; open_demo : pstate -> pstate}
 
-and state = {cursor : int}
+and state = {list : List_widget.t}
 
 and pstate = state Navigation.t
 
 type key_binding = state Miaou.Core.Tui_page.key_binding_desc
 
-type msg = Move of int
+type msg = unit
 
 let launcher_page_name = Demo_shared.Demo_config.launcher_page_name
 
@@ -383,24 +384,49 @@ let demos =
     };
   ]
 
-let init () = Navigation.make {cursor = 0}
+let demo_at idx = List.nth_opt demos idx
 
-let update ps = function
-  | Move d ->
-      let hi = max 0 (List.length demos - 1) in
-      Navigation.update (fun s -> {cursor = max 0 (min hi (s.cursor + d))}) ps
+let demo_items ids =
+  ids
+  |> List.filter_map (fun idx ->
+      demo_at idx
+      |> Option.map (fun d -> List_widget.item ~id:(string_of_int idx) d.title))
+
+let demo_group name ids = List_widget.group name (demo_items ids)
+
+let demo_tree =
+  [
+    List_widget.group
+      "Widgets"
+      [
+        demo_group "Input" [0; 1; 2; 3; 15; 16; 17; 18; 19; 20; 21; 22; 23; 36];
+        demo_group "Layout" [11; 12; 13; 24; 34; 37; 38];
+        demo_group "Display" [4; 8; 9; 10; 25; 26; 27; 28; 30; 31; 32];
+      ];
+    demo_group "Core" [6; 7; 14; 33];
+    demo_group "Styling" [5; 35];
+    demo_group "Showcases" [29; 38];
+    demo_group "Games" [39];
+  ]
+
+let init () =
+  Navigation.make {list = List_widget.create ~expand_all:false demo_tree}
+
+let update ps _ = ps
 
 let open_demo ps idx =
-  match List.nth_opt demos idx with Some d -> d.open_demo ps | None -> ps
+  match demo_at idx with Some d -> d.open_demo ps | None -> ps
 
-let launcher_window ~size ~cursor =
+let open_demo_by_id ps id =
+  match int_of_string_opt id with Some idx -> open_demo ps idx | None -> ps
+
+let launcher_window ~size ~cursor ~total =
   let header_overhead = if size.LTerm_geom.cols < 80 then 1 else 0 in
   let frame_overhead = 2 + 3 + header_overhead in
   let body_rows_available = max 0 (size.LTerm_geom.rows - frame_overhead) in
   let items_capacity = max 1 (body_rows_available - 2) in
   let max_lines = min 12 items_capacity in
   let start =
-    let total = List.length demos in
     let max_start = max 0 (total - max_lines) in
     let desired = cursor - max_lines + 1 in
     max 0 (min desired max_start)
@@ -413,55 +439,74 @@ let view ps ~focus:_ ~size =
   let title = "MIAOU demo launcher" in
   let instructions =
     W.dim
-      "Use Up/Down (or j/k) to move, Enter to launch a demo, q or Esc to exit"
+      "Up/Down (j/k) move · Left/Right collapse/expand · Enter opens · q/Esc \
+       quits"
   in
-  let start, max_lines = launcher_window ~size ~cursor:s.cursor in
+  let total = List_widget.visible_count s.list in
+  let cursor = List_widget.cursor_index s.list in
+  let start, max_lines = launcher_window ~size ~cursor ~total in
+  let lines =
+    List_widget.render s.list ~focus:true |> String.split_on_char '\n'
+  in
   let slice =
-    List.filteri (fun i _ -> i >= start && i < start + max_lines) demos
+    lines |> List.filteri (fun i _ -> i >= start && i < start + max_lines)
   in
-  let items =
-    List.mapi
-      (fun idx d ->
-        let i = start + idx in
-        if i = s.cursor then W.green ("> " ^ d.title) else "  " ^ d.title)
-      slice
-  in
-  String.concat "\n" (title :: instructions :: "" :: items)
+  String.concat "\n" (title :: instructions :: "" :: slice)
 
 let handle_key ps key_str ~size =
   let s = ps.Navigation.s in
   let wheel_delta = Miaou_helpers.Mouse.wheel_scroll_lines in
+  let apply_n list n key =
+    let rec loop list n =
+      if n <= 0 then list else loop (List_widget.handle_key list ~key) (n - 1)
+    in
+    loop list n
+  in
+  let activate_selected ps list =
+    match List_widget.selected list with
+    | Some item when item.selectable && item.children = [] -> (
+        match item.id with Some id -> open_demo_by_id ps id | None -> ps)
+    | _ -> ps
+  in
   if Miaou_helpers.Mouse.is_wheel_up key_str then
-    update ps (Move (-wheel_delta))
+    let list = apply_n s.list wheel_delta "Up" in
+    Navigation.update (fun _ -> {list}) ps
   else if Miaou_helpers.Mouse.is_wheel_down key_str then
-    update ps (Move wheel_delta)
+    let list = apply_n s.list wheel_delta "Down" in
+    Navigation.update (fun _ -> {list}) ps
   else
     match Miaou_helpers.Mouse.parse_click key_str with
     | Some {row; col = _} ->
-        let start, max_lines = launcher_window ~size ~cursor:s.cursor in
+        let total = List_widget.visible_count s.list in
+        let cursor = List_widget.cursor_index s.list in
+        let start, max_lines = launcher_window ~size ~cursor ~total in
         (* Items start at row 4: title(1) + instructions(2) + blank(3) + first item(4) *)
         let items_start_row = 4 in
         let idx_in_slice = row - items_start_row in
         if idx_in_slice >= 0 && idx_in_slice < max_lines then
           let idx = start + idx_in_slice in
-          (* Select the item and open it *)
-          let ps = update ps (Move (idx - s.cursor)) in
-          open_demo ps idx
+          let list = List_widget.set_cursor_index s.list idx in
+          let ps = Navigation.update (fun _ -> {list}) ps in
+          activate_selected ps list
         else ps
     | None -> (
         match Miaou.Core.Keys.of_string key_str with
-        | Some Miaou.Core.Keys.Up -> update ps (Move (-1))
-        | Some Miaou.Core.Keys.Down -> update ps (Move 1)
-        | Some Miaou.Core.Keys.Left -> update ps (Move (-1))
-        | Some Miaou.Core.Keys.Right -> update ps (Move 1)
-        | Some Miaou.Core.Keys.Enter -> open_demo ps s.cursor
-        | Some (Miaou.Core.Keys.Char "q") | Some Miaou.Core.Keys.Escape ->
+        | Some Miaou.Core.Keys.Escape | Some (Miaou.Core.Keys.Char "q") ->
             Navigation.quit ps
-        | Some (Miaou.Core.Keys.Char " ") -> open_demo ps s.cursor
-        | Some (Miaou.Core.Keys.Char "j") -> update ps (Move 1)
-        | Some (Miaou.Core.Keys.Char "k") -> update ps (Move (-1))
-        | None -> ps
-        | _ -> ps)
+        | Some Miaou.Core.Keys.Enter | Some (Miaou.Core.Keys.Char " ") -> (
+            let item = List_widget.selected s.list in
+            match item with
+            | Some it when it.children <> [] ->
+                let list = List_widget.toggle s.list in
+                Navigation.update (fun _ -> {list}) ps
+            | Some it when it.selectable -> (
+                match it.id with Some id -> open_demo_by_id ps id | None -> ps)
+            | _ -> ps)
+        | Some k ->
+            let key = Miaou.Core.Keys.to_string k in
+            let list = List_widget.handle_key s.list ~key in
+            Navigation.update (fun _ -> {list}) ps
+        | None -> ps)
 
 let on_key ps key ~size =
   let key_str = Miaou.Core.Keys.to_string key in
@@ -472,7 +517,7 @@ let on_modal_key ps key ~size = on_key ps key ~size
 
 let key_hints (_ : pstate) = []
 
-let move ps delta = update ps (Move delta)
+let move ps _ = ps
 
 let refresh ps = ps
 

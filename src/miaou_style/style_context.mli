@@ -50,9 +50,26 @@ type _ Effect.t += Get_match_context : Selector.match_context Effect.t
 
 (** {2 Running with context} *)
 
-(** Run a computation with a specific theme.
+(** Run a computation with a specific theme (immutable).
     This sets up the effect handler for theme access. *)
 val with_theme : Theme.t -> (unit -> 'a) -> 'a
+
+(** Run a computation with a mutable theme that can be updated at runtime.
+    Use [set_theme] or [reload_theme] to change the theme during execution.
+    This is the recommended way for drivers to set up the theme context. *)
+val with_mutable_theme : Theme.t -> (unit -> 'a) -> 'a
+
+(** {2 Runtime theme updates} *)
+
+(** Effect for updating the theme at runtime (used by [set_theme]) *)
+type _ Effect.t += Set_theme : Theme.t -> unit Effect.t
+
+(** Set the current theme. Only works when running under [with_mutable_theme].
+    Silently ignored if no mutable handler is installed. *)
+val set_theme : Theme.t -> unit
+
+(** Reload the theme from disk and apply it. Returns the newly loaded theme. *)
+val reload_theme : unit -> Theme.t
 
 (** Run a computation with both theme and match context *)
 val with_context : Theme.t -> Selector.match_context -> (unit -> 'a) -> 'a
