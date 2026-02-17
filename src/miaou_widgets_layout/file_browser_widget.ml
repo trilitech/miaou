@@ -660,7 +660,6 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     let v = W.visible_chars_count s in
     if v >= max_width then s else s ^ String.make (max_width - v) ' '
   in
-  let module Palette = Miaou_widgets_display.Palette in
   let shorten_path_to p max_len =
     if max_len <= 5 then
       if String.length p <= max_len then p
@@ -697,8 +696,8 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
         let line = prefix ^ rendered |> truncate |> pad_to_width in
         let line =
           match w.path_error with
-          | None -> W.bg 24 (W.fg 15 line)
-          | Some msg -> W.fg 9 (line ^ "  " ^ msg)
+          | None -> W.themed_selection line
+          | Some msg -> W.themed_error (line ^ "  " ^ msg)
         in
         [line]
   in
@@ -766,11 +765,12 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
           else name_for_display ^ size_suffix
         in
         let clipped = plain |> truncate in
-        let colored = if e.is_dir then W.fg 12 clipped else clipped in
-        let label = if w.mode = EditingPath then W.dim colored else colored in
+        let colored = if e.is_dir then W.themed_accent clipped else clipped in
+        let label =
+          if w.mode = EditingPath then W.themed_muted colored else colored
+        in
         (* Only show selection highlight in Browsing mode *)
-        if w.mode = Browsing && i = w.cursor then
-          Palette.selection_bg (Palette.selection_fg label)
+        if w.mode = Browsing && i = w.cursor then W.themed_selection label
         else label)
       slice
   in
@@ -788,7 +788,8 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
   in
   let status =
     let base =
-      if selectable then W.fg 10 "Selectable" else W.fg 8 "Not writable"
+      if selectable then W.themed_success "Selectable"
+      else W.themed_warning "Not writable"
     in
     (* If current item is a file, append size hint to status for quick preview *)
     let s =
@@ -798,14 +799,15 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
           match
             (Miaou_interfaces.System.require ()).get_disk_usage ~path:full
           with
-          | Ok bytes -> base ^ W.dim (" • size " ^ human_bytes bytes)
+          | Ok bytes -> base ^ W.themed_muted (" • size " ^ human_bytes bytes)
           | Error _ -> base)
       | _ -> base
     in
     s |> truncate |> pad_to_width
   in
   let padded_footer_hints =
-    footer_hint_lines |> List.map (fun l -> W.dim (truncate l |> pad_to_width))
+    footer_hint_lines
+    |> List.map (fun l -> W.themed_muted (truncate l |> pad_to_width))
   in
   let sections = header @ body @ ("" :: status :: padded_footer_hints) in
   Helpers.concat_lines sections

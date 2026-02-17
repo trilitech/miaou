@@ -95,8 +95,11 @@ let render ?(title = "") ?(style = Single)
   let bc = resolve_chars style in
   let inner_w = max 0 (width - 2) in
   let content_w = max 0 (inner_w - padding.left - padding.right) in
-  (* Color helpers: border_colors takes precedence over color *)
-  let color_with c s = match c with Some col -> W.fg col s | None -> s in
+  (* Color helpers: border_colors takes precedence over color.
+     When no explicit color is provided, use themed border styling. *)
+  let color_with c s =
+    match c with Some col -> W.fg col s | None -> W.themed_border s
+  in
   let color_top s =
     match border_colors with
     | Some {c_top = Some c; _} -> W.fg c s
@@ -145,7 +148,7 @@ let render ?(title = "") ?(style = Single)
   (* Top border *)
   let top_border =
     if title <> "" then
-      let t = " " ^ title ^ " " in
+      let t = W.themed_emphasis (" " ^ title ^ " ") in
       let t_vis = H.visible_chars_count t in
       let remaining = max 0 (inner_w - 1 - t_vis) in
       color_tl bc.tl ^ color_top bc.h ^ t
