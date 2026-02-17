@@ -26,7 +26,17 @@ type adaptive_color = {
 type color =
   | Fixed of int  (** Fixed 256-color value *)
   | Adaptive of adaptive_color  (** Adapts to terminal background *)
-[@@deriving yojson]
+
+(** JSON encoding/decoding for colors.
+    Accepts multiple formats for backwards compatibility:
+    - {"Fixed": 75}
+    - ["Fixed", 75]
+    - 75 (interpreted as Fixed)
+    - {"Adaptive": {"light": 15, "dark": 231}}
+    - ["Adaptive", {"light": 15, "dark": 231}] *)
+val color_to_yojson : color -> Yojson.Safe.t
+
+val color_of_yojson : Yojson.Safe.t -> (color, string) result
 
 (** Core style record.
     

@@ -7,7 +7,25 @@
 
 type adaptive_color = {light : int; dark : int} [@@deriving yojson]
 
-type color = Fixed of int | Adaptive of adaptive_color [@@deriving yojson]
+type color = Fixed of int | Adaptive of adaptive_color
+
+let color_to_yojson = function
+  | Fixed c -> `Assoc [("Fixed", `Int c)]
+  | Adaptive a -> `Assoc [("Adaptive", adaptive_color_to_yojson a)]
+
+let color_of_yojson = function
+  | `Int c -> Ok (Fixed c)
+  | `List [`String "Fixed"; `Int c] -> Ok (Fixed c)
+  | `Assoc [("Fixed", `Int c)] -> Ok (Fixed c)
+  | `List [`String "Adaptive"; json] -> (
+      match adaptive_color_of_yojson json with
+      | Ok a -> Ok (Adaptive a)
+      | Error e -> Error e)
+  | `Assoc [("Adaptive", json)] -> (
+      match adaptive_color_of_yojson json with
+      | Ok a -> Ok (Adaptive a)
+      | Error e -> Error e)
+  | _ -> Error "Style.color"
 
 type t = {
   fg : color option; [@yojson.option]
