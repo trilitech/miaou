@@ -26,9 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Link: click to navigate
   - Checkbox/Radio/Switch: click to toggle
 
+- **Signal handling control**: optional SIGINT handling via `install_signals'` and `Runner_tui.run` `handle_sigint` option.
+- **Per-side border colors** for `Box_widget` to style each edge independently.
+
 ### Changed
 
 - **Input parser**: added `AltEnter` key variant for Alt+Enter detection (ESC followed by newline).
+
+### Fixed
+
+- **Matrix driver scrub**: avoid screen clear during periodic scrub to reduce flicker.
+- **Terminal raw mode**: disable `c_isig` and ignore SIGINT when not handling it.
+- **Mouse interactions**: consistent enable sequence via `/dev/tty`, improved click handling, and double-click support.
+- **Pager**: add ANSI reset and wrap-aware scrolling.
 
 ## [0.3.0] - Unreleased
 
