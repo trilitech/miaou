@@ -25,6 +25,8 @@
   file_browser_modal)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   miaou_internals
   yojson

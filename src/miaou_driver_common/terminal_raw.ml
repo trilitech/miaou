@@ -99,13 +99,14 @@ let disable_mouse t =
    with _ -> ()) ;
   (* Method 2: Write to stdout *)
   (try
-     print_string disable_seq ;
+     (print_string [@allow_forbidden "terminal driver writes escape sequences"])
+       disable_seq ;
      Stdlib.flush stdout
    with _ -> ()) ;
   (* Method 3: Write to stderr as last resort *)
   (try Printf.eprintf "%s%!" disable_seq with _ -> ()) ;
   (* Give terminal time to process escape sequences *)
-  Unix.sleepf 0.05
+  (Unix.sleepf [@allow_forbidden "terminal cleanup needs blocking wait"]) 0.05
 
 let enable_mouse t =
   (* 1002: Button event tracking (reports motion while button pressed)
@@ -123,7 +124,8 @@ let enable_mouse t =
    with _ -> ()) ;
   (* Also write to stdout as fallback *)
   try
-    print_string enable_seq ;
+    (print_string [@allow_forbidden "terminal driver writes escape sequences"])
+      enable_seq ;
     Stdlib.flush stdout
   with _ -> ()
 
@@ -169,7 +171,9 @@ let cleanup t =
     (* Step 4: Show cursor, reset style *)
     let final_seq = "\027[?25h\027[0m" in
     try
-      print_string final_seq ;
+      (print_string
+      [@allow_forbidden "terminal driver writes escape sequences"])
+        final_seq ;
       Stdlib.flush stdout
     with _ -> ()
   end ;
@@ -182,7 +186,9 @@ let write t s =
     ()
   with _ -> (
     try
-      print_string s ;
+      (print_string
+      [@allow_forbidden "terminal driver writes escape sequences"])
+        s ;
       Stdlib.flush stdout
     with _ -> ())
 

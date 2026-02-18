@@ -2,5 +2,7 @@
  (name miaou_driver_common)
  (public_name miaou-core.driver-common)
  (libraries miaou_core miaou_internals unix)
+ (preprocess
+  (pps ppx_forbid))
  (flags
   (:standard -w -32-34-37-67-69)))

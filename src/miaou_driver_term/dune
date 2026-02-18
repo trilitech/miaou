@@ -12,6 +12,8 @@
   term_event_reader)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   miaou-core.core
   miaou-core.helpers

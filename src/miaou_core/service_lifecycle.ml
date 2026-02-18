@@ -39,7 +39,10 @@ module Capability = Miaou_interfaces.Capability
 (* Use the same capability key instance as the interface so registration by the
    Systemd-backed implementation (which registers the interface key) is visible
    here. Coerce the interface key to this module's type with Obj.magic. *)
-let key : t Capability.key = Obj.magic Miaou_interfaces.Service_lifecycle.key
+let key : t Capability.key =
+  Obj.magic
+    Miaou_interfaces.Service_lifecycle.key
+  [@allow_forbidden "coerce interface key to local type"]
 
 let set v = Capability.set key v
 
@@ -53,7 +56,10 @@ let get () =
          be visible via the interface module but not via this module's
          local key instance. *)
       match Miaou_interfaces.Service_lifecycle.get () with
-      | Some v -> Some (Obj.magic v)
+      | Some v ->
+          Some
+            (Obj.magic
+               v [@allow_forbidden "coerce interface type to local type"])
       | None -> None)
 
 let require () =

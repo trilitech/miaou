@@ -22,6 +22,8 @@
   palette_sdl)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   yojson
   str

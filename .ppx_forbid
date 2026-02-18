@@ -1,0 +1,32 @@
+# ppx_forbid rules for Miaou — Eio-based TUI framework
+# See https://github.com/atacama-dev/ppx_forbid
+
+# Unsafe modules
+module Obj "Obj is unsafe and breaks type safety"
+
+# Blocking I/O — use Eio equivalents
+function Unix.sleep "Use Eio.Time.sleep instead"
+function Unix.sleepf "Use Eio.Time.sleep instead"
+function Unix.open_process_in "Use Eio.Process instead"
+function Unix.open_process_out "Use Eio.Process instead"
+function Unix.open_process "Use Eio.Process instead"
+function Unix.open_process_full "Use Eio.Process instead"
+function Unix.close_process_in "Use Eio.Process instead"
+function Unix.close_process_out "Use Eio.Process instead"
+function Unix.close_process "Use Eio.Process instead"
+function Unix.close_process_full "Use Eio.Process instead"
+function Unix.system "Use Eio.Process instead"
+
+# Blocking threads — use Eio fibers
+function Thread.create "Use Eio.Fiber.fork or Eio.Fiber.fork_daemon"
+function Thread.delay "Use Eio.Time.sleep"
+
+# stdout/stderr — corrupts terminal in TUI context
+function Stdlib.print_endline "Use TUI logging or widget display"
+function Stdlib.print_string "Use TUI logging or widget display"
+function Stdlib.print_newline "Use TUI logging or widget display"
+function Stdlib.prerr_endline "Use TUI logging or widget display"
+function Stdlib.prerr_string "Use TUI logging or widget display"
+function Stdlib.print_char "Use TUI logging or widget display"
+function Stdlib.print_int "Use TUI logging or widget display"
+function Stdlib.print_float "Use TUI logging or widget display"

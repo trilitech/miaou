@@ -34,8 +34,13 @@ let set_context_obj ~renderer ~font ~char_w ~char_h ~y_offset ~cols
   current_context :=
     Some
       {
-        renderer_obj = Obj.repr renderer;
-        font_obj = Obj.repr font;
+        renderer_obj =
+          Obj.repr
+            renderer
+          [@allow_forbidden "SDL objects stored without tsdl dependency"];
+        font_obj =
+          Obj.repr
+            font [@allow_forbidden "SDL objects stored without tsdl dependency"];
         char_w;
         char_h;
         y_offset;
@@ -52,9 +57,11 @@ let get_context () =
   | _ -> None
 
 (* Extract renderer from context - caller must cast *)
-let get_renderer ctx = Obj.obj ctx.renderer_obj
+let get_renderer ctx =
+  Obj.obj ctx.renderer_obj [@allow_forbidden "recover typed SDL renderer"]
 
-let get_font ctx = Obj.obj ctx.font_obj
+let get_font ctx =
+  Obj.obj ctx.font_obj [@allow_forbidden "recover typed SDL font"]
 
 let get_frame_id ctx = ctx.frame_id
 

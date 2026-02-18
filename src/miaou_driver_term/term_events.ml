@@ -18,5 +18,6 @@ type driver_key =
   | Other of string
 
 let clear () =
-  print_string "\027[2J\027[H" ;
+  (print_string [@allow_forbidden "terminal driver writes escape sequences"])
+    "\027[2J\027[H" ;
   Stdlib.flush stdout

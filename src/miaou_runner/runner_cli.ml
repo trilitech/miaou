@@ -73,7 +73,7 @@ let find_page name =
   match Registry.find name with
   | Some p -> p
   | None ->
-      prerr_endline
+      (prerr_endline [@allow_forbidden "startup warning before TUI init"])
         (Printf.sprintf
            "Miaou runner: page \"%s\" not found; falling back to placeholder."
            name) ;

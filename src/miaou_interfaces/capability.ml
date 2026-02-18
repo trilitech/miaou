@@ -26,7 +26,11 @@ let store : Obj.t IntMap.t ref = ref IntMap.empty
 let names : string IntMap.t ref = ref IntMap.empty
 
 let set (type a) (k : a key) (v : a) : unit =
-  store := IntMap.add k.id (Obj.repr v) !store ;
+  store :=
+    IntMap.add
+      k.id
+      (Obj.repr v [@allow_forbidden "type-erased capability store"])
+      !store ;
   names := IntMap.add k.id k.name !names
 
 let register = set
@@ -34,7 +38,8 @@ let register = set
 let get (type a) (k : a key) : a option =
   match IntMap.find_opt k.id !store with
   | None -> None
-  | Some o -> Some (Obj.obj o : a)
+  | Some o ->
+      Some ((Obj.obj o : a) [@allow_forbidden "type-erased capability store"])
 
 let require k =
   match get k with

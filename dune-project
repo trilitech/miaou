@@ -24,6 +24,7 @@
    imagelib
    qrc
    ppx_blob
+   (ppx_forbid :build)
    (alcotest :with-test)
    (bisect_ppx :with-test)))
 

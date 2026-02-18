@@ -6,6 +6,8 @@
  (modules flash_bus flash_toast_renderer headless_driver)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   miaou-core.core
   miaou-core.interfaces

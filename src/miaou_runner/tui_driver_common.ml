@@ -18,16 +18,18 @@ type backend = {available : bool; run : (module PAGE_SIG) -> outcome}
 
 type t = private T
 
-let size () = (Obj.magic 0 : t)
+let size () =
+  (Obj.magic 0 : t) [@allow_forbidden "dummy private type for driver interface"]
 
 let poll_event () = "" (* placeholder synchronous event *)
 
 let draw_text s =
-  print_string s ;
+  (print_string [@allow_forbidden "terminal driver writes to stdout"]) s ;
   flush stdout
 
 let clear () =
-  print_string "\027[2J" ;
+  (print_string [@allow_forbidden "terminal driver writes escape sequences"])
+    "\027[2J" ;
   flush stdout
 
 let flush () = ()
