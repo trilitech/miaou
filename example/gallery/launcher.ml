@@ -1,7 +1,7 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -405,7 +405,7 @@ let demo_tree =
       ];
     demo_group "Core" [6; 7; 14; 33];
     demo_group "Styling" [5; 35];
-    demo_group "Showcases" [29; 38];
+    demo_group "Showcases" [29];
     demo_group "Games" [39];
   ]
 

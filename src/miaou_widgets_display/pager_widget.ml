@@ -447,11 +447,11 @@ let json_streamer_create () =
 
 let json_streamer_feed st chunk =
   let n = String.length chunk in
-  (* Helper to emit ANSI colored text using themed semantic styles *)
-  let color_num s = Widgets.themed_secondary s in
-  let color_bool_null s = Widgets.themed_info s in
-  let color_key s = Widgets.themed_accent s in
-  let color_string s = Widgets.themed_primary s in
+  (* Helper to emit ANSI colored text using themed semantic styles
+     (match json_highlighter/foldable_json palette) *)
+  let color_num s = Widgets.themed_info s in
+  let color_key s = Widgets.themed_emphasis s in
+  let color_string s = Widgets.themed_warning s in
 
   let flush_token () =
     match st.token_buf with
@@ -461,8 +461,8 @@ let json_streamer_feed st chunk =
         st.token_buf <- None ;
         (* classify token *)
         let out =
-          if tok = "true" || tok = "false" then color_bool_null tok
-          else if tok = "null" then color_bool_null tok
+          if tok = "true" || tok = "false" then Widgets.themed_success tok
+          else if tok = "null" then Widgets.themed_muted tok
           else
             (* try number *)
             try
