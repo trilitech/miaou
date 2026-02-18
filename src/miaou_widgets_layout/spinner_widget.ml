@@ -75,18 +75,27 @@ let frame_index t frame_count =
 let gradient_colors = [|75; 68; 67; 60; 240|]
 
 (** Glyphs by size: large (lead), medium, small, tiny, dim *)
-let size_glyphs_unicode = [|"■"; "▪"; "•"; "·"; "·"|]
+let size_glyphs_square_unicode = [|"■"; "▪"; "•"; "·"; "·"|]
+
+let size_glyphs_circle_unicode = [|"●"; "○"; "•"; "·"; "·"|]
+
+let size_glyphs_dot_unicode = [|"•"; "∙"; "·"; "·"; "·"|]
 
 let size_glyphs_ascii = [|"#"; "o"; "."; "."; "."|]
 
 (** Render the blocks animation with gradient and size progression.
-    Shows glyphs that shrink from the lead: ■ ▪ • · · 
+    Shows glyphs that shrink from the lead: ■ ▪ • · ·
     The lead block is largest/brightest, trail gets smaller and dimmer. *)
-let render_blocks_glyph ~prefer_ascii ~blocks_count ~direction ~glyph:_
-    frame_idx =
+let render_blocks_glyph ~prefer_ascii ~blocks_count ~direction ~glyph frame_idx
+    =
   let module W = Miaou_widgets_display.Widgets in
   let glyphs =
-    if prefer_ascii then size_glyphs_ascii else size_glyphs_unicode
+    if prefer_ascii then size_glyphs_ascii
+    else
+      match glyph with
+      | Square -> size_glyphs_square_unicode
+      | Circle -> size_glyphs_circle_unicode
+      | Dot -> size_glyphs_dot_unicode
   in
   (* The highlight position moves across the blocks *)
   let highlight_pos = frame_idx mod blocks_count in

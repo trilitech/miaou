@@ -274,7 +274,7 @@ let on_key t ~key =
   let open Miaou_interfaces.Key_event in
   match key with
   | "A-Enter" | "Alt-Enter" ->
-      (* Shift+Enter inserts newline *)
+      (* Alt+Enter inserts newline *)
       (insert_newline t, Handled)
   | "Backspace" -> (backspace t, Handled)
   | "Delete" -> (delete t, Handled)

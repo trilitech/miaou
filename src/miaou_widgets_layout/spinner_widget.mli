@@ -12,7 +12,7 @@
 
     Two styles are available:
     - [Dots]: Classic braille dot spinner (⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
-    - [Block]: Block cursor spinner inside a small box (renders as 3 lines)
+    - [Blocks]: Animated blocks with size+color gradient trail (single line)
 
     {b Typical usage}:
     {[
@@ -36,7 +36,7 @@
 (** Spinner style variants *)
 type style =
   | Dots  (** Classic braille dot spinner: ⠋ ⠙ ⠹ ⠸ ... (single line) *)
-  | Blocks  (** Animated blocks with gradient: ■ ■ ■ ■ ■ (moving highlight) *)
+  | Blocks  (** Animated blocks with size+color gradient trail (single line) *)
 
 (** Direction for blocks animation *)
 type direction =
