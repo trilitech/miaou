@@ -12,8 +12,9 @@ let create ?(disabled = false) ~label ~on_click () = {label; on_click; disabled}
 let render t ~focus =
   let open Miaou_widgets_display.Widgets in
   let base = "[ " ^ t.label ^ " ]" in
-  let decorated = if focus then bg 24 (fg 15 (bold base)) else base in
-  if t.disabled then dim decorated else decorated
+  (* Use themed_selection for focus state instead of hardcoded colors *)
+  let decorated = if focus then themed_selection (bold base) else base in
+  if t.disabled then themed_muted decorated else decorated
 
 (** New unified key handler returning Key_event.result *)
 let on_key t ~key =

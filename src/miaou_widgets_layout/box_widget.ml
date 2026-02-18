@@ -10,7 +10,7 @@
 module W = Miaou_widgets_display.Widgets
 module H = Miaou_helpers.Helpers
 
-type border_style = Single | Double | Rounded | Ascii | Heavy
+type border_style = None_ | Single | Double | Rounded | Ascii | Heavy
 
 type padding = {left : int; right : int; top : int; bottom : int}
 
@@ -76,6 +76,7 @@ let resolve_chars style =
   if Lazy.force W.use_ascii_borders then ascii_chars
   else
     match style with
+    | None_ -> ascii_chars
     | Single -> single
     | Double -> double
     | Rounded -> rounded
@@ -92,109 +93,159 @@ let repeat s n =
 let render ?(title = "") ?(style = Single)
     ?(padding = {left = 0; right = 0; top = 0; bottom = 0}) ?height ?color
     ?border_colors ~width content =
-  let bc = resolve_chars style in
-  let inner_w = max 0 (width - 2) in
-  let content_w = max 0 (inner_w - padding.left - padding.right) in
-  (* Color helpers: border_colors takes precedence over color *)
-  let color_with c s = match c with Some col -> W.fg col s | None -> s in
-  let color_top s =
-    match border_colors with
-    | Some {c_top = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  let color_bottom s =
-    match border_colors with
-    | Some {c_bottom = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  let color_left s =
-    match border_colors with
-    | Some {c_left = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  let color_right s =
-    match border_colors with
-    | Some {c_right = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  (* Corner colors: use adjacent side colors, preferring top/bottom for corners *)
-  let color_tl s =
-    match border_colors with
-    | Some {c_top = Some c; _} -> W.fg c s
-    | Some {c_left = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  let color_tr s =
-    match border_colors with
-    | Some {c_top = Some c; _} -> W.fg c s
-    | Some {c_right = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  let color_bl s =
-    match border_colors with
-    | Some {c_bottom = Some c; _} -> W.fg c s
-    | Some {c_left = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  let color_br s =
-    match border_colors with
-    | Some {c_bottom = Some c; _} -> W.fg c s
-    | Some {c_right = Some c; _} -> W.fg c s
-    | _ -> color_with color s
-  in
-  (* Top border *)
-  let top_border =
-    if title <> "" then
-      let t = " " ^ title ^ " " in
-      let t_vis = H.visible_chars_count t in
-      let remaining = max 0 (inner_w - 1 - t_vis) in
-      color_tl bc.tl ^ color_top bc.h ^ t
-      ^ color_top (repeat bc.h remaining)
-      ^ color_tr bc.tr
-    else color_tl bc.tl ^ color_top (repeat bc.h inner_w) ^ color_tr bc.tr
-  in
-  (* Bottom border *)
-  let bottom_border =
-    color_bl bc.bl ^ color_bottom (repeat bc.h inner_w) ^ color_br bc.br
-  in
-  (* Content lines *)
-  let raw_lines =
-    if content = "" then [""] else String.split_on_char '\n' content
-  in
-  let pad_left_str = String.make padding.left ' ' in
-  let pad_right_str = String.make padding.right ' ' in
-  let format_line line =
-    let vis = H.visible_chars_count line in
-    let truncated =
-      if vis > content_w then
-        let byte_idx =
-          H.visible_byte_index_of_pos line (max 0 (content_w - 1))
-        in
-        String.sub line 0 byte_idx ^ "\xe2\x80\xa6"
-      else line
+  if style = None_ then
+    let inner_w = max 0 width in
+    let content_w = max 0 (inner_w - padding.left - padding.right) in
+    let raw_lines =
+      let base =
+        if content = "" then [""] else String.split_on_char '\n' content
+      in
+      if title = "" then base else W.themed_emphasis title :: base
     in
-    let padded = H.pad_to_width truncated content_w ' ' in
-    color_left bc.v ^ pad_left_str ^ padded ^ pad_right_str ^ color_right bc.v
-  in
-  let content_rows = List.map format_line raw_lines in
-  (* Add padding rows *)
-  let empty_row =
-    color_left bc.v ^ String.make inner_w ' ' ^ color_right bc.v
-  in
-  let top_pad_rows = List.init padding.top (fun _ -> empty_row) in
-  let bottom_pad_rows = List.init padding.bottom (fun _ -> empty_row) in
-  let body_rows = top_pad_rows @ content_rows @ bottom_pad_rows in
-  (* Apply height constraint *)
-  let body_rows =
-    match height with
-    | None -> body_rows
-    | Some h ->
-        let target = max 0 (h - 2) in
-        let len = List.length body_rows in
-        if len > target then List.filteri (fun i _ -> i < target) body_rows
-        else if len < target then
-          let extra = List.init (target - len) (fun _ -> empty_row) in
-          body_rows @ extra
-        else body_rows
-  in
-  H.concat_lines ([top_border] @ body_rows @ [bottom_border])
+    let pad_left_str = String.make padding.left ' ' in
+    let pad_right_str = String.make padding.right ' ' in
+    let format_line line =
+      let vis = H.visible_chars_count line in
+      let truncated =
+        if vis > content_w then
+          let byte_idx =
+            H.visible_byte_index_of_pos line (max 0 (content_w - 1))
+          in
+          String.sub line 0 byte_idx ^ "…"
+        else line
+      in
+      let padded = H.pad_to_width truncated content_w ' ' in
+      let inner = pad_left_str ^ padded ^ pad_right_str in
+      W.themed_contextual_fill inner
+    in
+    let content_rows = List.map format_line raw_lines in
+    let empty_row = W.themed_contextual_fill (String.make inner_w ' ') in
+    let top_pad_rows = List.init padding.top (fun _ -> empty_row) in
+    let bottom_pad_rows = List.init padding.bottom (fun _ -> empty_row) in
+    let body_rows = top_pad_rows @ content_rows @ bottom_pad_rows in
+    let body_rows =
+      match height with
+      | None -> body_rows
+      | Some h ->
+          let target = max 0 h in
+          let len = List.length body_rows in
+          if len > target then List.filteri (fun i _ -> i < target) body_rows
+          else if len < target then
+            let extra = List.init (target - len) (fun _ -> empty_row) in
+            body_rows @ extra
+          else body_rows
+    in
+    H.concat_lines body_rows
+  else
+    let bc = resolve_chars style in
+    let inner_w = max 0 (width - 2) in
+    let content_w = max 0 (inner_w - padding.left - padding.right) in
+    (* Color helpers: border_colors takes precedence over color.
+     When no explicit color is provided, use themed border styling. *)
+    let color_with c s =
+      match c with Some col -> W.fg col s | None -> W.themed_border s
+    in
+    let color_top s =
+      match border_colors with
+      | Some {c_top = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    let color_bottom s =
+      match border_colors with
+      | Some {c_bottom = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    let color_left s =
+      match border_colors with
+      | Some {c_left = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    let color_right s =
+      match border_colors with
+      | Some {c_right = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    (* Corner colors: use adjacent side colors, preferring top/bottom for corners *)
+    let color_tl s =
+      match border_colors with
+      | Some {c_top = Some c; _} -> W.fg c s
+      | Some {c_left = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    let color_tr s =
+      match border_colors with
+      | Some {c_top = Some c; _} -> W.fg c s
+      | Some {c_right = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    let color_bl s =
+      match border_colors with
+      | Some {c_bottom = Some c; _} -> W.fg c s
+      | Some {c_left = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    let color_br s =
+      match border_colors with
+      | Some {c_bottom = Some c; _} -> W.fg c s
+      | Some {c_right = Some c; _} -> W.fg c s
+      | _ -> color_with color s
+    in
+    (* Top border *)
+    let top_border =
+      if title <> "" then
+        let t = W.themed_emphasis (" " ^ title ^ " ") in
+        let t_vis = H.visible_chars_count t in
+        let remaining = max 0 (inner_w - 1 - t_vis) in
+        color_tl bc.tl ^ color_top bc.h ^ t
+        ^ color_top (repeat bc.h remaining)
+        ^ color_tr bc.tr
+      else color_tl bc.tl ^ color_top (repeat bc.h inner_w) ^ color_tr bc.tr
+    in
+    (* Bottom border *)
+    let bottom_border =
+      color_bl bc.bl ^ color_bottom (repeat bc.h inner_w) ^ color_br bc.br
+    in
+    (* Content lines *)
+    let raw_lines =
+      if content = "" then [""] else String.split_on_char '\n' content
+    in
+    let pad_left_str = String.make padding.left ' ' in
+    let pad_right_str = String.make padding.right ' ' in
+    let format_line line =
+      let vis = H.visible_chars_count line in
+      let truncated =
+        if vis > content_w then
+          let byte_idx =
+            H.visible_byte_index_of_pos line (max 0 (content_w - 1))
+          in
+          String.sub line 0 byte_idx ^ "\xe2\x80\xa6"
+        else line
+      in
+      let padded = H.pad_to_width truncated content_w ' ' in
+      let inner = pad_left_str ^ padded ^ pad_right_str in
+      let inner = W.themed_contextual_fill inner in
+      color_left bc.v ^ inner ^ color_right bc.v
+    in
+    let content_rows = List.map format_line raw_lines in
+    (* Add padding rows *)
+    let empty_row =
+      let inner = String.make inner_w ' ' |> W.themed_contextual_fill in
+      color_left bc.v ^ inner ^ color_right bc.v
+    in
+    let top_pad_rows = List.init padding.top (fun _ -> empty_row) in
+    let bottom_pad_rows = List.init padding.bottom (fun _ -> empty_row) in
+    let body_rows = top_pad_rows @ content_rows @ bottom_pad_rows in
+    (* Apply height constraint *)
+    let body_rows =
+      match height with
+      | None -> body_rows
+      | Some h ->
+          let target = max 0 (h - 2) in
+          let len = List.length body_rows in
+          if len > target then List.filteri (fun i _ -> i < target) body_rows
+          else if len < target then
+            let extra = List.init (target - len) (fun _ -> empty_row) in
+            body_rows @ extra
+          else body_rows
+    in
+    H.concat_lines ([top_border] @ body_rows @ [bottom_border])

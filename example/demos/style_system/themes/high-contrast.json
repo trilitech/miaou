@@ -1,0 +1,31 @@
+{
+  "name": "high-contrast",
+  "primary": { "fg": { "Fixed": 231 }, "bold": true },
+  "secondary": { "fg": { "Fixed": 250 } },
+  "accent": { "fg": { "Fixed": 226 }, "bold": true },
+  "error": { "fg": { "Fixed": 196 }, "bold": true },
+  "warning": { "fg": { "Fixed": 214 }, "bold": true },
+  "success": { "fg": { "Fixed": 46 }, "bold": true },
+  "info": { "fg": { "Fixed": 51 }, "bold": true },
+  "text": { "fg": { "Fixed": 231 } },
+  "text_muted": { "fg": { "Fixed": 250 } },
+  "text_emphasized": { "fg": { "Fixed": 231 }, "bold": true },
+  "background": {},
+  "background_secondary": { "bg": { "Fixed": 234 } },
+  "border": { "fg": { "Fixed": 231 } },
+  "border_focused": { "fg": { "Fixed": 226 }, "bold": true },
+  "border_dim": { "fg": { "Fixed": 250 } },
+  "selection": { "fg": { "Fixed": 16 }, "bg": { "Fixed": 220 }, "bold": true },
+  "default_border_style": "Heavy",
+  "rules": {
+    "flex-child:nth-child(even)": {
+      "style": { "bg": { "Fixed": 233 } }
+    },
+    "flex-child:nth-child(odd)": {
+      "style": { "bg": { "Fixed": 234 } }
+    },
+    "flex-child:focus": {
+      "style": { "bg": { "Fixed": 226 }, "fg": { "Fixed": 16 }, "bold": true }
+    }
+  }
+}

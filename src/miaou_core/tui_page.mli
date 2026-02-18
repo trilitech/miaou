@@ -47,6 +47,15 @@ module type PAGE_SIG = sig
 
   val update : pstate -> msg -> pstate
 
+  (** Render the page to an ANSI-formatted string.
+      
+      IMPORTANT: All styling must use the themed functions from
+      [Miaou_widgets_display.Widgets] (e.g., [themed_text], [themed_error],
+      [themed_border]). Do not hardcode color numbers with [fg]/[bg] unless
+      you are rendering gradients/charts or SDL output.
+      
+      This ensures consistent theming and allows CSS-like selector rules
+      to style widgets based on context (focus, selection, nth-child, etc.). *)
   val view : pstate -> focus:bool -> size:LTerm_geom.size -> string
 
   (** {2 Key Handling - New API} *)

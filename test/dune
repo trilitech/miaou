@@ -325,6 +325,11 @@
  (modules test_canvas_widget)
  (libraries alcotest miaou-core.widgets.layout miaou-core.canvas lambda-term))
 
+(test
+ (name test_style)
+ (modules test_style)
+ (libraries alcotest miaou-core.style))
+
 ; Interactive test for multiline modal title issue
 ; Run with: dune exec test/modal_multiline_test.exe
 

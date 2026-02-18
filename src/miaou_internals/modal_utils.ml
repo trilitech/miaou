@@ -252,7 +252,7 @@ let markdown_to_ansi (s : string) : string =
           incr j
         done ;
         let url = String.sub l i (!j - i) in
-        Buffer.add_string buf (fg 75 url) ;
+        Buffer.add_string buf (themed_accent url) ;
         loop !j)
       else (
         Buffer.add_char buf l.[i] ;
@@ -270,7 +270,8 @@ let markdown_to_ansi (s : string) : string =
             String.sub l (idx + 2) (String.length l - idx - 2)
           else String.sub l (idx + 1) (String.length l - idx - 1)
         in
-        if left = "" then l else bold left ^ fg 244 ":" ^ " " ^ right
+        if left = "" then l
+        else themed_emphasis left ^ themed_muted ":" ^ " " ^ right
     | _ -> l
   in
   let inline_style (l : string) : string =
@@ -278,10 +279,10 @@ let markdown_to_ansi (s : string) : string =
     let buf = Buffer.create (len + 32) in
     let apply ~in_bold ~in_italic ~in_code chunk =
       if chunk = "" then ""
-      else if in_code then fg 114 chunk
-      else if in_bold && in_italic then bold (fg 228 chunk)
-      else if in_bold then bold chunk
-      else if in_italic then dim chunk
+      else if in_code then themed_secondary chunk
+      else if in_bold && in_italic then themed_emphasis chunk
+      else if in_bold then themed_emphasis chunk
+      else if in_italic then themed_muted chunk
       else chunk
     in
     let rec loop i last ~in_bold ~in_italic ~in_code =
@@ -310,8 +311,8 @@ let markdown_to_ansi (s : string) : string =
                 Buffer.add_string buf (apply ~in_bold ~in_italic ~in_code chunk) ;
                 let text = String.sub l (i + 1) (j - i - 1) in
                 let url = String.sub l (j + 2) (k - j - 2) in
-                Buffer.add_string buf (fg 75 text) ;
-                Buffer.add_string buf (dim (" (" ^ url ^ ")")) ;
+                Buffer.add_string buf (themed_accent text) ;
+                Buffer.add_string buf (themed_muted (" (" ^ url ^ ")")) ;
                 loop (k + 1) (k + 1) ~in_bold ~in_italic ~in_code
             | None -> loop (i + 1) last ~in_bold ~in_italic ~in_code)
         | _ -> loop (i + 1) last ~in_bold ~in_italic ~in_code
@@ -335,10 +336,10 @@ let markdown_to_ansi (s : string) : string =
         if String.length l >= 3 && String.sub l 0 3 = "```" then
           (* Toggle fenced code blocks but omit the fence markers themselves. *)
           loop acc (not in_code) tl
-        else if in_code then loop (fg 114 l :: acc) in_code tl
+        else if in_code then loop (themed_secondary l :: acc) in_code tl
         else if is_hr l then
           loop
-            (dim "────────────────────────────────────────" :: acc)
+            (themed_muted "────────────────────────────────────────" :: acc)
             in_code
             tl
         else if String.length l > 0 && l.[0] = '>' then
@@ -346,7 +347,7 @@ let markdown_to_ansi (s : string) : string =
             String.sub l 1 (String.length l - 1)
             |> String.trim |> inline_style |> emphasize_label |> colorize_urls
           in
-          loop (fg 244 ("▎ " ^ content) :: acc) in_code tl
+          loop (themed_muted ("▎ " ^ content) :: acc) in_code tl
         else if String.length l > 1 && l.[0] = '#' then
           let rec count i =
             if i < String.length l && l.[i] = '#' then count (i + 1) else i
@@ -357,20 +358,20 @@ let markdown_to_ansi (s : string) : string =
             String.sub l start (String.length l - start) |> String.trim
           in
           if n = 1 then
-            let title = bold (fg 81 rest) in
+            let title = themed_emphasis rest in
             let underline_len =
               Miaou_widgets_display.Widgets.visible_chars_count rest
             in
             let underline =
               if underline_len = 0 then None
-              else Some (fg 75 (String.make underline_len '~'))
+              else Some (themed_border (String.make underline_len '~'))
             in
             match underline with
             | Some u -> loop (u :: title :: acc) in_code tl
             | None -> loop (title :: acc) in_code tl
           else
             let styled =
-              match n with 2 -> bold (fg 81 rest) | _ -> bold (fg 75 rest)
+              match n with 2 -> themed_emphasis rest | _ -> themed_accent rest
             in
             loop (styled :: acc) in_code tl
         else if String.length l > 2 && String.sub l 0 2 = "- " then
@@ -400,7 +401,10 @@ let markdown_to_ansi (s : string) : string =
               inline_style (String.sub l (j + 2) (String.length l - j - 2))
               |> emphasize_label |> colorize_urls
             in
-            loop (("  " ^ fg 81 (num ^ ".") ^ " " ^ body) :: acc) in_code tl
+            loop
+              (("  " ^ themed_accent (num ^ ".") ^ " " ^ body) :: acc)
+              in_code
+              tl
           else loop (inline_style l :: acc) in_code tl
         else
           let styled = inline_style l |> emphasize_label |> colorize_urls in

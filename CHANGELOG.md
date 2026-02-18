@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - Unreleased
+
+### Breaking Changes
+
+- **Box_widget border style**: added `None_` to `Box_widget.border_style` for borderless containers. Pattern matches on `border_style` may need a new case.
+
+### Added
+
+- **Cascading style system** (`miaou_style`): semantic styles + CSS-like selectors with effect-based context (`Style_context`).
+- **Theme JSON support** with discovery/merge rules and optional validation for low-contrast fg/bg combinations.
+- **Style system demo** (`miaou.style_system-demo`) with runtime theme switching and contextual styling.
+
+### Changed
+
+- **Widget theming**: widgets now use semantic themed styles; containers fill contextual backgrounds across full line width.
+
+### Fixed
+
+- **Theme JSON parsing**: tolerant parsing for partial style objects, multiple color formats, and string border styles.
+
 ## [0.3.2] - Unreleased
 
 ### Added

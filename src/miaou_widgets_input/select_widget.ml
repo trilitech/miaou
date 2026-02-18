@@ -198,7 +198,8 @@ let render_inner
     List.map
       (fun (i, lbl) ->
         let lbl = truncate lbl |> pad_to_width in
-        if i = w.cursor then bg 24 (fg 15 lbl) else lbl)
+        (* Use themed_selection for highlighted item instead of hardcoded colors *)
+        if i = w.cursor then themed_selection lbl else lbl)
       slice
   in
   let top_indicator =

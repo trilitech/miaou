@@ -111,7 +111,10 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
            Buffer.add_string buf (String.make pad_right ' ')) ;
 
         let sparkline = Buffer.contents buf in
-        let sparkline = if focus then W.bold sparkline else sparkline in
+        (* Use themed emphasis for focus instead of raw bold *)
+        let sparkline =
+          if focus then W.themed_emphasis sparkline else sparkline
+        in
 
         if show_value then Printf.sprintf "%s %.1f" sparkline current
         else sparkline
@@ -186,7 +189,10 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
           | Some s -> Chart_utils.render_braille_with_colors canvas s
           | None -> Braille_canvas.render canvas
         in
-        let sparkline = if focus then W.bold sparkline else sparkline in
+        (* Use themed emphasis for focus instead of raw bold *)
+        let sparkline =
+          if focus then W.themed_emphasis sparkline else sparkline
+        in
 
         if show_value then Printf.sprintf "%s %.1f" sparkline current
         else sparkline

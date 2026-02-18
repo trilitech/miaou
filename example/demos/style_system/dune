@@ -1,0 +1,24 @@
+(library
+ (name style_system_demo)
+ (modules page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md)
+  (file themes/dark.json)
+  (file themes/light.json)
+  (file themes/high-contrast.json)
+  (file theme.json))
+ (libraries
+  demo_shared
+  miaou
+  miaou-core.widgets.display
+  miaou-core.widgets.layout
+  miaou-core.style))
+
+(executable
+ (name main)
+ (public_name miaou.style_system-demo)
+ (package miaou)
+ (modules main)
+ (libraries style_system_demo miaou-runner.tui miaou-core.helpers eio_main))

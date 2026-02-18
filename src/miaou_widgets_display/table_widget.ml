@@ -119,13 +119,13 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
         w + add + 2)
       base_widths
   in
-  let badge color txt = fg color (bold ("● " ^ txt)) in
+  let badge style txt = style (bold ("● " ^ txt)) in
   let style_status s =
     match String.lowercase_ascii (String.trim s) with
-    | "ok" | "ready" -> badge 82 s
-    | "warn" | "warning" -> badge 214 s
-    | "error" | "fail" -> badge 196 s
-    | _ -> badge 75 s
+    | "ok" | "ready" -> badge W.themed_success s
+    | "warn" | "warning" -> badge W.themed_warning s
+    | "error" | "fail" -> badge W.themed_error s
+    | _ -> badge W.themed_accent s
   in
   let header_line =
     let cells =
@@ -134,17 +134,17 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
           let w = List.nth col_widths i in
           let base = pad_cell (String.uppercase_ascii h) (w - 2) in
           let padded = " " ^ base ^ " " in
-          fg 255 (bold padded))
+          W.themed_emphasis padded)
         header_list
     in
-    let line = "  " ^ String.concat (fg 60 "│") cells in
+    let line = "  " ^ String.concat (W.themed_border "│") cells in
     line
   in
   let line_for_row idx row =
     let row_bg =
       match opts.selection_mode with
-      | Row when idx = cursor -> bg 24
-      | _ -> bg 235
+      | Row when idx = cursor -> W.themed_selection
+      | _ -> W.themed_background_alt
     in
     let cells =
       List.mapi
@@ -157,14 +157,14 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
           padded)
         row
     in
-    let pointer = if idx = cursor then fg 51 ">" else " " in
-    let bar = String.concat (fg 60 "│") cells in
+    let pointer = if idx = cursor then W.themed_accent ">" else " " in
+    let bar = String.concat (W.themed_border "│") cells in
     let with_pointer = pointer ^ " " ^ bar in
     if idx = cursor then row_bg with_pointer else with_pointer
   in
   let body = List.mapi (fun i row -> line_for_row i row) rows_list in
   let header_sep =
-    fg 60 (String.make (max 0 (String.length header_line)) '-')
+    W.themed_border (String.make (max 0 (String.length header_line)) '-')
   in
   String.concat "\n" (header_line :: header_sep :: body)
 
@@ -235,10 +235,13 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
       header_list
   in
   let header_line =
+    let vline = W.themed_border glyphs.vline in
     let line =
-      glyphs.vline
-      ^ Helpers.concat_with_sep glyphs.vline (headers_padded |> List.map W.bold)
-      ^ glyphs.vline
+      vline
+      ^ Helpers.concat_with_sep
+          vline
+          (headers_padded |> List.map W.themed_emphasis)
+      ^ vline
     in
     if opts.highlight_header then Palette.purple_gradient_line Right line
     else line
@@ -255,25 +258,29 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
   in
   let top_border =
     build_border glyphs.corner_tl glyphs.top_sep glyphs.corner_tr
+    |> W.themed_border
   in
   let mid_border =
     build_border glyphs.mid_left glyphs.mid_sep glyphs.mid_right
+    |> W.themed_border
   in
   let bottom_border =
     build_border glyphs.corner_bl glyphs.bottom_sep glyphs.corner_br
+    |> W.themed_border
   in
   let blank_for_col =
     List.mapi (fun idx w -> (idx, String.make w ' ')) col_widths
   in
   let assemble_columns cols =
     let buf = Buffer.create inner_w in
-    Buffer.add_string buf glyphs.vline ;
+    let vline = W.themed_border glyphs.vline in
+    Buffer.add_string buf vline ;
     List.iteri
       (fun idx col ->
-        if idx > 0 then Buffer.add_string buf glyphs.vline ;
+        if idx > 0 then Buffer.add_string buf vline ;
         Buffer.add_string buf col)
       cols ;
-    Buffer.add_string buf glyphs.vline ;
+    Buffer.add_string buf vline ;
     Buffer.contents buf
   in
   let row_to_lines i cols_cells =
@@ -292,8 +299,7 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
       let line_core = assemble_columns cells in
       let line =
         match opts.selection_mode with
-        | Row when i = cursor ->
-            Palette.selection_bg (Palette.selection_fg line_core)
+        | Row when i = cursor -> W.themed_selection line_core
         | _ -> line_core
       in
       [line ^ "\027[0m"]
@@ -344,8 +350,7 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
         let line_core = assemble_columns cols_for_idx in
         let line =
           match opts.selection_mode with
-          | Row when i = cursor ->
-              Palette.selection_bg (Palette.selection_fg line_core)
+          | Row when i = cursor -> W.themed_selection line_core
           | _ -> line_core
         in
         line ^ "\027[0m"

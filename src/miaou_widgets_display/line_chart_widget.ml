@@ -241,7 +241,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
             Buffer.create
               (String.length title + (List.length lines * t.width) + 1)
           in
-          Buffer.add_string buf (W.bold title) ;
+          Buffer.add_string buf (W.themed_emphasis title) ;
           Buffer.add_char buf '\n' ;
           List.iteri
             (fun i line ->
@@ -367,7 +367,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
 
       (* Add title if present *)
       match t.title with
-      | Some title -> W.bold title ^ "\n" ^ chart_output
+      | Some title -> W.themed_emphasis title ^ "\n" ^ chart_output
       | None -> chart_output)
 
 (* Accessor functions for SDL rendering *)

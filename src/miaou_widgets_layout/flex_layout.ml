@@ -10,6 +10,7 @@
 module W = Miaou_widgets_display.Widgets
 module H = Miaou_helpers.Helpers
 module Helpers = Miaou_helpers.Helpers
+module Style_context = Miaou_style.Style_context
 
 type direction = Row | Column
 
@@ -194,15 +195,22 @@ let render_row t ~size =
     distribute Row t.padding t.justify t.gap child_sizes size
   in
   let max_h = size.LTerm_geom.rows - t.padding.top - t.padding.bottom in
+  let child_count = List.length t.children in
   let rendered =
-    List.map2
-      (fun c w ->
+    List.mapi
+      (fun i (c, w) ->
         let child_size = {LTerm_geom.rows = max_h; cols = max 0 w} in
-        let raw = split_lines (c.render ~size:child_size) in
+        (* Set up style context for this child with index info for :nth-child selectors *)
+        let raw =
+          Style_context.with_child_context
+            ~widget_name:"flex-child"
+            ~index:i
+            ~count:child_count
+            (fun () -> split_lines (c.render ~size:child_size))
+        in
         let block = pad_block ~align:t.align_items raw ~width:w ~height:max_h in
         block)
-      t.children
-      child_sizes
+      (List.combine t.children child_sizes)
   in
   let inner_width = size.LTerm_geom.cols - t.padding.left - t.padding.right in
   let lines =
@@ -245,20 +253,22 @@ let render_column t ~size =
   let leading, gap, trailing_extra =
     distribute Column t.padding t.justify t.gap child_sizes size
   in
+  let child_count = List.length t.children in
   let blocks =
-    List.map2
-      (fun c h ->
+    List.mapi
+      (fun i (c, h) ->
         let child_size = {LTerm_geom.rows = max 0 h; cols = max_w} in
-        let blk =
-          pad_block
-            ~align:t.align_items
-            (split_lines (c.render ~size:child_size))
-            ~width:max_w
-            ~height:h
+        (* Set up style context for this child with index info for :nth-child selectors *)
+        let raw =
+          Style_context.with_child_context
+            ~widget_name:"flex-child"
+            ~index:i
+            ~count:child_count
+            (fun () -> split_lines (c.render ~size:child_size))
         in
+        let blk = pad_block ~align:t.align_items raw ~width:max_w ~height:h in
         blk)
-      t.children
-      child_sizes
+      (List.combine t.children child_sizes)
   in
   let gap_lines =
     if gap.v <= 0 then [] else List.init gap.v (fun _ -> String.make max_w ' ')

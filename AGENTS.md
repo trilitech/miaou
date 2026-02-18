@@ -212,11 +212,12 @@ val is_valid : t -> bool
 
 ### ANSI Output
 
-Widgets return ANSI-formatted strings. Use helpers from `Miaou_widgets_display.Widgets`:
+Widgets return ANSI-formatted strings. Use themed helpers from `Miaou_widgets_display.Widgets`:
 
 ```ocaml
 let open Miaou_widgets_display.Widgets in
-let line = bold (fg 81 "Title") ^ " - " ^ dim "subtitle" in
+(* Use semantic styles - NOT raw fg/bg with hardcoded numbers *)
+let line = themed_emphasis "Title" ^ " - " ^ themed_muted "subtitle" in
 let box = render_frame ~title:"Box" ~cols:40 ~body:content () in
 ```
 
@@ -225,6 +226,114 @@ let box = render_frame ~title:"Box" ~cols:40 ~body:content () in
 - Use `Buffer` for string concatenation, not `^` or `String.concat`
 - Pre-compute expensive layouts in state, not in render
 - Use `Helpers.pad_to_width` instead of manual padding
+
+---
+
+## Styling System (CRITICAL)
+
+Miaou uses a **cascading style system** with CSS-like selectors. Understanding this is essential for creating consistent, themeable widgets.
+
+### Two-Layer Styling
+
+1. **Semantic Styles (explicit)** - Widget authors choose these based on content meaning
+2. **Contextual Styles (automatic)** - Applied by parent widgets based on position/state
+
+### MANDATORY: Use Semantic Style Functions
+
+**NEVER use hardcoded color numbers.** Always use the themed functions from `Miaou_widgets_display.Widgets`:
+
+```ocaml
+(* CORRECT - semantic styling *)
+let render_status status msg =
+  let open Miaou_widgets_display.Widgets in
+  match status with
+  | `Error   -> themed_error msg
+  | `Warning -> themed_warning msg
+  | `Success -> themed_success msg
+  | `Info    -> themed_info msg
+  | `Normal  -> themed_text msg
+
+(* WRONG - hardcoded colors *)
+let render_status status msg =
+  match status with
+  | `Error -> fg 196 msg    (* BAD: hardcoded red *)
+  | `Normal -> fg 255 msg   (* BAD: hardcoded white *)
+```
+
+### Available Semantic Functions
+
+| Function | Use Case |
+|----------|----------|
+| `themed_primary` | Main UI elements, important content |
+| `themed_secondary` | Less prominent elements |
+| `themed_accent` | Highlights, links, interactive elements |
+| `themed_error` | Errors, failures, critical issues |
+| `themed_warning` | Cautions, potential problems |
+| `themed_success` | Confirmations, completed actions |
+| `themed_info` | Neutral information, tips |
+| `themed_text` | Normal readable content (DEFAULT for text) |
+| `themed_muted` | Secondary info, hints, disabled text |
+| `themed_emphasis` | Bold/highlighted content |
+| `themed_border` | Widget frames, separators |
+| `themed_selection` | Selected items in lists/tables |
+| `themed_background` | Primary background |
+| `themed_background_alt` | Alternate background (zebra stripes) |
+
+### Contextual Styling (Automatic)
+
+Parent widgets (like `Flex_layout`, `Grid_layout`) automatically set up style context for children. This enables CSS-like rules in themes:
+
+```json
+{
+  "rules": [
+    { "selector": "table-row:nth-child(even)", "style": { "bg": 236 } },
+    { "selector": "list-item:selected", "style": { "bg": 24, "bold": true } },
+    { "selector": "button:focus", "style": { "fg": 81, "bold": true } }
+  ]
+}
+```
+
+Widgets can access their contextual style with:
+
+```ocaml
+(* Apply contextual style (respects :nth-child, :focus, etc.) *)
+let content = themed_contextual "my content" in
+
+(* Or get the full style record for complex rendering *)
+let ws = current_widget_style () in
+let border = ws.border_style in  (* Border.Single, Border.Rounded, etc. *)
+```
+
+### When Raw Colors Are Acceptable
+
+Use `fg`/`bg` with numbers ONLY for:
+- **Gradients and charts** where you need precise color interpolation
+- **SDL rendering** that doesn't use ANSI
+- **Legacy code** being migrated (add TODO comment)
+
+```ocaml
+(* Acceptable: gradient for progress bar *)
+let gradient_colors = [| 21; 27; 33; 39; 45 |] in
+let color = gradient_colors.(progress * 4 / 100) in
+fg color block
+```
+
+### Style Context in Custom Widgets
+
+If your widget renders children, set up the style context:
+
+```ocaml
+let render_children children =
+  children |> List.mapi (fun i child ->
+    Style_context.with_child_context
+      ~widget_name:"my-widget-item"
+      ~index:i
+      ~count:(List.length children)
+      (fun () -> child.render ())
+  )
+```
+
+This enables theme rules like `my-widget-item:nth-child(even)` to work.
 
 ---
 

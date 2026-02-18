@@ -52,10 +52,10 @@ let with_position t position = {t with position}
 let to_list t = t.queue
 
 let color_of_sev = function
-  | Info -> W.fg 81
-  | Success -> W.fg 40
-  | Warn -> W.fg 214
-  | Error -> W.fg 196
+  | Info -> W.themed_info
+  | Success -> W.themed_success
+  | Warn -> W.themed_warning
+  | Error -> W.themed_error
 
 let render_line ~cols (msg : string) =
   let visible = W.visible_chars_count msg in

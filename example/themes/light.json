@@ -1,0 +1,21 @@
+{
+  "name": "light",
+  "primary": { "fg": { "Fixed": 26 }, "bold": true },
+  "secondary": { "fg": { "Fixed": 244 } },
+  "accent": { "fg": { "Fixed": 91 } },
+  "error": { "fg": { "Fixed": 160 } },
+  "warning": { "fg": { "Fixed": 166 } },
+  "success": { "fg": { "Fixed": 28 } },
+  "info": { "fg": { "Fixed": 31 } },
+  "text": { "fg": { "Fixed": 235 } },
+  "text_muted": { "fg": { "Fixed": 245 }, "dim": true },
+  "text_emphasized": { "fg": { "Fixed": 232 }, "bold": true },
+  "background": { "bg": { "Fixed": 255 } },
+  "background_secondary": { "bg": { "Fixed": 254 } },
+  "border": { "fg": { "Fixed": 250 } },
+  "border_focused": { "fg": { "Fixed": 26 }, "bold": true },
+  "border_dim": { "fg": { "Fixed": 252 }, "dim": true },
+  "selection": { "fg": { "Fixed": 232 }, "bg": { "Fixed": 153 } },
+  "default_border_style": "Rounded",
+  "rules": {}
+}

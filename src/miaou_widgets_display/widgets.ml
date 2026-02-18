@@ -28,6 +28,122 @@ let magenta s = ansi "35" s
 
 let cyan s = ansi "36" s
 
+(* ============================================================================
+   THEMED STYLING SYSTEM
+   
+   Miaou uses a two-layer styling approach:
+   
+   1. SEMANTIC STYLES (explicit) - Use these when you want to convey meaning:
+      - themed_primary, themed_error, themed_success, themed_warning, etc.
+      - Widget authors choose these intentionally based on content semantics
+   
+   2. CONTEXTUAL STYLES (automatic) - Applied by the style context:
+      - Based on widget name, focus state, position (nth-child), etc.
+      - Configured via CSS-like selectors in theme JSON
+      - Parents set up context, children get styled automatically
+   
+   IMPORTANT FOR WIDGET AUTHORS:
+   - ALWAYS use themed_* functions for semantic meaning (errors, success, etc.)
+   - Use themed_text for normal content (NOT raw fg/bg with hardcoded numbers)
+   - The raw fg/bg functions are for special cases only (gradients, charts)
+   - Contextual styling (focus, selection, zebra stripes) is automatic
+   
+   See AGENTS.md and PAGE_SIG documentation for full guidelines.
+   ============================================================================ *)
+
+module Style = Miaou_style.Style
+module Style_context = Miaou_style.Style_context
+
+(* --- Semantic style functions --- *)
+
+(** Apply a Style.t to a string, producing ANSI-formatted output *)
+let styled style s = Style.render style s
+
+(** Primary content - main UI elements, important text *)
+let themed_primary s = styled (Style_context.primary ()) s
+
+(** Secondary content - less prominent elements *)
+let themed_secondary s = styled (Style_context.secondary ()) s
+
+(** Accent - highlights, links, interactive elements *)
+let themed_accent s = styled (Style_context.accent ()) s
+
+(** Error state - validation errors, failures, critical issues *)
+let themed_error s = styled (Style_context.error ()) s
+
+(** Warning state - cautions, potential issues *)
+let themed_warning s = styled (Style_context.warning ()) s
+
+(** Success state - confirmations, completed actions *)
+let themed_success s = styled (Style_context.success ()) s
+
+(** Info state - neutral information, tips *)
+let themed_info s = styled (Style_context.info ()) s
+
+(** Normal text - default readable content *)
+let themed_text s = styled (Style_context.text ()) s
+
+(** Muted text - less important, secondary information *)
+let themed_muted s = styled (Style_context.text_muted ()) s
+
+(** Emphasized text - bold/highlighted content *)
+let themed_emphasis s = styled (Style_context.text_emphasized ()) s
+
+(** Border styling - for widget frames and separators *)
+let themed_border ?(focus = false) s = styled (Style_context.border ~focus ()) s
+
+(** Selection highlight - for selected items in lists/tables *)
+let themed_selection s = styled (Style_context.selection ()) s
+
+(** Background - primary background color *)
+let themed_background s = styled (Style_context.background ()) s
+
+(** Alternate background - for contrast (e.g., alternate rows) *)
+let themed_background_alt s = styled (Style_context.background_secondary ()) s
+
+(* --- Contextual style application --- *)
+
+(** Apply the current contextual style (based on widget name, focus, position).
+    Use this when rendering content that should respect CSS-like selector rules
+    from the theme. The style is determined by Style_context.current_style(). *)
+let themed_contextual s = Style_context.styled s
+
+let apply_bg_fill ~bg s =
+  let prefix = "\027[48;5;" ^ string_of_int bg ^ "m" in
+  let reset = Style.ansi_reset in
+  let len_s = String.length s in
+  let len_reset = String.length reset in
+  let rec find_sub start =
+    if start + len_reset > len_s then None
+    else if String.sub s start len_reset = reset then Some start
+    else find_sub (start + 1)
+  in
+  let buf = Buffer.create (len_s + 16) in
+  Buffer.add_string buf prefix ;
+  let rec loop i =
+    match find_sub i with
+    | None -> Buffer.add_string buf (String.sub s i (len_s - i))
+    | Some j ->
+        Buffer.add_string buf (String.sub s i (j - i)) ;
+        Buffer.add_string buf reset ;
+        Buffer.add_string buf prefix ;
+        loop (j + len_reset)
+  in
+  loop 0 ;
+  Buffer.add_string buf reset ;
+  Buffer.contents buf
+
+(** Apply contextual background to full line width without overriding text. *)
+let themed_contextual_fill s =
+  let style = Style_context.current_style () in
+  let resolved = Style.to_resolved style.style in
+  if resolved.r_bg < 0 then s else apply_bg_fill ~bg:resolved.r_bg s
+
+(** Get the resolved widget style for the current context.
+    Returns a Theme.widget_style record with style, border_style, etc. *)
+let current_widget_style () = Style_context.current_style ()
+
+(* Legacy color functions - these will be replaced by themed versions gradually *)
 let color_border s = fg 75 (bold s)
 
 let title_highlight s = bg 75 (fg 15 (bold s))
@@ -393,7 +509,7 @@ let render_frame ~title ?(header = []) ?cols ~body ~footer () : string =
   let header_s =
     match header with [] -> "" | lst -> String.concat "\n" lst ^ "\n"
   in
-  let pad_to_cols (s : string) : string =
+  let pad_to_cols_lines (s : string) : string list =
     let lines = String.split_on_char '\n' s in
     let pad_line l =
       let v = visible_chars_count l in
@@ -404,10 +520,18 @@ let render_frame ~title ?(header = []) ?cols ~body ~footer () : string =
         prefix ^ "…"
       else pad_to_width l cols ' '
     in
-    String.concat "\n" (List.map pad_line lines)
+    List.map pad_line lines
   in
-  let body_s = pad_to_cols (header_s ^ body) in
-  let footer_s = pad_to_cols footer in
+  let body_s =
+    pad_to_cols_lines (header_s ^ body)
+    |> List.map themed_contextual_fill
+    |> String.concat "\n"
+  in
+  let footer_s =
+    pad_to_cols_lines footer
+    |> List.map themed_contextual_fill
+    |> String.concat "\n"
+  in
   String.concat "\n" [title_line; sep; body_s; footer_s]
 
 let color_for_status s =

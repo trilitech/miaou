@@ -1,6 +1,6 @@
 (lang dune 3.15)
 (name miaou)
-(version 0.3.2)
+(version 0.4.0)
 (generate_opam_files true)
 (license MIT)
 
@@ -11,20 +11,21 @@
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
- (depends
-  cohttp
-  cohttp-eio
-  eio
-  eio_main
-  lambda-term
-  rresult
-  uri
-  yojson
-  imagelib
-  qrc
-  ppx_blob
-  (alcotest :with-test)
-  (bisect_ppx :with-test)))
+  (depends
+   cohttp
+   cohttp-eio
+   eio
+   eio_main
+   lambda-term
+   rresult
+   uri
+   yojson
+   ppx_deriving_yojson
+   imagelib
+   qrc
+   ppx_blob
+   (alcotest :with-test)
+   (bisect_ppx :with-test)))
 
 (package
  (name miaou-driver-term)

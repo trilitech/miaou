@@ -1,0 +1,31 @@
+{
+  "name": "opencode-like",
+  "primary": { "fg": { "Fixed": 231 }, "bold": true },
+  "secondary": { "fg": { "Fixed": 244 } },
+  "accent": { "fg": { "Fixed": 81 }, "underline": true },
+  "error": { "fg": { "Fixed": 203 } },
+  "warning": { "fg": { "Fixed": 214 } },
+  "success": { "fg": { "Fixed": 82 } },
+  "info": { "fg": { "Fixed": 81 } },
+  "text": { "fg": { "Fixed": 252 } },
+  "text_muted": { "fg": { "Fixed": 243 }, "dim": true },
+  "text_emphasized": { "fg": { "Fixed": 255 }, "bold": true },
+  "background": {},
+  "background_secondary": { "bg": { "Fixed": 236 } },
+  "border": { "fg": { "Fixed": 240 } },
+  "border_focused": { "fg": { "Fixed": 81 }, "bold": true },
+  "border_dim": { "fg": { "Fixed": 238 }, "dim": true },
+  "selection": { "fg": { "Fixed": 16 }, "bg": { "Fixed": 220 }, "bold": true },
+  "default_border_style": "None",
+  "rules": {
+    "flex-child:nth-child(even)": {
+      "style": { "bg": { "Fixed": 234 } }
+    },
+    "flex-child:nth-child(odd)": {
+      "style": { "bg": { "Fixed": 233 } }
+    },
+    "flex-child:focus": {
+      "style": { "bg": { "Fixed": 238 }, "bold": true }
+    }
+  }
+}

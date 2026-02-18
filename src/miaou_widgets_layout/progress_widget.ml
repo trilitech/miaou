@@ -81,7 +81,7 @@ let render_terminal w ~cols:_ =
   let bar = render_bar ~width:w.width ~progress:w.progress in
   let pct = int_of_float (floor ((100. *. w.progress) +. 0.5)) in
   let pct_s = Printf.sprintf "%3d%%" pct in
-  let pct_colored = Miaou_widgets_display.Palette.fg_steel pct_s in
+  let pct_colored = Miaou_widgets_display.Widgets.themed_muted pct_s in
   let bar_and_pct = bar ^ " " ^ pct_colored in
   match (w.label, w.title) with
   | Some lbl, _ ->
@@ -94,7 +94,9 @@ let render_terminal w ~cols:_ =
           in
           String.sub s 0 idx ^ "…"
       in
-      let lbl' = clip_to 24 (Miaou_widgets_display.Palette.fg_steel lbl) in
+      let lbl' =
+        clip_to 24 (Miaou_widgets_display.Widgets.themed_secondary lbl)
+      in
       lbl' ^ "  " ^ bar_and_pct
   | None, Some t ->
       (* Centered variant: include a small title header line. Outer centering is

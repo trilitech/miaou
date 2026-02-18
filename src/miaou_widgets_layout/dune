@@ -26,4 +26,5 @@
   miaou-core.helpers
   miaou-core.interfaces
   miaou-core.canvas
+  miaou-core.style
   lambda-term))

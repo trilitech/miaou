@@ -223,15 +223,17 @@ let render t ~focus:(_ : bool) =
       Buffer.add_char buf '\n'
   | None -> ()) ;
   (* Top border *)
-  Buffer.add_string buf (fg 238 ("+" ^ String.make (t.width - 2) '-' ^ "+")) ;
+  Buffer.add_string
+    buf
+    (themed_border ("+" ^ String.make (t.width - 2) '-' ^ "+")) ;
   Buffer.add_char buf '\n' ;
   (* Content lines *)
   for i = 0 to t.height - 1 do
     let line_idx = t.scroll_offset + i in
-    Buffer.add_string buf (fg 238 "|") ;
+    Buffer.add_string buf (themed_border "|") ;
     let content =
       if is_empty && i = 0 then
-        match t.placeholder with Some p -> dim p | None -> ""
+        match t.placeholder with Some p -> themed_muted p | None -> ""
       else if line_idx < total_lines then
         let line = t.lines.(line_idx) in
         if line_idx = t.cursor_row then
@@ -258,15 +260,17 @@ let render t ~focus:(_ : bool) =
       else content ^ String.make (inner_width - visible_len) ' '
     in
     Buffer.add_string buf padded ;
-    Buffer.add_string buf (fg 238 "|") ;
+    Buffer.add_string buf (themed_border "|") ;
     if i < t.height - 1 then Buffer.add_char buf '\n'
   done ;
   Buffer.add_char buf '\n' ;
   (* Bottom border *)
-  Buffer.add_string buf (fg 238 ("+" ^ String.make (t.width - 2) '-' ^ "+")) ;
+  Buffer.add_string
+    buf
+    (themed_border ("+" ^ String.make (t.width - 2) '-' ^ "+")) ;
   (* Line indicator *)
   let indicator = Printf.sprintf " Line %d/%d" (t.cursor_row + 1) total_lines in
-  Buffer.add_string buf (dim indicator) ;
+  Buffer.add_string buf (themed_muted indicator) ;
   Buffer.contents buf
 
 (** Handle key input *)

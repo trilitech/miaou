@@ -17,21 +17,6 @@ let debug fmt =
     (fun s -> if Lazy.force debug_enabled then Printf.eprintf "%s%!" s)
     fmt
 
-(* ANSI color palette for UI elements *)
-module Colors = struct
-  (* JSON syntax highlighting *)
-  let json_number = 136 (* orange/brown *)
-
-  let json_bool_null = 34 (* blue *)
-
-  let json_key = 33 (* yellow *)
-
-  let json_string = 178 (* pale yellow *)
-
-  (* Status indicators *)
-  let status_dim = 242 (* gray *)
-end
-
 type t = {
   title : string option;
   mutable lines : string list; (* made mutable to support incremental appends *)
@@ -142,10 +127,10 @@ let build_body_buffer ~wrap ~cols lines =
 (* Generate help modal content *)
 let help_content ~streaming ~wrap ~follow ~cursor_mode =
   let open Widgets in
-  let hint k v = dim (fg 242 k) ^ ": " ^ v in
+  let hint k v = themed_muted k ^ ": " ^ v in
   let lines =
     [
-      bold (fg 75 "  Pager Keyboard Shortcuts  ");
+      themed_emphasis "  Pager Keyboard Shortcuts  ";
       "";
       hint "↑/↓" "Scroll one line up/down";
       hint "PgUp/PgDn" "Scroll one page up/down";
@@ -170,7 +155,7 @@ let help_content ~streaming ~wrap ~follow ~cursor_mode =
         ]
     else lines
   in
-  lines @ [""; dim (fg 242 "Press Esc or ? to close")]
+  lines @ [""; themed_muted "Press Esc or ? to close"]
 
 (* Render a simple modal box *)
 let render_modal ~width lines =
@@ -185,12 +170,12 @@ let render_modal ~width lines =
       done ;
       Buffer.contents buf
   in
-  let top = color_border ("┌" ^ hline ^ "┐") in
-  let bot = color_border ("└" ^ hline ^ "┘") in
+  let top = themed_border ("┌" ^ hline ^ "┐") in
+  let bot = themed_border ("└" ^ hline ^ "┘") in
   let pad_line line =
     let visible = Widgets.visible_chars_count line in
     let padding = max 0 (width - visible) in
-    color_border "│" ^ line ^ String.make padding ' ' ^ color_border "│"
+    themed_border "│" ^ line ^ String.make padding ' ' ^ themed_border "│"
   in
   let body_lines = List.map pad_line lines in
   String.concat "\n" ([top] @ body_lines @ [bot])
@@ -462,11 +447,11 @@ let json_streamer_create () =
 
 let json_streamer_feed st chunk =
   let n = String.length chunk in
-  (* Helper to emit ANSI colored text *)
-  let color_num s = Widgets.fg Colors.json_number s in
-  let color_bool_null s = Widgets.fg Colors.json_bool_null s in
-  let color_key s = Widgets.fg Colors.json_key s in
-  let color_string s = Widgets.fg Colors.json_string s in
+  (* Helper to emit ANSI colored text using themed semantic styles *)
+  let color_num s = Widgets.themed_secondary s in
+  let color_bool_null s = Widgets.themed_info s in
+  let color_key s = Widgets.themed_accent s in
+  let color_string s = Widgets.themed_primary s in
 
   let flush_token () =
     match st.token_buf with
@@ -789,7 +774,7 @@ let render ?cols ~win (t : t) ~focus : string =
           if line_idx = t.cursor then
             (* Highlight the cursor line with background color and indicator *)
             (* Add reset at end to prevent bleeding into next line *)
-            Widgets.bg 236 (cursor_indicator ^ line) ^ "\027[0m"
+            Widgets.themed_selection (cursor_indicator ^ line) ^ "\027[0m"
           else no_cursor_prefix ^ line)
         slice
     else slice
@@ -809,10 +794,7 @@ let render ?cols ~win (t : t) ~focus : string =
     let wrap_indicator = if wrap then " [wrap]" else "" in
     let cursor_indicator = if t.cursor_mode then " [cursor]" else "" in
     let mode = if t.follow then " [follow]" else "" in
-    Widgets.dim
-      (Widgets.fg
-         Colors.status_dim
-         (pos ^ wrap_indicator ^ cursor_indicator ^ mode))
+    Widgets.themed_muted (pos ^ wrap_indicator ^ cursor_indicator ^ mode)
   in
   (* Show search input prompt when in search edit mode *)
   let search_prompt =
@@ -838,7 +820,7 @@ let render ?cols ~win (t : t) ~focus : string =
               (String.length t.input_buffer - t.input_pos)
           else ""
         in
-        Some (Widgets.bg 236 (prompt ^ before ^ cursor ^ after))
+        Some (Widgets.themed_selection (prompt ^ before ^ cursor ^ after))
     | _ -> None
   in
   let header =
