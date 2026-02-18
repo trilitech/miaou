@@ -17,6 +17,51 @@ let rec skip_ansi_until_m s i =
   else if s.[i] = 'm' then i + 1
   else skip_ansi_until_m s (i + 1)
 
+let utf8_decode s i =
+  let len = String.length s in
+  if i >= len then (0, i + 1)
+  else
+    let byte = Char.code s.[i] in
+    if byte land 0x80 = 0 then (byte, i + 1)
+    else if byte land 0xE0 = 0xC0 && i + 1 < len then
+      let b1 = Char.code s.[i + 1] land 0x3F in
+      (((byte land 0x1F) lsl 6) lor b1, i + 2)
+    else if byte land 0xF0 = 0xE0 && i + 2 < len then
+      let b1 = Char.code s.[i + 1] land 0x3F in
+      let b2 = Char.code s.[i + 2] land 0x3F in
+      (((byte land 0x0F) lsl 12) lor (b1 lsl 6) lor b2, i + 3)
+    else if byte land 0xF8 = 0xF0 && i + 3 < len then
+      let b1 = Char.code s.[i + 1] land 0x3F in
+      let b2 = Char.code s.[i + 2] land 0x3F in
+      let b3 = Char.code s.[i + 3] land 0x3F in
+      (((byte land 0x07) lsl 18) lor (b1 lsl 12) lor (b2 lsl 6) lor b3, i + 4)
+    else (byte, i + 1)
+
+let is_wide cp =
+  (cp >= 0x1100 && cp <= 0x115F)
+  || (cp >= 0x2329 && cp <= 0x232A)
+  || (cp >= 0x2E80 && cp <= 0xA4CF)
+  || (cp >= 0xAC00 && cp <= 0xD7A3)
+  || (cp >= 0xF900 && cp <= 0xFAFF)
+  || (cp >= 0xFE10 && cp <= 0xFE19)
+  || (cp >= 0xFE30 && cp <= 0xFE6F)
+  || (cp >= 0xFF00 && cp <= 0xFF60)
+  || (cp >= 0xFFE0 && cp <= 0xFFE6)
+  || (cp >= 0x1F300 && cp <= 0x1F64F)
+  || (cp >= 0x1F900 && cp <= 0x1F9FF)
+  || (cp >= 0x1FA70 && cp <= 0x1FAFF)
+  || (cp >= 0x20000 && cp <= 0x2FFFD)
+  || (cp >= 0x30000 && cp <= 0x3FFFD)
+
+let is_zero_width cp =
+  cp = 0x200D
+  || (cp >= 0xFE00 && cp <= 0xFE0F)
+  || (cp >= 0x0300 && cp <= 0x036F)
+  || (cp >= 0x1AB0 && cp <= 0x1AFF)
+  || (cp >= 0x1DC0 && cp <= 0x1DFF)
+  || (cp >= 0x20D0 && cp <= 0x20FF)
+  || (cp >= 0xFE20 && cp <= 0xFE2F)
+
 let visible_chars_count s =
   let rec loop i cnt =
     if i >= String.length s then cnt
@@ -24,37 +69,24 @@ let visible_chars_count s =
       let j = skip_ansi_until_m s (i + 2) in
       loop j cnt
     else
-      let cnt' = if is_utf8_lead s.[i] then cnt + 1 else cnt in
-      loop (i + 1) cnt'
+      let cp, j = utf8_decode s i in
+      let w = if is_zero_width cp then 0 else if is_wide cp then 2 else 1 in
+      loop j (cnt + w)
   in
   loop 0 0
 
 let visible_byte_index_of_pos s pos =
   let len = String.length s in
-  let rec next_char_start i =
-    if i >= len then len
-    else if Char.code s.[i] land 0xC0 <> 0x80 then i
-    else next_char_start (i + 1)
-  in
-  let rec advance_one_char i =
-    if i >= len then len
+  let rec loop i cnt =
+    if cnt >= pos then i
+    else if i >= len then len
     else if is_esc_start s i then
       let j = skip_ansi_until_m s (i + 2) in
-      advance_one_char j
+      loop j cnt
     else
-      let i0 = next_char_start i in
-      let j = ref (i0 + 1) in
-      while !j < len && Char.code s.[!j] land 0xC0 = 0x80 do
-        incr j
-      done ;
-      !j
-  in
-  let rec loop i cnt =
-    if cnt = pos then i
-    else if i >= len then len
-    else
-      let j = advance_one_char i in
-      loop j (cnt + 1)
+      let cp, j = utf8_decode s i in
+      let w = if is_zero_width cp then 0 else if is_wide cp then 2 else 1 in
+      if cnt + w > pos then i else loop j (cnt + w)
   in
   loop 0 0
 
