@@ -1,0 +1,15 @@
+(library
+ (name textarea_demo)
+ (modules page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
+ (libraries demo_shared miaou miaou-core.lib_miaou_internal))
+
+(executable
+ (name main)
+ (public_name miaou.textarea-demo)
+ (package miaou)
+ (modules main)
+ (libraries textarea_demo miaou-runner.tui miaou-core.helpers eio_main))

@@ -267,7 +267,7 @@ let current_input w =
   | Some tb -> textbox_get_text tb
   | None -> if w.path_buffer = "" then w.current_path else w.path_buffer
 
-let handle_key w ~key =
+let rec handle_key w ~key =
   (* Apply any pending path updates first *)
   let w = apply_pending_updates w in
   let selection_for_entry w e =
@@ -435,7 +435,40 @@ let handle_key w ~key =
             pending_selection = None;
             history_idx = None;
           }
-      | _ -> w)
+      | "WheelUp" ->
+          {
+            w with
+            cursor =
+              List_nav.move_cursor
+                ~total
+                ~cursor:w.cursor
+                ~delta:(-Miaou_helpers.Mouse.wheel_scroll_lines);
+          }
+      | "WheelDown" ->
+          {
+            w with
+            cursor =
+              List_nav.move_cursor
+                ~total
+                ~cursor:w.cursor
+                ~delta:Miaou_helpers.Mouse.wheel_scroll_lines;
+          }
+      | key -> (
+          (* Check for mouse click to select entry *)
+          match Miaou_helpers.Mouse.parse_click key with
+          | Some {row; col = _} ->
+              (* Header is 1 line (path bar), so body starts at row 2.
+                 row is 1-indexed, so item at row 2 is index 0. *)
+              let header_lines = 1 in
+              let clicked_idx = row - header_lines - 1 in
+              if clicked_idx >= 0 && clicked_idx < total then
+                let w = {w with cursor = clicked_idx} in
+                (* Double-click activates entry (same as Enter) *)
+                if Miaou_helpers.Mouse.is_double_click key then
+                  handle_key w ~key:"Enter"
+                else w
+              else w
+          | None -> w))
   | EditingPath -> (
       match (key, w.textbox) with
       | "Esc", _ ->

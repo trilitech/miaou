@@ -55,6 +55,20 @@ let is_active t = t.active
 let has_selection t =
   match (t.anchor, t.current) with Some _, Some _ -> true | _ -> false
 
+let is_single_point t =
+  match (t.anchor, t.current) with
+  | Some a, Some c ->
+      (* Consider it a single point (click, not selection) if anchor == current,
+         regardless of click_mode. This allows double-clicks to be passed to widgets
+         instead of being captured for word selection. Word/line selection only
+         makes sense when the user drags. *)
+      a.row = c.row && a.col = c.col
+  | _ -> false
+
+let is_multi_click t = t.click_count >= 2
+
+let click_count t = t.click_count
+
 (** Normalize selection bounds to (start, end) where start <= end.
     Selection is treated as a linear range through the buffer. *)
 let get_bounds t =

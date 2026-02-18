@@ -39,7 +39,9 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
       let writer = Matrix_ansi_writer.create () in
 
       (* Create input handler *)
-      let input = Matrix_input.create terminal in
+      let input =
+        Matrix_input.create ~handle_sigint:config.handle_sigint terminal
+      in
 
       (* Build I/O interface for the shared main loop *)
       let io : Matrix_io.t =

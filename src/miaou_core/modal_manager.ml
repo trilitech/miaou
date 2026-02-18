@@ -40,7 +40,9 @@ let stack : frame list ref = ref []
 
 let has_active () = !stack <> []
 
-let clear () = stack := []
+let clear () =
+  stack := [] ;
+  Miaou_internals.Modal_snapshot.clear_rendered_position ()
 
 let debug_enabled =
   lazy
@@ -102,7 +104,11 @@ let push (type s) (module P : Tui_page.PAGE_SIG with type state = s)
 let pop_top () =
   match List.rev !stack with
   | [] -> ()
-  | Frame _ :: rest_rev -> stack := List.rev rest_rev
+  | Frame _ :: rest_rev ->
+      stack := List.rev rest_rev ;
+      (* Clear rendered position if stack is now empty *)
+      if !stack = [] then
+        Miaou_internals.Modal_snapshot.clear_rendered_position ()
 
 let handle_key key =
   match List.rev !stack with
@@ -124,6 +130,20 @@ let handle_key key =
       in
       let size =
         {LTerm_geom.rows = geom.max_content_h; cols = geom.content_width}
+      in
+      (* Translate mouse coordinates using the position stored during render.
+         The modal_renderer stores the content top-left after computing the actual
+         modal position based on content size. *)
+      let key =
+        match Miaou_internals.Modal_snapshot.get_rendered_position () with
+        | Some (content_top, content_left) ->
+            Miaou_helpers.Mouse.translate_key
+              ~row_offset:content_top
+              ~col_offset:content_left
+              key
+        | None ->
+            (* Fallback: no position stored, don't translate *)
+            key
       in
       (* Let the page handle the key first so it can update its state based on
          the key (e.g. move cursor). After the page updated the state we

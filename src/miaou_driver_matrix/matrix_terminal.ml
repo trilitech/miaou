@@ -38,4 +38,12 @@ let clear_resize_pending = Raw.clear_resize_pending
 let install_signals t cleanup_fn =
   Raw.install_signals t ~on_resize:(fun () -> ()) ~on_exit:cleanup_fn
 
+let install_signals' t cleanup_fn ?(handle_sigint = true) () =
+  Raw.install_signals'
+    t
+    ~on_resize:(fun () -> ())
+    ~on_exit:cleanup_fn
+    ~handle_sigint
+    ()
+
 let set_exit_screen_dump = Raw.set_exit_screen_dump

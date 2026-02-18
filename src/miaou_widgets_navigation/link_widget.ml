@@ -20,7 +20,12 @@ let handle_event ?(bubble_unhandled = false) t ~key =
   | "Enter" | " " ->
       t.on_navigate t.target ;
       (t, `Handled)
-  | _ -> (t, if bubble_unhandled then `Bubble else `Handled)
+  | key ->
+      (* Mouse click triggers navigation *)
+      if Miaou_helpers.Mouse.is_click key then (
+        t.on_navigate t.target ;
+        (t, `Handled))
+      else (t, if bubble_unhandled then `Bubble else `Handled)
 
 let handle_key t ~key =
   let t, status = handle_event t ~key in

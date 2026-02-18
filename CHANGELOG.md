@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - Unreleased
+
+### Added
+
+- **Textarea widget** (`miaou_widgets_input.Textarea_widget`): multiline text input with cursor navigation, line joining, and scroll support. Use Alt+Enter to insert newlines.
+- **Left-bordered box** (`Widgets.render_left_border_box`): display helper for context/quote blocks with colored left border and optional background.
+- **Blocks spinner style** (`Spinner_widget.Blocks`): animated spinner with size+color gradient progression trail, configurable direction and block count.
+- **Alt+Enter key parsing** (`Input_parser.AltEnter`): universally-supported newline insertion key for textarea widgets.
+- **Mouse helper module** (`Miaou_helpers.Mouse`): utilities for parsing mouse events (clicks, drags, wheel) in widgets.
+- **Mouse support for widgets**: wheel scrolling and click handling added to:
+  - Pager: wheel scroll, click to position cursor (in cursor mode)
+  - Select: wheel scroll, click to select item
+  - File Browser: wheel scroll, click to select entry
+  - Textbox: click to position cursor
+  - Textarea: wheel scroll, click to position cursor
+  - Tabs: click to select tab
+  - Breadcrumbs: click on crumb to navigate
+  - Button: click to activate
+  - Link: click to navigate
+  - Checkbox/Radio/Switch: click to toggle
+
+- **Signal handling control**: optional SIGINT handling via `install_signals'` and `Runner_tui.run` `handle_sigint` option.
+- **Per-side border colors** for `Box_widget` to style each edge independently.
+
+### Changed
+
+- **Input parser**: added `AltEnter` key variant for Alt+Enter detection (ESC followed by newline).
+
+### Fixed
+
+- **Matrix driver scrub**: avoid screen clear during periodic scrub to reduce flicker.
+- **Terminal raw mode**: disable `c_isig` and ignore SIGINT when not handling it.
+- **Mouse interactions**: consistent enable sequence via `/dev/tty`, improved click handling, and double-click support.
+- **Pager**: add ANSI reset and wrap-aware scrolling.
+
 ## [0.3.0] - Unreleased
 
 ### Breaking Changes

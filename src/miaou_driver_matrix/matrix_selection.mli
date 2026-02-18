@@ -39,6 +39,17 @@ val is_active : t -> bool
 (** Whether there is a non-empty selection (even if drag finished). *)
 val has_selection : t -> bool
 
+(** Whether the selection is a single point (single click, no drag).
+    Used to distinguish clicks from text selection. *)
+val is_single_point : t -> bool
+
+(** Whether this is a multi-click (double or triple click).
+    Used to pass double-clicks to widgets. *)
+val is_multi_click : t -> bool
+
+(** Get the click count (1 = single, 2 = double, 3 = triple). *)
+val click_count : t -> int
+
 (** Check if a cell at (row, col) is within the current selection. *)
 val is_selected : t -> row:int -> col:int -> bool
 

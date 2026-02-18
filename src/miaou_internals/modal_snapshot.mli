@@ -32,3 +32,14 @@ val get_stack_snapshot :
   * bool
   * (LTerm_geom.size -> string))
   list
+
+(** Store the last rendered modal position for click coordinate translation.
+    Called by modal_renderer after computing the actual modal position. *)
+val set_rendered_position : top:int -> left:int -> unit
+
+(** Get the last rendered modal position (content_top_row, content_left_col).
+    Returns None if no modal has been rendered. *)
+val get_rendered_position : unit -> (int * int) option
+
+(** Clear the stored position (call when modal stack is empty). *)
+val clear_rendered_position : unit -> unit

@@ -15,6 +15,9 @@ module Inner = struct
 
   type state = {
     spinner : Spinner.t;
+    blocks_right : Spinner.t;
+    blocks_left : Spinner.t;
+    circles : Spinner.t;
     progress : Progress.t;
     pct : float;
     running : bool;
@@ -25,19 +28,71 @@ module Inner = struct
 
   let init () =
     let spinner = Spinner.open_centered ~label:"Fetching data" () in
+    let blocks_right =
+      Spinner.open_centered
+        ~style:Spinner.Blocks
+        ~direction:Spinner.Right
+        ~glyph:Spinner.Square
+        ~blocks_count:6
+        ~label:"Build"
+        ()
+    in
+    let blocks_left =
+      Spinner.open_centered
+        ~style:Spinner.Blocks
+        ~direction:Spinner.Left
+        ~glyph:Spinner.Square
+        ~blocks_count:6
+        ~label:"Deploy"
+        ()
+    in
+    let circles =
+      Spinner.open_centered
+        ~style:Spinner.Blocks
+        ~direction:Spinner.Right
+        ~glyph:Spinner.Circle
+        ~blocks_count:5
+        ~label:"Processing"
+        ()
+    in
     let progress = Progress.open_inline ~width:30 ~label:"Download" () in
-    {spinner; progress; pct = 0.; running = true; next_page = None}
+    {
+      spinner;
+      blocks_right;
+      blocks_left;
+      circles;
+      progress;
+      pct = 0.;
+      running = true;
+      next_page = None;
+    }
 
   let update s _ = s
 
   let view s ~focus:_ ~size =
     let progress_line = Progress.render s.progress ~cols:size.LTerm_geom.cols in
     let spinner_line = Spinner.render s.spinner in
+    let blocks_right_line = Spinner.render s.blocks_right in
+    let blocks_left_line = Spinner.render s.blocks_left in
+    let circles_line = Spinner.render s.circles in
     let lines =
       [
         "Space: toggle run • r: reset • t: tutorial • Esc: back";
-        spinner_line;
-        progress_line;
+        "";
+        "Dots spinner:";
+        "  " ^ spinner_line;
+        "";
+        "Blocks (right):";
+        "  " ^ blocks_right_line;
+        "";
+        "Blocks (left):";
+        "  " ^ blocks_left_line;
+        "";
+        "Circles:";
+        "  " ^ circles_line;
+        "";
+        "Progress bar:";
+        "  " ^ progress_line;
       ]
     in
     String.concat "\n" lines
@@ -47,9 +102,7 @@ module Inner = struct
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
-    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
-      ->
-        go_back s
+    | Some Miaou.Core.Keys.Escape -> go_back s
     | Some (Miaou.Core.Keys.Char " ") -> {s with running = not s.running}
     | Some (Miaou.Core.Keys.Char "r") ->
         let progress = Progress.set_progress s.progress 0. in
@@ -61,9 +114,21 @@ module Inner = struct
   let advance s =
     if s.running then
       let spinner = Spinner.tick s.spinner in
+      let blocks_right = Spinner.tick s.blocks_right in
+      let blocks_left = Spinner.tick s.blocks_left in
+      let circles = Spinner.tick s.circles in
       let pct = min 1. (s.pct +. 0.02) in
       let progress = Progress.set_progress s.progress pct in
-      {s with spinner; pct; progress; running = pct < 1.}
+      {
+        s with
+        spinner;
+        blocks_right;
+        blocks_left;
+        circles;
+        pct;
+        progress;
+        running = pct < 1.;
+      }
     else s
 
   let refresh s = advance s

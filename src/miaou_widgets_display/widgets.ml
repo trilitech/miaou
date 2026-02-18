@@ -458,6 +458,35 @@ let bg_selection s = (palette ()).selection_bg s
 
 let selection_fg = (palette ()).selection_fg
 
+(** Render a box with only a left border and colored background.
+    Useful for displaying context sections, file content, or quoted messages.
+
+    @param border_color ANSI 256 color for the left border (default: 75, blue)
+    @param bg_color ANSI 256 color for background (default: 236, dark gray)
+    @param cols Total width of the box
+    @param content The text content (may be multiline)
+*)
+let render_left_border_box ?(border_color = 75) ?(bg_color = 236) ~cols content
+    =
+  let vline =
+    if Lazy.force use_ascii_borders then fg border_color "|"
+    else fg border_color "▎"
+  in
+  let lines = String.split_on_char '\n' content in
+  let inner_width = cols - 1 in
+  (* 1 char for left border *)
+  let render_line line =
+    let visible_len = visible_chars_count line in
+    let padded =
+      if visible_len >= inner_width then
+        let byte_idx = visible_byte_index_of_pos line (inner_width - 1) in
+        String.sub line 0 byte_idx ^ "…"
+      else line ^ String.make (inner_width - visible_len) ' '
+    in
+    vline ^ bg bg_color padded
+  in
+  String.concat "\n" (List.map render_line lines)
+
 (* Overlay the modal content centered onto the base screen. *)
 let overlay ~base ~content ~top ~left ~canvas_h ~canvas_w : string =
   let base_lines = String.split_on_char '\n' base in

@@ -19,8 +19,10 @@
 type t
 
 (** Create a new input reader for the given terminal.
-    Does not start the reader fiber — call {!start} for that. *)
-val create : Matrix_terminal.t -> t
+    Does not start the reader fiber — call {!start} for that.
+    @param handle_sigint If false, SIGINT (Ctrl+C) is not intercepted,
+      allowing the app to receive it as a key event. Default: true *)
+val create : ?handle_sigint:bool -> Matrix_terminal.t -> t
 
 (** Start the background reader fiber.  Must be called after entering
     terminal raw mode, from inside an Eio switch (uses

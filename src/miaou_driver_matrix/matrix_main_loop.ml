@@ -314,13 +314,15 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
       Matrix_render_loop.force_render ctx.render_loop
     end ;
 
-    (* Periodic full clear+redraw to scrub any terminal artifacts. *)
+    (* Periodic forced full redraw to scrub any terminal artifacts.
+       We mark all cells dirty so the diff will re-emit every cell, but we
+       do NOT clear the screen first (\027[2J) as that causes visible flicker.
+       The diff-based overwrite naturally corrects any artifacts. *)
     incr frame_counter ;
     if
       ctx.config.scrub_interval_frames > 0
       && !frame_counter mod ctx.config.scrub_interval_frames = 0
     then begin
-      ctx.io.write "\027[2J\027[H" ;
       Matrix_buffer.mark_all_dirty ctx.buffer ;
       Matrix_render_loop.force_render ctx.render_loop
     end ;
@@ -446,18 +448,30 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             `Exit (nav_outcome (Packed ((module Page2), ps2)))
         | None -> `Continue (Packed ((module Page2), ps2)))
     | Matrix_io.MousePress (row, col, _button) ->
-        (* Mouse press starts a new selection (with double/triple click detection) *)
+        (* Mouse press starts a new selection (with double/triple click detection).
+           No mark_all_dirty needed - the selection highlight will be rendered
+           naturally on the next tick via apply_highlight in the back buffer. *)
         let get_char ~row ~col =
           let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
           cell.Matrix_cell.char
         in
         Matrix_selection.start_selection selection ~row ~col ~get_char ~cols ;
-        Matrix_buffer.mark_all_dirty ctx.buffer ;
         `Continue packed
     | Matrix_io.Mouse (row, col, _button) ->
-        (* Mouse release: if we have an active selection, finish it and copy *)
-        if Matrix_selection.is_active selection then begin
-          Matrix_selection.update_selection selection ~row ~col ;
+        (* Mouse release: check if this is a click or a text selection.
+           For text selection to be valid, user must have dragged (anchor != current).
+           Single clicks and multi-clicks (double/triple) without drag are passed to widgets. *)
+        Matrix_selection.update_selection selection ~row ~col ;
+        let is_text_selection =
+          Matrix_selection.is_active selection
+          && (not (Matrix_selection.is_single_point selection))
+          && not (Matrix_selection.is_multi_click selection)
+        in
+        if is_text_selection then begin
+          (* This was a drag (text selection) - finish and copy.
+             No mark_all_dirty needed - clearing the selection means
+             apply_highlight won't add reverse style on next tick,
+             and the diff will naturally update those cells. *)
           let get_char ~row ~col =
             let cell = Matrix_buffer.get_front ctx.buffer ~row ~col in
             cell.Matrix_cell.char
@@ -469,12 +483,21 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
               Matrix_selection.copy_to_clipboard text
           | _ -> ()) ;
           Matrix_selection.clear selection ;
-          Matrix_buffer.mark_all_dirty ctx.buffer ;
           `Continue packed
         end
         else begin
-          (* No active selection - treat as a click for the page *)
-          let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
+          (* Click (single, double, or triple) - dispatch to page.
+             No mark_all_dirty needed - selection was single-point or multi-click,
+             any minimal highlight will be cleared naturally on next tick. *)
+          let click_count = Matrix_selection.click_count selection in
+          Matrix_selection.clear selection ;
+          (* Use DoubleClick/TripleClick prefix for multi-clicks *)
+          let mouse_key =
+            match click_count with
+            | 2 -> Printf.sprintf "DoubleClick:%d:%d" row col
+            | 3 -> Printf.sprintf "TripleClick:%d:%d" row col
+            | _ -> Printf.sprintf "Mouse:%d:%d" row col
+          in
           Modal_manager.set_current_size rows cols ;
           let packed' =
             if Modal_manager.has_active () then begin
@@ -492,10 +515,12 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
           `Continue packed'
         end
     | Matrix_io.MouseDrag (row, col) ->
-        (* Mouse drag updates the selection if active *)
+        (* Mouse drag updates the selection if active.
+           No mark_all_dirty needed - selection bounds update is picked up
+           naturally by apply_highlight on next tick. The diff will detect
+           cells that gained/lost reverse style and update them. *)
         if Matrix_selection.is_active selection then begin
           Matrix_selection.update_selection selection ~row ~col ;
-          Matrix_buffer.mark_all_dirty ctx.buffer ;
           `Continue packed
         end
         else begin

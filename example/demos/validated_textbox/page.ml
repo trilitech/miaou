@@ -87,16 +87,28 @@ module Inner = struct
     {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key s key_str ~size:_ =
-    match Miaou.Core.Keys.of_string key_str with
-    | Some Miaou.Core.Keys.Escape -> go_back s
-    | Some Miaou.Core.Keys.Tab ->
-        {s with focus_debounced = not s.focus_debounced}
-    | Some k ->
-        let key = Miaou.Core.Keys.to_string k in
-        if s.focus_debounced then
-          {s with box_debounced = Vtextbox.handle_key s.box_debounced ~key}
-        else {s with box_immediate = Vtextbox.handle_key s.box_immediate ~key}
-    | None -> s
+    if Miaou_helpers.Mouse.is_mouse_event key_str then
+      if s.focus_debounced then
+        {
+          s with
+          box_debounced = Vtextbox.handle_key s.box_debounced ~key:key_str;
+        }
+      else
+        {
+          s with
+          box_immediate = Vtextbox.handle_key s.box_immediate ~key:key_str;
+        }
+    else
+      match Miaou.Core.Keys.of_string key_str with
+      | Some Miaou.Core.Keys.Escape -> go_back s
+      | Some Miaou.Core.Keys.Tab ->
+          {s with focus_debounced = not s.focus_debounced}
+      | Some k ->
+          let key = Miaou.Core.Keys.to_string k in
+          if s.focus_debounced then
+            {s with box_debounced = Vtextbox.handle_key s.box_debounced ~key}
+          else {s with box_immediate = Vtextbox.handle_key s.box_immediate ~key}
+      | None -> s
 
   let move s _ = s
 

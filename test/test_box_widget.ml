@@ -99,6 +99,44 @@ let test_color () =
        true
      with Not_found -> false)
 
+let test_border_colors () =
+  let bc =
+    {
+      BW.c_top = Some 196;
+      c_bottom = Some 46;
+      c_left = Some 196;
+      c_right = Some 46;
+    }
+  in
+  let result = BW.render ~style:Ascii ~border_colors:bc ~width:20 "test" in
+  (* Should contain ANSI codes for both colors *)
+  check
+    bool
+    "contains ANSI for red (196)"
+    true
+    (try
+       ignore (Str.search_forward (Str.regexp_string "196") result 0) ;
+       true
+     with Not_found -> false) ;
+  check
+    bool
+    "contains ANSI for green (46)"
+    true
+    (try
+       ignore (Str.search_forward (Str.regexp_string "46") result 0) ;
+       true
+     with Not_found -> false)
+
+let test_border_colors_partial () =
+  (* Only set top color, others should fall back to no color *)
+  let bc =
+    {BW.c_top = Some 196; c_bottom = None; c_left = None; c_right = None}
+  in
+  let result = BW.render ~style:Ascii ~border_colors:bc ~width:20 "test" in
+  let ls = lines result in
+  (* Should still render properly *)
+  check int "line count" 3 (List.length ls)
+
 let test_height_clips () =
   let content = "a\nb\nc\nd\ne\nf" in
   let result = BW.render ~style:Ascii ~width:20 ~height:4 content in
@@ -129,6 +167,8 @@ let () =
           test_case "rounded_style" `Quick test_rounded_style;
           test_case "heavy_style" `Quick test_heavy_style;
           test_case "color" `Quick test_color;
+          test_case "border_colors" `Quick test_border_colors;
+          test_case "border_colors_partial" `Quick test_border_colors_partial;
           test_case "height_clips" `Quick test_height_clips;
           test_case "height_pads" `Quick test_height_pads;
         ] );

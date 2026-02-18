@@ -37,7 +37,12 @@ let on_key (t : t) ~key =
         ({t with checked_ = not t.checked_}, Miaou_interfaces.Key_event.Handled)
     | "Esc" | "Escape" ->
         ({t with cancelled = true}, Miaou_interfaces.Key_event.Handled)
-    | _ -> (t, Miaou_interfaces.Key_event.Bubble)
+    | key ->
+        (* Mouse click toggles checkbox *)
+        if Miaou_helpers.Mouse.is_click key then
+          ( {t with checked_ = not t.checked_},
+            Miaou_interfaces.Key_event.Handled )
+        else (t, Miaou_interfaces.Key_event.Bubble)
 
 (** @deprecated Use [on_key] instead. Returns just state for backward compat. *)
 let handle_key (t : t) ~key =

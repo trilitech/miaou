@@ -123,11 +123,14 @@ let reader_loop (t : t) _env =
     end
   done
 
-let create terminal =
+let create ?(handle_sigint = true) terminal =
   let fd = Matrix_terminal.fd terminal in
   let exit_flag =
-    Matrix_terminal.install_signals terminal (fun () ->
-        Matrix_terminal.cleanup terminal)
+    Matrix_terminal.install_signals'
+      terminal
+      (fun () -> Matrix_terminal.cleanup terminal)
+      ~handle_sigint
+      ()
   in
   {
     terminal;

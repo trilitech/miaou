@@ -38,7 +38,8 @@ val enter_raw : t -> unit
 (** Leave raw mode: restore original terminal settings. *)
 val leave_raw : t -> unit
 
-(** Enable SGR mouse tracking (1000h + 1006h). *)
+(** Enable SGR mouse tracking (1002h + 1006h).
+    Writes to /dev/tty for consistency with other terminal operations. *)
 val enable_mouse : t -> unit
 
 (** Disable mouse tracking. Idempotent, safe to call multiple times.
@@ -66,6 +67,18 @@ val invalidate_size_cache : t -> unit
     @return Atomic flag that becomes true when exit signal received *)
 val install_signals :
   t -> on_resize:(unit -> unit) -> on_exit:(unit -> unit) -> bool Atomic.t
+
+(** Like {!install_signals} but with optional control over which signals
+    are handled.
+    @param handle_sigint If false, SIGINT (Ctrl+C) is not intercepted,
+      allowing the app to receive it as a key event. Default: true *)
+val install_signals' :
+  t ->
+  on_resize:(unit -> unit) ->
+  on_exit:(unit -> unit) ->
+  ?handle_sigint:bool ->
+  unit ->
+  bool Atomic.t
 
 (** Check if a resize signal was received since last clear. *)
 val resize_pending : t -> bool

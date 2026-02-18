@@ -53,6 +53,8 @@ let enter_raw t =
           orig with
           Unix.c_icanon = false;
           Unix.c_echo = false;
+          Unix.c_isig = false;
+          (* Disable SIGINT/SIGQUIT/SIGSUSP generation *)
           Unix.c_vmin = 1;
           Unix.c_vtime = 0;
         }
@@ -105,11 +107,23 @@ let disable_mouse t =
   (* Give terminal time to process escape sequences *)
   Unix.sleepf 0.05
 
-let enable_mouse _t =
+let enable_mouse t =
+  (* 1002: Button event tracking (reports motion while button pressed)
+     1006: SGR extended mode (allows coordinates > 223)
+     Write to tty_out_fd for consistency with other terminal operations. *)
+  let enable_seq = "\027[?1002h\027[?1006h" in
+  (try
+     ignore
+       (Unix.write
+          t.tty_out_fd
+          (Bytes.of_string enable_seq)
+          0
+          (String.length enable_seq)) ;
+     Unix.tcdrain t.tty_out_fd
+   with _ -> ()) ;
+  (* Also write to stdout as fallback *)
   try
-    (* 1002: Button event tracking (reports motion while button pressed)
-       1006: SGR extended mode (allows coordinates > 223) *)
-    print_string "\027[?1002h\027[?1006h" ;
+    print_string enable_seq ;
     Stdlib.flush stdout
   with _ -> ()
 
@@ -233,7 +247,7 @@ let size t =
 
 let invalidate_size_cache t = t.cached_size <- None
 
-let install_signals t ~on_resize ~on_exit =
+let install_signals' t ~on_resize ~on_exit ?(handle_sigint = true) () =
   let exit_flag = Atomic.make false in
   let sigwinch = 28 in
   (* Install resize handler *)
@@ -261,11 +275,15 @@ let install_signals t ~on_resize ~on_exit =
              exit 130))
     with _ -> ()
   in
-  set_exit_handler Sys.sigint ;
+  if handle_sigint then set_exit_handler Sys.sigint
+  else Sys.set_signal Sys.sigint Sys.Signal_ignore ;
   set_exit_handler Sys.sigterm ;
   (try set_exit_handler Sys.sighup with _ -> ()) ;
   (try set_exit_handler Sys.sigquit with _ -> ()) ;
   exit_flag
+
+let install_signals t ~on_resize ~on_exit =
+  install_signals' t ~on_resize ~on_exit ~handle_sigint:true ()
 
 let resize_pending t = Atomic.get t.resize_pending
 
