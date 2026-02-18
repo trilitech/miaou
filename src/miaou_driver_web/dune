@@ -3,7 +3,7 @@
  (public_name miaou-driver-web.driver)
  (modules web_websocket web_assets web_driver)
  (preprocess
-  (pps ppx_blob))
+  (pps ppx_blob ppx_forbid))
  (preprocessor_deps
   (file static/index.html)
   (file static/viewer.html)

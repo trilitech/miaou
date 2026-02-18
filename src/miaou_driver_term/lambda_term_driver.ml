@@ -115,7 +115,8 @@ type t = private T
 
 let available = true
 
-let size () = (Obj.magic 0 : t)
+let size () =
+  (Obj.magic 0 : t) [@allow_forbidden "dummy private type for driver interface"]
 
 module Events = Term_events
 
@@ -365,10 +366,12 @@ let run (initial_page : (module PAGE_SIG)) :
               render_diff ~rows:size.LTerm_geom.rows !last_lines_ref next_lines
             in
             (* Move cursor home first to avoid depending on previous position. *)
-            print_string ("\027[H" ^ diff) ;
+            (print_string [@allow_forbidden "terminal driver writes to stdout"])
+              ("\027[H" ^ diff) ;
             (* Render debug overlay if enabled *)
             if Lazy.force overlay_enabled then
-              print_string
+              (print_string
+              [@allow_forbidden "terminal driver writes to stdout"])
                 (render_overlay_ansi
                    ~loop_fps:fps_tracker.current_loop_fps
                    ~render_fps:fps_tracker.current_render_fps
@@ -867,7 +870,7 @@ let run (initial_page : (module PAGE_SIG)) :
 
         (* Clipboard capability — copy text via OSC 52 *)
         let write_to_term s =
-          print_string s ;
+          (print_string [@allow_forbidden "terminal driver writes to stdout"]) s ;
           Stdlib.flush stdout
         in
         Clipboard.register ~write:write_to_term () ;
@@ -1324,7 +1327,9 @@ let run (initial_page : (module PAGE_SIG)) :
         (try
            (* 1002: Button event tracking with motion while pressed
               1006: SGR extended mode for coordinates > 223 *)
-           print_string "\027[?1002h\027[?1006h" ;
+           (print_string
+           [@allow_forbidden "terminal driver enables mouse tracking"])
+             "\027[?1002h\027[?1006h" ;
            Stdlib.flush stdout
          with _ -> ()) ;
         (* Log initial terminal size on startup *)

@@ -4,6 +4,8 @@
  (modules link_widget tabs_widget breadcrumbs_widget)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   miaou-core.widgets.display
   miaou-core.helpers

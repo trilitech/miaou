@@ -135,7 +135,11 @@ let render_image_sdl_cached t ctx =
           done
         done ;
         set_render_target renderer None ;
-        t.sdl_texture <- Some (Obj.repr texture)
+        t.sdl_texture <-
+          Some
+            (Obj.repr
+               texture
+             [@allow_forbidden "SDL texture stored without tsdl dependency"])
   end ;
 
   (* Render the texture if it exists *)
@@ -144,7 +148,7 @@ let render_image_sdl_cached t ctx =
       let render_copy = Sdl_chart_context.Sdl_ops.render_copy in
       render_copy
         renderer
-        (Obj.obj texture_obj)
+        (Obj.obj texture_obj [@allow_forbidden "recover typed SDL texture"])
         x_pixels
         y_pixels
         tex_width

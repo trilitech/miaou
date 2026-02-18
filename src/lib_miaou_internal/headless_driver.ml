@@ -341,7 +341,12 @@ module Stateful = struct
         | (`Quit | `Back | `SwitchTo _) as r -> r
         | `Continue ->
             !refresh_impl () ;
-            (if sleep > 0.0 then try Unix.sleepf sleep with _ -> ()) ;
+            (if sleep > 0.0 then
+               try
+                 (Unix.sleepf
+                 [@allow_forbidden "headless driver uses blocking sleep"])
+                   sleep
+               with _ -> ()) ;
             loop (pred i)
     in
     loop iterations

@@ -13,6 +13,8 @@
   focus_ring)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   miaou-core.interfaces
   miaou-core.widgets.layout

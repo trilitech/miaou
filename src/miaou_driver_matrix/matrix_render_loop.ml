@@ -70,7 +70,9 @@ let render_loop_fn t =
     (* Sleep to maintain frame rate *)
     let elapsed = Unix.gettimeofday () -. frame_start in
     let sleep_time = frame_time_s -. elapsed in
-    if sleep_time > 0.0 then Thread.delay sleep_time
+    if sleep_time > 0.0 then
+      (Thread.delay [@allow_forbidden "render loop runs in dedicated thread"])
+        sleep_time
   done
 
 let create ~config ~buffer ~writer ~write =

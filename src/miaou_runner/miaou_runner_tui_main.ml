@@ -6,7 +6,7 @@ let () =
   let opts = Cli.parse ~argv:Sys.argv in
   let page = Cli.find_page opts.page_name in
   if opts.cli_output then
-    print_endline
+    (print_endline [@allow_forbidden "CLI output mode, not TUI"])
       (Cli.render_cli ~rows:opts.rows ~cols:opts.cols ~ticks:opts.ticks page)
   else
     match Miaou_runner_tui.Runner_tui.run page with

@@ -4,4 +4,6 @@
  (modules helpers fiber_runtime render_notify debounce animation mouse)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries eio eio.unix unix))

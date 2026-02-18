@@ -156,7 +156,8 @@ let clear_and_render (type page_state)
     ~cols:size.LTerm_geom.cols
     out_themed ;
   if out_themed <> !last_out_ref then (
-    print_string ("\027[2J\027[H" ^ out_themed) ;
+    (print_string [@allow_forbidden "terminal driver writes to stdout"])
+      ("\027[2J\027[H" ^ out_themed) ;
     Stdlib.flush stdout ;
     last_out_ref := out_themed)
   else () ;

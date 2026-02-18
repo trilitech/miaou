@@ -68,12 +68,15 @@ let run_clipboard_cmd text cmd_fmt =
     in
     Unix.close dev_null ;
     (* Wait for shell to finish *)
-    Unix.sleepf 0.15 ;
+    (Unix.sleepf [@allow_forbidden "clipboard needs blocking wait for process"])
+      0.15 ;
     let waited_pid, status = Unix.waitpid [Unix.WNOHANG] pid in
     let success =
       if waited_pid = 0 then begin
         (* Process still running - wait a bit more then assume success *)
-        Unix.sleepf 0.1 ;
+        (Unix.sleepf
+        [@allow_forbidden "clipboard needs blocking wait for process"])
+          0.1 ;
         true
       end
       else
@@ -82,7 +85,8 @@ let run_clipboard_cmd text cmd_fmt =
         | Unix.WEXITED _ | Unix.WSIGNALED _ | Unix.WSTOPPED _ -> false
     in
     (* Clean up temp file *)
-    Unix.sleepf 0.05 ;
+    (Unix.sleepf [@allow_forbidden "clipboard needs blocking wait for cleanup"])
+      0.05 ;
     (try Unix.unlink tmp with _ -> ()) ;
     success
   with _ -> false

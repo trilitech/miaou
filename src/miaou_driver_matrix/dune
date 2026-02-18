@@ -17,6 +17,8 @@
   matrix_driver)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   miaou-core.core
   miaou-core.helpers

@@ -4,4 +4,6 @@
  (modules canvas)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries miaou-core.helpers))

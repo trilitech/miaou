@@ -13,4 +13,4 @@
   (backend bisect_ppx))
  (libraries yojson miaou_helpers)
  (preprocess
-  (pps ppx_deriving_yojson)))
+  (pps ppx_deriving_yojson ppx_forbid)))

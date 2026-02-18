@@ -8,6 +8,8 @@
  (modules miaou net cohttp_net)
  (instrumentation
   (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
  (libraries
   cohttp
   cohttp-eio
