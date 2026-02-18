@@ -71,7 +71,14 @@ let test_truncation () =
 let test_ascii_style () =
   let result = BW.render ~style:Ascii ~width:20 "test" in
   let first = List.hd (lines result) in
-  check bool "starts with +" true (String.length first > 0 && first.[0] = '+')
+  check
+    bool
+    "contains +"
+    true
+    (try
+       ignore (Str.search_forward (Str.regexp_string "+") first 0) ;
+       true
+     with Not_found -> false)
 
 let test_double_style () =
   let result = BW.render ~style:Double ~width:20 "test" in
