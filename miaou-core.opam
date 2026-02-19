@@ -40,3 +40,7 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+dev-repo: "git+https://github.com/trilitech/miaou.git"
+pin-depends: [
+  ["ppx_forbid.dev" "git+https://github.com/atacama-dev/ppx_forbid.git"]
+]
