@@ -9,14 +9,25 @@ type parse_state =
   | Normal
   | EscapeStart
   | CSI of int list * int (* accumulated params, current param *)
+  | OSC (* inside an OSC sequence — skip until ST *)
 
-type t = {mutable style : Matrix_cell.style; mutable state : parse_state}
+type t = {
+  mutable style : Matrix_cell.style;
+  mutable state : parse_state;
+  osc_buf : Buffer.t;
+}
 
-let create () = {style = Matrix_cell.default_style; state = Normal}
+let create () =
+  {
+    style = Matrix_cell.default_style;
+    state = Normal;
+    osc_buf = Buffer.create 64;
+  }
 
 let reset t =
   t.style <- Matrix_cell.default_style ;
-  t.state <- Normal
+  t.state <- Normal ;
+  Buffer.clear t.osc_buf
 
 let current_style t = t.style
 
@@ -26,8 +37,13 @@ let apply_sgr params style =
     match params with
     | [] -> style
     | 0 :: rest ->
-        (* Reset all *)
-        process rest Matrix_cell.default_style
+        (* Reset all SGR attributes — preserves URL (OSC 8 is not SGR) *)
+        process
+          rest
+          {
+            Matrix_cell.default_style with
+            Matrix_cell.url = style.Matrix_cell.url;
+          }
     | 1 :: rest ->
         (* Bold *)
         process rest {style with bold = true}
@@ -95,6 +111,23 @@ let extract_utf8_char s pos =
     let len = min len (String.length s - pos) in
     (String.sub s pos len, len)
 
+(* Process a completed OSC sequence payload.
+   For OSC 8 (hyperlinks): "8;params;uri" — extract the URI and update style.
+   Empty URI closes the current hyperlink. *)
+let process_osc t =
+  let payload = Buffer.contents t.osc_buf in
+  let plen = String.length payload in
+  (* Check for OSC 8: starts with "8;" *)
+  if plen >= 2 && payload.[0] = '8' && payload.[1] = ';' then
+    (* Find the second semicolon that separates params from URI *)
+    match String.index_from_opt payload 2 ';' with
+    | Some idx ->
+        let url = String.sub payload (idx + 1) (plen - idx - 1) in
+        t.style <- {t.style with url}
+    | None ->
+        (* Malformed OSC 8 — no second semicolon, ignore *)
+        ()
+
 (* Core parsing function - shared state machine logic.
    Takes a callback ~emit_char that receives (char, style) for each visible character.
    Returns the number of visible characters parsed. *)
@@ -129,10 +162,33 @@ let parse_core t ~emit_char input =
           | '[' ->
               t.state <- CSI ([], 0) ;
               incr pos
+          | ']' ->
+              (* OSC sequence (e.g. OSC 8 hyperlinks) *)
+              Buffer.clear t.osc_buf ;
+              t.state <- OSC ;
+              incr pos
           | _ ->
-              (* Not a CSI sequence, back to normal *)
+              (* Not a CSI/OSC sequence, back to normal *)
               t.state <- Normal ;
               incr pos)
+        else t.state <- Normal
+    | OSC ->
+        (* Collect bytes until String Terminator: ESC \ or BEL (\007) *)
+        if !pos < len then
+          let c = input.[!pos] in
+          if c = '\007' then (
+            (* BEL terminates OSC — process payload *)
+            process_osc t ;
+            t.state <- Normal ;
+            incr pos)
+          else if c = '\027' && !pos + 1 < len && input.[!pos + 1] = '\\' then (
+            (* ESC \ terminates OSC — process payload *)
+            process_osc t ;
+            t.state <- Normal ;
+            pos := !pos + 2)
+          else (
+            Buffer.add_char t.osc_buf c ;
+            incr pos)
         else t.state <- Normal
     | CSI (params, current) ->
         if !pos < len then (
@@ -219,19 +275,36 @@ let parse_to_cells t input =
   let _ = parse_core t ~emit_char input in
   List.rev !results
 
-(* Calculate visible length (chars excluding ANSI codes) *)
+(* Calculate visible length (chars excluding ANSI codes and OSC sequences) *)
 let visible_length input =
   let len = String.length input in
   let count = ref 0 in
   let pos = ref 0 in
   let in_escape = ref false in
+  let in_osc = ref false in
 
   while !pos < len do
     let c = input.[!pos] in
-    if !in_escape then begin
-      if c = 'm' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') then
+    if !in_osc then begin
+      (* Skip OSC payload until ST (ESC \ or BEL) *)
+      if c = '\007' then (
+        in_osc := false ;
+        incr pos)
+      else if c = '\027' && !pos + 1 < len && input.[!pos + 1] = '\\' then (
+        in_osc := false ;
+        pos := !pos + 2)
+      else incr pos
+    end
+    else if !in_escape then begin
+      if c = ']' then (
+        (* OSC sequence *)
         in_escape := false ;
-      incr pos
+        in_osc := true ;
+        incr pos)
+      else (
+        if c = 'm' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') then
+          in_escape := false ;
+        incr pos)
     end
     else if c = '\027' then begin
       in_escape := true ;

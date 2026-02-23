@@ -9,7 +9,11 @@ val is_utf8_lead : char -> bool
 
 val is_esc_start : string -> int -> bool
 
+val is_osc_start : string -> int -> bool
+
 val skip_ansi_until_m : string -> int -> int
+
+val skip_osc_until_st : string -> int -> int
 
 val visible_chars_count : string -> int
 

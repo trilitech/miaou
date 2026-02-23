@@ -120,6 +120,46 @@ let test_wrap_and_pad () =
   let truncated = W.pad_visible "123456" 4 in
   check string "truncate with ellipsis" "123…" truncated
 
+let test_osc8_hyperlink () =
+  let module H = Miaou_helpers.Helpers in
+  (* Force OSC 8 on so tests pass even inside tmux *)
+  Unix.putenv "MIAOU_TUI_HYPERLINKS" "on" ;
+  let link = W.hyperlink ~url:"https://example.com" "click" in
+  (* Only "click" (5 chars) should be visible *)
+  check int "hyperlink visible width" 5 (H.visible_chars_count link) ;
+  (* The raw string contains the URL in OSC sequences *)
+  check bool "contains url" true (String.length link > 5) ;
+  (* Combine with ANSI styling inside *)
+  let styled_link = W.hyperlink ~url:"https://x.com" (W.bold "bold") in
+  check
+    int
+    "styled hyperlink visible width"
+    4
+    (H.visible_chars_count styled_link) ;
+  (* visible_byte_index_of_pos should skip OSC sequences *)
+  let plain = W.hyperlink ~url:"https://a.b" "abcdef" in
+  let idx = H.visible_byte_index_of_pos plain 3 in
+  let remaining = String.sub plain idx (String.length plain - idx) in
+  (* After skipping 3 visible chars, next visible char should be 'd' *)
+  check bool "byte index skips osc" true (String.length remaining > 0) ;
+  let remaining_visible = H.visible_chars_count remaining in
+  check int "remaining visible" 3 remaining_visible
+
+let test_osc_sequence_skipping () =
+  let module H = Miaou_helpers.Helpers in
+  (* is_osc_start detects ESC ] *)
+  check bool "osc start" true (H.is_osc_start "\027]8;;url\027\\" 0) ;
+  check bool "not osc start" false (H.is_osc_start "\027[31m" 0) ;
+  (* skip_osc_until_st finds ESC \ *)
+  let s = "8;;https://example.com\027\\rest" in
+  let j = H.skip_osc_until_st s 0 in
+  check string "after st" "rest" (String.sub s j (String.length s - j)) ;
+  (* Mixed CSI + OSC sequences *)
+  let mixed =
+    "\027[31m" ^ "red" ^ "\027[0m" ^ " " ^ W.hyperlink ~url:"https://x" "link"
+  in
+  check int "mixed csi+osc visible" 8 (H.visible_chars_count mixed)
+
 let () =
   run
     "widgets_helpers"
@@ -133,5 +173,7 @@ let () =
           test_case "palette adapter" `Quick test_palette_adapter;
           test_case "misc helpers" `Quick test_misc_helpers;
           test_case "wrap+pad helpers" `Quick test_wrap_and_pad;
+          test_case "osc8 hyperlink" `Quick test_osc8_hyperlink;
+          test_case "osc sequence skipping" `Quick test_osc_sequence_skipping;
         ] );
     ]

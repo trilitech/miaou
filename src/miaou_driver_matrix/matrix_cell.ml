@@ -12,6 +12,7 @@ type style = {
   dim : bool;
   underline : bool;
   reverse : bool;
+  url : string;
 }
 
 type t = {mutable char : string; mutable style : style}
@@ -24,6 +25,7 @@ let default_style =
     dim = false;
     underline = false;
     reverse = false;
+    url = "";
   }
 
 let empty () = {char = " "; style = default_style}
@@ -44,6 +46,7 @@ let invalidate cell =
 let style_equal a b =
   a.fg = b.fg && a.bg = b.bg && a.bold = b.bold && a.dim = b.dim
   && a.underline = b.underline && a.reverse = b.reverse
+  && String.equal a.url b.url
 
 let equal a b = a.char = b.char && style_equal a.style b.style
 

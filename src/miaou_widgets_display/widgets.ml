@@ -8,6 +8,29 @@
 
 let ansi code s = "\027[" ^ code ^ "m" ^ s ^ "\027[0m"
 
+(** Detect whether OSC 8 hyperlinks are likely supported.
+    Returns false inside tmux/screen (which strip OSC sequences by default)
+    unless the user has set MIAOU_TUI_HYPERLINKS=on to force them. *)
+let osc8_supported =
+  lazy
+    (match Sys.getenv_opt "MIAOU_TUI_HYPERLINKS" with
+    | Some ("on" | "1" | "true") -> true
+    | Some ("off" | "0" | "false") -> false
+    | _ ->
+        (* tmux and screen strip OSC sequences unless configured for passthrough *)
+        let in_tmux = Sys.getenv_opt "TMUX" <> None in
+        let in_screen = Sys.getenv_opt "STY" <> None in
+        (not in_tmux) && not in_screen)
+
+(** Wrap [display] in an OSC 8 hyperlink pointing to [url].
+    Terminal emulators that support OSC 8 render [display] as a clickable
+    link.  When running inside tmux or screen (which strip OSC sequences),
+    [display] is returned as-is.  Override with MIAOU_TUI_HYPERLINKS=on. *)
+let hyperlink ~url display =
+  if Lazy.force osc8_supported then
+    "\027]8;;" ^ url ^ "\027\\" ^ display ^ "\027]8;;\027\\"
+  else display
+
 let bold s = ansi "1" s
 
 let dim s = ansi "2" s

@@ -64,12 +64,15 @@ type t = {
    event is injected so that service_cycle runs even when idle. *)
 let refresh_interval = 1.0
 
-(** Convert Parser.key to event *)
+(** Convert Parser.key to event.
+    Terminal mouse protocols use 1-indexed coordinates; convert to
+    0-indexed to match the buffer coordinate system. *)
 let key_to_event = function
   | Parser.Mouse {row; col; button; release} ->
+      let row = row - 1 and col = col - 1 in
       if release then Matrix_io.Mouse (row, col, button)
       else Matrix_io.MousePress (row, col, button)
-  | Parser.MouseDrag {row; col} -> Matrix_io.MouseDrag (row, col)
+  | Parser.MouseDrag {row; col} -> Matrix_io.MouseDrag (row - 1, col - 1)
   | Parser.Refresh -> Matrix_io.Refresh
   | key -> Matrix_io.Key (Parser.key_to_string key)
 
