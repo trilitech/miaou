@@ -5,11 +5,16 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-type t = {mutable current_style : Matrix_cell.style}
+type t = {
+  mutable current_style : Matrix_cell.style;
+  mutable current_url : string;
+}
 
-let create () = {current_style = Matrix_cell.default_style}
+let create () = {current_style = Matrix_cell.default_style; current_url = ""}
 
-let reset t = t.current_style <- Matrix_cell.default_style
+let reset t =
+  t.current_style <- Matrix_cell.default_style ;
+  t.current_url <- ""
 
 (* ANSI control sequences *)
 let cursor_hide = "\027[?25l"
@@ -65,10 +70,33 @@ let render t changes =
           Buffer.add_string buf (cursor_move ~row ~col)
       | Matrix_diff.SetStyle style ->
           if not (Matrix_cell.style_equal style t.current_style) then begin
-            (* If new style is default, just reset *)
-            if Matrix_cell.style_equal style Matrix_cell.default_style then
-              Buffer.add_string buf reset_style
-            else Buffer.add_string buf (style_to_sgr style) ;
+            (* Handle OSC 8 hyperlink changes *)
+            if not (String.equal style.url t.current_url) then begin
+              (* Close current hyperlink if active *)
+              if t.current_url <> "" then Buffer.add_string buf "\027]8;;\027\\" ;
+              (* Open new hyperlink if needed *)
+              if style.url <> "" then (
+                Buffer.add_string buf "\027]8;;" ;
+                Buffer.add_string buf style.url ;
+                Buffer.add_string buf "\027\\") ;
+              t.current_url <- style.url
+            end ;
+            (* Handle SGR style changes (fg, bg, bold, dim, underline, reverse) *)
+            let sgr_differs =
+              style.fg <> t.current_style.fg
+              || style.bg <> t.current_style.bg
+              || style.bold <> t.current_style.bold
+              || style.dim <> t.current_style.dim
+              || style.underline <> t.current_style.underline
+              || style.reverse <> t.current_style.reverse
+            in
+            if sgr_differs then begin
+              if
+                style.fg = -1 && style.bg = -1 && (not style.bold)
+                && (not style.dim) && (not style.underline) && not style.reverse
+              then Buffer.add_string buf reset_style
+              else Buffer.add_string buf (style_to_sgr style)
+            end ;
             t.current_style <- style
           end
       | Matrix_diff.WriteChar c -> Buffer.add_string buf c

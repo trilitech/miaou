@@ -18,6 +18,7 @@ type style = {
   dim : bool;
   underline : bool;
   reverse : bool;
+  url : string;  (** OSC 8 hyperlink URL, "" = no link *)
 }
 
 (** A terminal cell containing a character and its style. *)

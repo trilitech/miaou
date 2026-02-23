@@ -23,8 +23,9 @@ type t = {
 }
 
 let do_render t =
-  (* Reset style to ensure consistency *)
-  t.write "\027[0m" ;
+  (* Reset style to ensure consistency.
+     Close any active OSC 8 hyperlink before SGR reset. *)
+  t.write "\027]8;;\027\\\027[0m" ;
   Matrix_ansi_writer.reset t.writer ;
 
   (* Compute diff atomically - holds lock during read to prevent torn reads.

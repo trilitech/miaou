@@ -235,6 +235,68 @@ let test_visible_length_utf8 () =
   let len = Parser.visible_length "★ Star" in
   check int "utf8 6" 6 len
 
+(* ============== OSC Sequence Tests ============== *)
+
+let test_osc8_hyperlink_skipped () =
+  let buf, parser = make_test_env ~rows:1 ~cols:40 in
+  (* OSC 8 hyperlink: ESC]8;;url ESC\ display ESC]8;; ESC\ *)
+  let input = "\027]8;;https://example.com\027\\click\027]8;;\027\\" in
+  let col = Parser.parse_line parser buf ~row:0 ~col:0 input in
+  (* Only "click" (5 chars) should be visible *)
+  check int "osc8 visible 5" 5 col ;
+  check string "cell 0" "c" (get_char buf 0 0) ;
+  check string "cell 1" "l" (get_char buf 0 1) ;
+  check string "cell 4" "k" (get_char buf 0 4) ;
+  check string "cell 5 empty" " " (get_char buf 0 5) ;
+  (* URL should be attached to display cells *)
+  check string "cell 0 url" "https://example.com" (get_style buf 0 0).url ;
+  check string "cell 4 url" "https://example.com" (get_style buf 0 4).url ;
+  (* After the hyperlink close, URL should be empty *)
+  check string "cell 5 no url" "" (get_style buf 0 5).url
+
+let test_osc8_with_styled_display () =
+  let buf, parser = make_test_env ~rows:1 ~cols:40 in
+  (* Hyperlink wrapping bold display text *)
+  let input = "\027]8;;https://x.com\027\\\027[1mbold\027[0m\027]8;;\027\\" in
+  let col = Parser.parse_line parser buf ~row:0 ~col:0 input in
+  check int "styled hyperlink visible 4" 4 col ;
+  check string "cell 0" "b" (get_char buf 0 0) ;
+  check bool "cell 0 bold" true (get_style buf 0 0).bold ;
+  (* URL survives SGR reset (OSC 8 is not SGR) *)
+  check string "cell 0 url" "https://x.com" (get_style buf 0 0).url ;
+  check string "cell 3 url" "https://x.com" (get_style buf 0 3).url
+
+let test_osc8_bel_terminated () =
+  let buf, parser = make_test_env ~rows:1 ~cols:40 in
+  (* OSC terminated by BEL (0x07) instead of ESC \ *)
+  let input = "\027]8;;https://example.com\007click\027]8;;\007" in
+  let col = Parser.parse_line parser buf ~row:0 ~col:0 input in
+  check int "bel terminated visible 5" 5 col ;
+  check string "cell 0" "c" (get_char buf 0 0)
+
+let test_osc_mixed_with_csi () =
+  let buf, parser = make_test_env ~rows:1 ~cols:40 in
+  (* CSI color + OSC hyperlink *)
+  let input = "\027[31mred\027[0m \027]8;;https://x\027\\link\027]8;;\027\\" in
+  let col = Parser.parse_line parser buf ~row:0 ~col:0 input in
+  (* "red" (3) + " " (1) + "link" (4) = 8 visible chars *)
+  check int "mixed csi+osc visible 8" 8 col ;
+  check int "red fg" 1 (get_style buf 0 0).fg ;
+  check string "cell 4 link" "l" (get_char buf 0 4) ;
+  (* "red" has no URL, "link" has URL *)
+  check string "red no url" "" (get_style buf 0 0).url ;
+  check string "link has url" "https://x" (get_style buf 0 4).url
+
+let test_visible_length_osc8 () =
+  let input = "\027]8;;https://example.com\027\\click\027]8;;\027\\" in
+  let len = Parser.visible_length input in
+  check int "osc8 visible_length 5" 5 len
+
+let test_visible_length_mixed_csi_osc () =
+  let input = "\027[31mred\027[0m \027]8;;https://x\027\\link\027]8;;\027\\" in
+  let len = Parser.visible_length input in
+  check int "mixed visible_length 8" 8 len
+
 (* ============== Real Widget Output Tests ============== *)
 
 let test_widget_bold () =
@@ -339,6 +401,19 @@ let visible_length_tests =
     test_case "visible length utf8" `Quick test_visible_length_utf8;
   ]
 
+let osc_tests =
+  [
+    test_case "osc8 hyperlink skipped" `Quick test_osc8_hyperlink_skipped;
+    test_case "osc8 styled display" `Quick test_osc8_with_styled_display;
+    test_case "osc8 bel terminated" `Quick test_osc8_bel_terminated;
+    test_case "osc mixed with csi" `Quick test_osc_mixed_with_csi;
+    test_case "visible length osc8" `Quick test_visible_length_osc8;
+    test_case
+      "visible length mixed csi+osc"
+      `Quick
+      test_visible_length_mixed_csi_osc;
+  ]
+
 let widget_tests =
   [
     test_case "widget bold" `Quick test_widget_bold;
@@ -361,5 +436,6 @@ let () =
       ("edge_cases", edge_case_tests);
       ("multiline", multiline_tests);
       ("visible_length", visible_length_tests);
+      ("osc", osc_tests);
       ("widgets", widget_tests);
     ]
