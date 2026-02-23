@@ -16,6 +16,8 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: 5.3.0
+      - name: Pin external dependencies
+        run: opam pin add ppx_forbid git+https://github.com/atacama-dev/ppx_forbid.git --no-action
       - name: Install dependencies
         run: opam install --deps-only --with-test -y .
       - name: Build & test

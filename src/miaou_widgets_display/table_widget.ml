@@ -271,9 +271,12 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
   let blank_for_col =
     List.mapi (fun idx w -> (idx, String.make w ' ')) col_widths
   in
-  let assemble_columns cols =
+  let assemble_columns ~is_selected cols =
     let buf = Buffer.create inner_w in
-    let vline = W.themed_border glyphs.vline in
+    (* When row is selected, don't style vlines - let them inherit selection bg *)
+    let vline =
+      if is_selected then glyphs.vline else W.themed_border glyphs.vline
+    in
     Buffer.add_string buf vline ;
     List.iteri
       (fun idx col ->
@@ -296,7 +299,10 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
             ^ String.make copts.pad_right ' ')
           cols_cells
       in
-      let line_core = assemble_columns cells in
+      let is_selected =
+        match opts.selection_mode with Row when i = cursor -> true | _ -> false
+      in
+      let line_core = assemble_columns ~is_selected cells in
       let line =
         match opts.selection_mode with
         | Row when i = cursor -> W.themed_selection line_core
@@ -347,7 +353,12 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
                   | None -> ""))
             padded_lines
         in
-        let line_core = assemble_columns cols_for_idx in
+        let is_selected =
+          match opts.selection_mode with
+          | Row when i = cursor -> true
+          | _ -> false
+        in
+        let line_core = assemble_columns ~is_selected cols_for_idx in
         let line =
           match opts.selection_mode with
           | Row when i = cursor -> W.themed_selection line_core
