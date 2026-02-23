@@ -60,14 +60,7 @@ module Inner = struct
         "↑/↓ to move • Enter logs the selection • t opens tutorial • Esc \
          returns"
     in
-    let body =
-      Miaou_widgets_display.Table_widget.render_table_80
-        ~cols:(Some 80)
-        ~header:("Name", "Score", "Status")
-        ~rows:s.table.rows
-        ~cursor:s.table.cursor
-        ~sel_col:0
-    in
+    let body = Miaou_widgets_display.Table_widget.Table.render s.table in
     header ^ "\n\n" ^ body
 
   let log_selection table =

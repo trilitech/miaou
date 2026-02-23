@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.1] - Unreleased
 
+### Fixed
+
+- **Table row selection highlighting**: Full row background now displays correctly when `selection_mode = Row`. Previously, only border characters (vertical separators) showed the selection color due to ANSI reset codes from `themed_border` clearing the selection background. Now, border styling is skipped for selected rows, allowing the full row to inherit the selection background color.
+
+## [0.4.0] - Unreleased
+
 ### Breaking Changes
 
 - **Box_widget border style**: added `None_` to `Box_widget.border_style` for borderless containers. Pattern matches on `border_style` may need a new case.
