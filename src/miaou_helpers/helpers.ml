@@ -11,11 +11,24 @@ let is_utf8_lead b = Char.code b land 0xC0 <> 0x80
 let is_esc_start s i =
   i + 1 < String.length s && s.[i] = '\027' && s.[i + 1] = '['
 
+(* Check if s[i] starts an OSC sequence (ESC ] ...). *)
+let is_osc_start s i =
+  i + 1 < String.length s && s.[i] = '\027' && s.[i + 1] = ']'
+
 (* Skip characters until 'm' (SGR terminator) is found. *)
 let rec skip_ansi_until_m s i =
   if i >= String.length s then i
   else if s.[i] = 'm' then i + 1
   else skip_ansi_until_m s (i + 1)
+
+(* Skip characters until String Terminator (ESC \ or \x9c) is found.
+   Used for OSC sequences like OSC 8 hyperlinks. *)
+let rec skip_osc_until_st s i =
+  let len = String.length s in
+  if i >= len then i
+  else if s.[i] = '\x9c' then i + 1
+  else if s.[i] = '\027' && i + 1 < len && s.[i + 1] = '\\' then i + 2
+  else skip_osc_until_st s (i + 1)
 
 let utf8_decode s i =
   let len = String.length s in
@@ -68,6 +81,9 @@ let visible_chars_count s =
     else if is_esc_start s i then
       let j = skip_ansi_until_m s (i + 2) in
       loop j cnt
+    else if is_osc_start s i then
+      let j = skip_osc_until_st s (i + 2) in
+      loop j cnt
     else
       let cp, j = utf8_decode s i in
       let w = if is_zero_width cp then 0 else if is_wide cp then 2 else 1 in
@@ -82,6 +98,9 @@ let visible_byte_index_of_pos s pos =
     else if i >= len then len
     else if is_esc_start s i then
       let j = skip_ansi_until_m s (i + 2) in
+      loop j cnt
+    else if is_osc_start s i then
+      let j = skip_osc_until_st s (i + 2) in
       loop j cnt
     else
       let cp, j = utf8_decode s i in

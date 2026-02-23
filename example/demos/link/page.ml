@@ -11,6 +11,7 @@ module Inner = struct
   let tutorial_markdown = [%blob "README.md"]
 
   module Link = Miaou_widgets_navigation.Link_widget
+  module W = Miaou_widgets_display.Widgets
 
   type state = {
     link : Link.t;
@@ -36,10 +37,45 @@ module Inner = struct
   let update s (_ : msg) = s
 
   let view s ~focus:_ ~size:_ =
-    let module W = Miaou_widgets_display.Widgets in
     let header = W.titleize "Link widget (t opens tutorial)" in
     let body = Link.render s.link ~focus:true in
-    String.concat "\n\n" [header; body; W.dim s.message]
+    (* OSC 8 hyperlink examples *)
+    let section_osc8 = W.bold "OSC 8 Terminal Hyperlinks" in
+    let osc8_plain =
+      "  "
+      ^ W.hyperlink
+          ~url:"https://github.com/trilitech/miaou"
+          "github.com/trilitech/miaou"
+    in
+    let osc8_styled =
+      "  "
+      ^ W.hyperlink
+          ~url:"https://ocaml.org"
+          (W.themed_accent "ocaml.org (themed accent)")
+    in
+    let osc8_long_url =
+      let url =
+        "https://ghostnet.tzkt.io/ook5WtHh6MB3b9WRESPHfNM5fhTqf4Dn84yPaVbtmgpLGwcsWjs"
+      in
+      "  " ^ W.hyperlink ~url (W.cyan "ook5WtH...csWjs")
+    in
+    let hint =
+      W.dim
+        "  Hover/click links if your terminal supports OSC 8 (kitty, iTerm2, \
+         GNOME Terminal, ...)"
+    in
+    String.concat
+      "\n\n"
+      [
+        header;
+        body;
+        W.dim s.message;
+        section_osc8;
+        osc8_plain;
+        osc8_styled;
+        osc8_long_url;
+        hint;
+      ]
 
   let go_back s =
     {s with next_page = Some Demo_shared.Demo_config.launcher_page_name}

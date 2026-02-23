@@ -8,6 +8,12 @@
 
 let ansi code s = "\027[" ^ code ^ "m" ^ s ^ "\027[0m"
 
+(** Wrap [display] in an OSC 8 hyperlink pointing to [url].
+    Terminal emulators that support OSC 8 render [display] as a clickable
+    link; others show [display] as plain text (graceful degradation). *)
+let hyperlink ~url display =
+  "\027]8;;" ^ url ^ "\027\\" ^ display ^ "\027]8;;\027\\"
+
 let bold s = ansi "1" s
 
 let dim s = ansi "2" s
