@@ -16,10 +16,10 @@
 type event =
   | Key of string  (** Named key or character *)
   | MousePress of int * int * int
-      (** Mouse button pressed at (row, col, button), 1-indexed.
+      (** Mouse button pressed at (row, col, button), 0-indexed.
           button: 0=left, 1=middle, 2=right *)
   | Mouse of int * int * int
-      (** Mouse button released (click) at (row, col, button), 1-indexed.
+      (** Mouse button released (click) at (row, col, button), 0-indexed.
           button: 0=left, 1=middle, 2=right *)
   | MouseDrag of int * int  (** Mouse motion while button held, at (row, col) *)
   | Resize  (** Viewport was resized *)
