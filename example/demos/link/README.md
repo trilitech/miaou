@@ -34,6 +34,13 @@ Widgets.hyperlink ~url:"https://ocaml.org" (Widgets.themed_accent "OCaml")
 Terminals without OSC 8 support show the display text as plain text
 (graceful degradation).
 
+### tmux / screen
+
+Terminal multiplexers (tmux, screen) strip OSC sequences by default.
+Miaou auto-detects this and disables hyperlinks. To test, run
+**outside** of tmux or set `MIAOU_TUI_HYPERLINKS=on` to force
+(requires tmux `set -g allow-passthrough on`).
+
 ## Keys
 
 - Enter/Space - Activate link widget

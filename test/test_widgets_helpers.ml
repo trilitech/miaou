@@ -122,7 +122,8 @@ let test_wrap_and_pad () =
 
 let test_osc8_hyperlink () =
   let module H = Miaou_helpers.Helpers in
-  (* hyperlink wraps display text in OSC 8 sequences *)
+  (* Force OSC 8 on so tests pass even inside tmux *)
+  Unix.putenv "MIAOU_TUI_HYPERLINKS" "on" ;
   let link = W.hyperlink ~url:"https://example.com" "click" in
   (* Only "click" (5 chars) should be visible *)
   check int "hyperlink visible width" 5 (H.visible_chars_count link) ;

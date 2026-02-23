@@ -59,6 +59,13 @@ module Inner = struct
       in
       "  " ^ W.hyperlink ~url (W.cyan "ook5WtH...csWjs")
     in
+    let osc8_status =
+      if Lazy.force W.osc8_supported then W.themed_success "  OSC 8: enabled"
+      else
+        W.themed_warning
+          "  OSC 8: disabled (tmux/screen detected, set \
+           MIAOU_TUI_HYPERLINKS=on to force)"
+    in
     let hint =
       W.dim
         "  Hover/click links if your terminal supports OSC 8 (kitty, iTerm2, \
@@ -71,6 +78,7 @@ module Inner = struct
         body;
         W.dim s.message;
         section_osc8;
+        osc8_status;
         osc8_plain;
         osc8_styled;
         osc8_long_url;
