@@ -92,7 +92,12 @@ let repeat s n =
 
 let render ?(title = "") ?(style = Single)
     ?(padding = {left = 0; right = 0; top = 0; bottom = 0}) ?height ?color
-    ?border_colors ~width content =
+    ?border_colors ?bg ~width content =
+  let fill s =
+    match bg with
+    | Some c -> W.apply_bg_fill ~bg:c s
+    | None -> W.themed_contextual_fill s
+  in
   if style = None_ then
     let inner_w = max 0 width in
     let content_w = max 0 (inner_w - padding.left - padding.right) in
@@ -116,10 +121,10 @@ let render ?(title = "") ?(style = Single)
       in
       let padded = H.pad_to_width truncated content_w ' ' in
       let inner = pad_left_str ^ padded ^ pad_right_str in
-      W.themed_contextual_fill inner
+      fill inner
     in
     let content_rows = List.map format_line raw_lines in
-    let empty_row = W.themed_contextual_fill (String.make inner_w ' ') in
+    let empty_row = fill (String.make inner_w ' ') in
     let top_pad_rows = List.init padding.top (fun _ -> empty_row) in
     let bottom_pad_rows = List.init padding.bottom (fun _ -> empty_row) in
     let body_rows = top_pad_rows @ content_rows @ bottom_pad_rows in
@@ -223,13 +228,13 @@ let render ?(title = "") ?(style = Single)
       in
       let padded = H.pad_to_width truncated content_w ' ' in
       let inner = pad_left_str ^ padded ^ pad_right_str in
-      let inner = W.themed_contextual_fill inner in
+      let inner = fill inner in
       color_left bc.v ^ inner ^ color_right bc.v
     in
     let content_rows = List.map format_line raw_lines in
     (* Add padding rows *)
     let empty_row =
-      let inner = String.make inner_w ' ' |> W.themed_contextual_fill in
+      let inner = String.make inner_w ' ' |> fill in
       color_left bc.v ^ inner ^ color_right bc.v
     in
     let top_pad_rows = List.init padding.top (fun _ -> empty_row) in

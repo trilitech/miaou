@@ -63,9 +63,19 @@ module Inner = struct
         ~cols:box_w
         "Left-bordered box\nWith colored bg\nFor context/quotes"
     in
+    (* Background fill *)
+    let bg_box =
+      BW.render
+        ~title:"With bg"
+        ~style:Rounded
+        ~bg:236
+        ~width:box_w
+        "Muted background\nFor nested sections"
+    in
     let left_col = single_box ^ "\n\n" ^ double_box ^ "\n\n" ^ ascii_box in
     let right_col =
-      rounded_box ^ "\n\n" ^ nested_box ^ "\n\n" ^ left_border_box
+      rounded_box ^ "\n\n" ^ nested_box ^ "\n\n" ^ left_border_box ^ "\n\n"
+      ^ bg_box
     in
     let left_child =
       {
