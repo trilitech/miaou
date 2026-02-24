@@ -1,4 +1,9 @@
 (library
  (name demo_modals)
- (modules textbox_modal select_modal file_browser_modal poly_select_modal)
+ (modules
+  textbox_modal
+  password_textbox_modal
+  select_modal
+  file_browser_modal
+  poly_select_modal)
  (libraries miaou miaou-core.lib_miaou_internal))

@@ -14,9 +14,11 @@ type t = {
   width : int;
   cancelled : bool;
   placeholder : string option;
+  mask : bool;
 }
 
-let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None) () =
+let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
+    ?(mask = false) () =
   {
     buf = initial;
     cursor = String.length initial;
@@ -24,11 +26,12 @@ let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None) () =
     width;
     cancelled = false;
     placeholder;
+    mask;
   }
 
-let open_centered ?title ?(width = 60) ?(initial = "") ?(placeholder = None) ()
-    =
-  create ?title ~width ~initial ~placeholder ()
+let open_centered ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
+    ?(mask = false) () =
+  create ?title ~width ~initial ~placeholder ~mask ()
 
 let render st ~focus:(_ : bool) =
   let content = st.buf in
@@ -43,10 +46,13 @@ let render st ~focus:(_ : bool) =
   let with_cursor =
     if show_placeholder then (* dim placeholder *) themed_muted visible
     else
-      let left = String.sub content 0 (min st.cursor (String.length content)) in
+      let display =
+        if st.mask then String.make (String.length content) '*' else content
+      in
+      let left = String.sub display 0 (min st.cursor (String.length display)) in
       let right =
-        if st.cursor < String.length content then
-          String.sub content st.cursor (String.length content - st.cursor)
+        if st.cursor < String.length display then
+          String.sub display st.cursor (String.length display - st.cursor)
         else ""
       in
       themed_text (left ^ "_" ^ right)
