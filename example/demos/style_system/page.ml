@@ -17,8 +17,9 @@ module Inner = struct
   module Theme = Miaou_style.Theme
   module Theme_loader = Miaou_style.Theme_loader
   module W = Miaou_widgets_display.Widgets
+  module Builtin_themes = Miaou_style.Builtin_themes
 
-  type theme_choice = Dark | Light | High_contrast
+  type theme_choice = Dark | Light | High_contrast | System
 
   type loaded_theme = {theme : Theme.t; error : string option}
 
@@ -26,6 +27,7 @@ module Inner = struct
     dark : loaded_theme;
     light : loaded_theme;
     high_contrast : loaded_theme;
+    system : loaded_theme;
   }
 
   type state = {
@@ -39,13 +41,14 @@ module Inner = struct
 
   let load_theme ~label blob =
     match Theme_loader.of_json_string blob with
-    | Ok t -> {theme = t; error = None}
+    | Ok t -> {theme = Theme.merge ~base:Theme.default ~overlay:t; error = None}
     | Error e -> {theme = Theme.default; error = Some (label ^ ": " ^ e)}
 
   let load_theme_file ~label path ~fallback =
     if Sys.file_exists path then
       match Theme_loader.load_file path with
-      | Ok t -> {theme = t; error = None}
+      | Ok t ->
+          {theme = Theme.merge ~base:Theme.default ~overlay:t; error = None}
       | Error e ->
           {
             theme = fallback;
@@ -65,7 +68,13 @@ module Inner = struct
     let high_contrast =
       load_theme ~label:"high-contrast" [%blob "themes/high-contrast.json"]
     in
-    {dark; light; high_contrast}
+    let system =
+      match Builtin_themes.get_builtin "system" with
+      | Some t -> {theme = t; error = None}
+      | None ->
+          {theme = Theme.default; error = Some "system: builtin not found"}
+    in
+    {dark; light; high_contrast; system}
 
   let init () = {themes; choice = Dark; cursor = 0; next_page = None}
 
@@ -73,14 +82,16 @@ module Inner = struct
     | Dark -> "dark"
     | Light -> "light"
     | High_contrast -> "high-contrast"
+    | System -> "system"
 
   let current_theme s =
     match s.choice with
     | Dark -> s.themes.dark
     | Light -> s.themes.light
     | High_contrast -> s.themes.high_contrast
+    | System -> s.themes.system
 
-  let clamp_idx i = if i < 0 then 0 else if i > 3 then 3 else i
+  let clamp_idx i = if i < 0 then 0 else if i > 4 then 4 else i
 
   let render_tile ~index ~cursor ~title ~size =
     let focused = index = cursor in
@@ -136,11 +147,14 @@ module Inner = struct
 
   let view s ~focus:_ ~size =
     let current = current_theme s in
+    (* Update the driver-level theme so apply_themed_background/foreground
+       use the selected theme, not just the page content rendering. *)
+    Style_context.set_theme current.theme ;
     Style_context.with_theme current.theme (fun () ->
         let header = W.themed_emphasis "Style System Demo" in
         let sub =
           W.themed_muted
-            "1/2/3 switch theme · Left/Right move focus · Esc returns"
+            "1/2/3/4 switch theme · Left/Right move focus · Esc returns"
         in
         let theme_line =
           W.themed_text
@@ -175,6 +189,7 @@ module Inner = struct
     | "1" -> {s with choice = Dark}
     | "2" -> {s with choice = Light}
     | "3" -> {s with choice = High_contrast}
+    | "4" -> {s with choice = System}
     | "Left" | "h" -> {s with cursor = clamp_idx (s.cursor - 1)}
     | "Right" | "l" -> {s with cursor = clamp_idx (s.cursor + 1)}
     | _ -> (

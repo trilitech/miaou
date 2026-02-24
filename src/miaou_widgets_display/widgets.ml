@@ -35,9 +35,13 @@ let bold s = ansi "1" s
 
 let dim s = ansi "2" s
 
-let fg n s = ansi ("38;5;" ^ string_of_int n) s
+let fg n s =
+  let code = Miaou_style.Style.fg_ansi_code n in
+  if code = "" then s else ansi code s
 
-let bg n s = ansi ("48;5;" ^ string_of_int n) s
+let bg n s =
+  let code = Miaou_style.Style.bg_ansi_code n in
+  if code = "" then s else ansi code s
 
 let green s = ansi "32" s
 
@@ -132,7 +136,7 @@ let themed_background_alt s = styled (Style_context.background_secondary ()) s
 let themed_contextual s = Style_context.styled s
 
 let apply_bg_fill ~bg s =
-  let prefix = "\027[48;5;" ^ string_of_int bg ^ "m" in
+  let prefix = "\027[" ^ Miaou_style.Style.bg_ansi_code bg ^ "m" in
   let reset = Style.ansi_reset in
   let len_s = String.length s in
   let len_reset = String.length reset in
@@ -173,7 +177,7 @@ let apply_themed_foreground content =
   let fg = resolved.Style.r_fg in
   if fg < 0 then content (* No text color in theme *)
   else
-    let fg_prefix = Printf.sprintf "\027[38;5;%dm" fg in
+    let fg_prefix = "\027[" ^ Style.fg_ansi_code fg ^ "m" in
     let reset_fg = "\027[39m" in
     (* Regex to match ANSI escape sequences *)
     let ansi_re = Str.regexp "\027\\[[0-9;]*m" in

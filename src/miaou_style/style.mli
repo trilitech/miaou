@@ -128,6 +128,15 @@ val resolve_color : ?dark_mode:bool -> color -> int
 (** Resolve style to concrete values *)
 val to_resolved : ?dark_mode:bool -> t -> resolved
 
+(** ANSI escape code fragment for a foreground color index.
+    Colors 0-15 use basic ANSI codes (respects terminal color scheme).
+    Colors 16-255 use 256-color extended codes.
+    Returns [""] for negative values (no color). *)
+val fg_ansi_code : int -> string
+
+(** Same as {!fg_ansi_code} but for background colors. *)
+val bg_ansi_code : int -> string
+
 (** Convert resolved style to ANSI escape sequence prefix *)
 val to_ansi_prefix : resolved -> string
 
