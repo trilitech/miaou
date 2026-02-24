@@ -48,12 +48,20 @@ let style_to_sgr style =
   (* Reverse *)
   if style.reverse then Buffer.add_string buf ";7" ;
 
-  (* Foreground color *)
-  if style.fg >= 0 && style.fg <= 255 then
+  (* Foreground color: 0-15 use basic ANSI, 16-255 use 256-color *)
+  if style.fg >= 0 && style.fg <= 7 then
+    Buffer.add_string buf (Printf.sprintf ";%d" (30 + style.fg))
+  else if style.fg >= 8 && style.fg <= 15 then
+    Buffer.add_string buf (Printf.sprintf ";%d" (90 + style.fg - 8))
+  else if style.fg >= 16 && style.fg <= 255 then
     Buffer.add_string buf (Printf.sprintf ";38;5;%d" style.fg) ;
 
-  (* Background color *)
-  if style.bg >= 0 && style.bg <= 255 then
+  (* Background color: same logic *)
+  if style.bg >= 0 && style.bg <= 7 then
+    Buffer.add_string buf (Printf.sprintf ";%d" (40 + style.bg))
+  else if style.bg >= 8 && style.bg <= 15 then
+    Buffer.add_string buf (Printf.sprintf ";%d" (100 + style.bg - 8))
+  else if style.bg >= 16 && style.bg <= 255 then
     Buffer.add_string buf (Printf.sprintf ";48;5;%d" style.bg) ;
 
   Buffer.add_char buf 'm' ;

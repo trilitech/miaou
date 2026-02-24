@@ -107,6 +107,14 @@ let all_themes =
       dark_mode = false;
       borderless = false;
     };
+    (* System theme *)
+    {
+      id = "system";
+      name = "System";
+      description = "Uses terminal's own colors and background";
+      dark_mode = true;
+      borderless = false;
+    };
   ]
 
 (** List all available built-in themes *)
@@ -386,6 +394,32 @@ let oled_json =
   "rules": {}
 }|}
 
+(* System theme - uses terminal's own colors via basic ANSI codes (0-15).
+   No explicit background or text color: inherits from the terminal. *)
+let system_json =
+  {|{
+  "name": "System",
+  "dark_mode": true,
+  "primary": { "fg": { "Fixed": 12 }, "bold": true },
+  "secondary": { "fg": { "Fixed": 8 } },
+  "accent": { "fg": { "Fixed": 13 } },
+  "error": { "fg": { "Fixed": 1 }, "bold": true },
+  "warning": { "fg": { "Fixed": 3 }, "bold": true },
+  "success": { "fg": { "Fixed": 2 } },
+  "info": { "fg": { "Fixed": 6 } },
+  "text": { "fg": { "Fixed": -1 } },
+  "text_muted": { "fg": { "Fixed": -1 }, "dim": true },
+  "text_emphasized": { "fg": { "Fixed": -1 }, "bold": true },
+  "background": { "bg": { "Fixed": -1 } },
+  "background_secondary": { "bg": { "Fixed": -1 } },
+  "border": { "fg": { "Fixed": -1 }, "dim": true },
+  "border_focused": { "fg": { "Fixed": 12 }, "bold": true },
+  "border_dim": { "fg": { "Fixed": -1 }, "dim": true },
+  "selection": { "fg": { "Fixed": -1 }, "bg": { "Fixed": -1 }, "reverse": true },
+  "default_border_style": "Rounded",
+  "rules": {}
+}|}
+
 (** Get the JSON string for a built-in theme *)
 let get_json id =
   match id with
@@ -400,6 +434,7 @@ let get_json id =
   | "tokyonight-day" -> Some tokyonight_day_json
   | "opencode" -> Some opencode_json
   | "oled" -> Some oled_json
+  | "system" -> Some system_json
   | _ -> None
 
 (** Load a built-in theme by ID *)

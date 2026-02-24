@@ -171,6 +171,18 @@ let to_resolved ?(dark_mode = true) style =
     r_strikethrough = Option.value ~default:false resolved.strikethrough;
   }
 
+let fg_ansi_code n =
+  if n >= 0 && n <= 7 then string_of_int (30 + n)
+  else if n >= 8 && n <= 15 then string_of_int (90 + n - 8)
+  else if n >= 16 then "38;5;" ^ string_of_int n
+  else ""
+
+let bg_ansi_code n =
+  if n >= 0 && n <= 7 then string_of_int (40 + n)
+  else if n >= 8 && n <= 15 then string_of_int (100 + n - 8)
+  else if n >= 16 then "48;5;" ^ string_of_int n
+  else ""
+
 let to_ansi_prefix r =
   let buf = Buffer.create 32 in
   let add_code code =
@@ -184,10 +196,13 @@ let to_ansi_prefix r =
   if r.r_underline then add_code "4" ;
   if r.r_reverse then add_code "7" ;
   if r.r_strikethrough then add_code "9" ;
-  (* Foreground color *)
-  if r.r_fg >= 0 then add_code ("38;5;" ^ string_of_int r.r_fg) ;
-  (* Background color *)
-  if r.r_bg >= 0 then add_code ("48;5;" ^ string_of_int r.r_bg) ;
+  (* Foreground color: 0-15 use basic ANSI codes (terminal-configurable),
+     16-255 use 256-color extended codes *)
+  let fg_code = fg_ansi_code r.r_fg in
+  if fg_code <> "" then add_code fg_code ;
+  (* Background color: same logic *)
+  let bg_code = bg_ansi_code r.r_bg in
+  if bg_code <> "" then add_code bg_code ;
   (* Build escape sequence *)
   if Buffer.length buf > 0 then "\027[" ^ Buffer.contents buf ^ "m" else ""
 
