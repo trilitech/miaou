@@ -45,12 +45,15 @@ type t
     @param width Display width in characters (default: 60, minimum: 4)
     @param initial Initial text content (default: "")
     @param placeholder Optional placeholder text shown when empty (displayed dimmed)
+    @param mask When [true], display each character as ['*'] (default: [false]).
+      The actual text is preserved and returned by {!get_text}/{!value}.
 *)
 val create :
   ?title:string ->
   ?width:int ->
   ?initial:string ->
   ?placeholder:string option ->
+  ?mask:bool ->
   unit ->
   t
 
@@ -61,6 +64,7 @@ val open_centered :
   ?width:int ->
   ?initial:string ->
   ?placeholder:string option ->
+  ?mask:bool ->
   unit ->
   t
 
