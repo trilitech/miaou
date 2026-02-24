@@ -50,6 +50,7 @@ val render :
   ?height:int ->
   ?color:int ->
   ?border_colors:border_colors ->
+  ?bg:int ->
   width:int ->
   string ->
   string
