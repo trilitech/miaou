@@ -3,6 +3,7 @@
 (version 0.4.1)
 (generate_opam_files true)
 (license MIT)
+(source (github trilitech/miaou))
 
 (package
  (name miaou-core)
@@ -12,6 +13,7 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
   (depends
+   (ocaml (>= 5.2))
    cohttp
    cohttp-eio
    eio
