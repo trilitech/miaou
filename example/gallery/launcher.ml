@@ -382,6 +382,39 @@ let demos =
           "demo_miaou_invaders"
           (module Miaou_invaders_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "Password Textbox";
+      open_demo =
+        (fun ps ->
+          Miaou.Core.Modal_manager.push
+            (module Demo_modals.Password_textbox_modal)
+            ~init:(Demo_modals.Password_textbox_modal.init ())
+            ~ui:
+              {
+                title = "Password Demo (masked input)";
+                left = Some 20;
+                max_width = Some (Fixed 60);
+                dim_background = true;
+              }
+            ~commit_on:["Enter"; "Tab"]
+            ~cancel_on:["Esc"]
+            ~on_close:(fun modal_ps -> function
+              | `Commit ->
+                  let text =
+                    Miaou_widgets_input.Textbox_widget.get_text
+                      modal_ps.Miaou.Core.Navigation.s
+                  in
+                  Demo_shared.Tutorial_modal.show
+                    ~title:"Password entered"
+                    ~markdown:
+                      (Printf.sprintf
+                         "You typed:\n\n`%s`\n\n(%d characters)"
+                         text
+                         (String.length text))
+                    ()
+              | `Cancel -> ()) ;
+          ps);
+    };
   ]
 
 let demo_at idx = List.nth_opt demos idx
@@ -399,7 +432,9 @@ let demo_tree =
     List_widget.group
       "Widgets"
       [
-        demo_group "Input" [0; 1; 2; 3; 15; 16; 17; 18; 19; 20; 21; 22; 23; 36];
+        demo_group
+          "Input"
+          [0; 1; 2; 3; 15; 16; 17; 18; 19; 20; 21; 22; 23; 36; 40];
         demo_group "Layout" [11; 12; 13; 24; 34; 37; 38];
         demo_group "Display" [4; 8; 9; 10; 25; 26; 27; 28; 30; 31; 32];
       ];
