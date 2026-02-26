@@ -173,6 +173,7 @@ window.MiaouTerminal = function (container, options) {
 
     var key = mapKey(ev);
     if (key) {
+      ev.preventDefault();
       ws.send(JSON.stringify({ type: 'key', key: key }));
     }
     return false;

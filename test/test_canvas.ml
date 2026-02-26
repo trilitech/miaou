@@ -296,7 +296,7 @@ let test_compose_new () =
 let test_to_ansi_empty () =
   let c = C.create ~rows:1 ~cols:3 in
   let out = C.to_ansi c in
-  check string "plain spaces" "   " out
+  check string "plain spaces" "\027[0m   " out
 
 let test_to_ansi_styled () =
   let c = C.create ~rows:1 ~cols:3 in

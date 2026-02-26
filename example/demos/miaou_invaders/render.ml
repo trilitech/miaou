@@ -365,12 +365,7 @@ let draw_game s c =
                 ~col:(ship_col + half)
                 ~style:(gst pulse_fg)
                 "^") ;
-        C.draw_text
-          c
-          ~row:ship_row
-          ~col:ship_col
-          ~style:(gbst ship_fg)
-          sprite) ;
+        C.draw_text c ~row:ship_row ~col:ship_col ~style:(gbst ship_fg) sprite) ;
 
     let hint =
       "<-/->/h/l:move  Space:fire  p:pause  Collect $ for power  r:restart  \
