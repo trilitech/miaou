@@ -300,7 +300,9 @@ let render_table_generic_with_opts ?backend ?(wrap = false) ~cols ~header_list
           cols_cells
       in
       let is_selected =
-        match opts.selection_mode with Row when i = cursor -> true | _ -> false
+        match opts.selection_mode with
+        | Row when i = cursor -> true
+        | _ -> false
       in
       let line_core = assemble_columns ~is_selected cells in
       let line =
