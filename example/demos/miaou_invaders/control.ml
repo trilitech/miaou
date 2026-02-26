@@ -19,7 +19,7 @@ let register_timers () =
       timer.set_interval ~id:"alien_shoot" 0.8
 
 let view s ~focus:_ ~size =
-  let rows = max 22 (min 36 (size.LTerm_geom.rows - 1)) in
+  let rows = max 22 (size.LTerm_geom.rows - 1) in
   let game_rows = max 16 (rows - 5) in
   let cols = max 24 (min size.LTerm_geom.cols max_cols) in
   let s =

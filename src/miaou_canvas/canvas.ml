@@ -282,7 +282,12 @@ let to_ansi_with_defaults ?(default_fg = -1) ?(default_bg = -1) t =
       if r > 0 then Buffer.add_char buf '\n' ;
       for c = 0 to t.cols - 1 do
         let cell = t.grid.(r).(c) in
-        if not (style_equal !current_style cell.style) then begin
+        (* Always emit SGR at column 0 so each row is self-contained.
+           Per-line post-processing (e.g. apply_bg_fill) adds a prefix before
+           each line; without a leading SGR the prefix bg would bleed into the
+           first character of rows where the style carries over unchanged from
+           the previous row. *)
+        if c = 0 || not (style_equal !current_style cell.style) then begin
           emit_sgr ~default_fg ~default_bg buf cell.style ;
           current_style := cell.style
         end ;

@@ -325,26 +325,22 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
             ~cols
             ops) ;
 
-    (* On modal state change (open OR close), do synchronous clear+render.
-       This prevents artifacts when modal closes and underlying content has changed. *)
-    if modal_just_changed then begin
-      Matrix_buffer.mark_all_dirty ctx.buffer ;
-      ctx.io.write "\027[2J\027[H" ;
-      Matrix_render_loop.force_render ctx.render_loop
-    end ;
+    (* On modal state change (open OR close), mark all cells dirty so the render
+       domain re-emits every cell on the next frame.  No screen clear or
+       synchronous render needed: the diff-based renderer handles transitions
+       correctly, and the render domain is the sole terminal writer. *)
+    if modal_just_changed then Matrix_buffer.mark_all_dirty ctx.buffer ;
 
-    (* Periodic forced full redraw to scrub any terminal artifacts.
-       We mark all cells dirty so the diff will re-emit every cell, but we
-       do NOT clear the screen first (\027[2J) as that causes visible flicker.
-       The diff-based overwrite naturally corrects any artifacts. *)
+    (* Periodic scrub: re-emit every cell to correct any accumulated drift
+       (e.g. wide-char artefacts, external writes).  We only mark dirty here —
+       the render domain picks it up within one frame, keeping it the sole
+       terminal writer and avoiding the concurrent-write race that caused
+       visible flicker. *)
     incr frame_counter ;
     if
       ctx.config.scrub_interval_frames > 0
       && !frame_counter mod ctx.config.scrub_interval_frames = 0
-    then begin
-      Matrix_buffer.mark_all_dirty ctx.buffer ;
-      Matrix_render_loop.force_render ctx.render_loop
-    end ;
+    then Matrix_buffer.mark_all_dirty ctx.buffer ;
 
     (* Drain all pending input events from the queue and process them
        sequentially.  When the queue is empty we still run one tick

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - Unreleased
+
+### Fixed
+
+- **Canvas ANSI row isolation**: `Canvas.to_ansi_with_defaults` now always emits an SGR sequence at column 0 of every row, making each row self-contained. Previously, style was carried across row boundaries as an optimisation; this caused `apply_bg_fill` to bleed the wrong background into the first character of rows where style happened to carry unchanged from the previous row.
+- **Canvas widget fills full terminal height**: Miaou Invaders (and any `Canvas_widget` page) no longer shows black bars below the canvas on tall terminals. The 36-row cap on the canvas height has been removed so the game scales to the full terminal height.
+- **Matrix driver scrub flicker**: `force_render` is no longer called from the main loop (neither on modal transitions nor during periodic scrub). Both cases now only call `mark_all_dirty`, letting the render domain (the sole terminal writer) pick up the change within one frame. This eliminates the interleaved-write race that caused visible flicker.
+- **Miaou Invaders background**: All `draw_text` calls in the Invaders demo now carry an explicit `bg` matching the current game or HUD background. Previously, entities drawn with `bg=-1` clobbered the `fill_rect`-painted background, producing black horizontal bars wherever sprites appeared.
+- **Periodic scrub interval**: Default `scrub_interval_frames` reduced from 30 frames (0.5 s at 60 fps) to 300 frames (5 s), making the occasional full-refresh nearly imperceptible.
+
 ## [0.4.1] - Unreleased
 
 ### Fixed

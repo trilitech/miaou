@@ -11,9 +11,13 @@ open Model
 
 (* -- Rendering ---------------------------------------------------------- *)
 
-let style_of fg = {C.default_style with fg}
+(* Style helpers with explicit background so draw_text calls don't clobber
+   the background set by fill_rect (canvas cells are fully explicit: every
+   set_char overwrites fg, bg, and char, so bg=-1 erases the filled bg). *)
 
-let bold_style_of fg = {C.default_style with fg; bold = true}
+let style_of ?(bg = -1) fg = {C.default_style with fg; bg}
+
+let bold_style_of ?(bg = -1) fg = {C.default_style with fg; bg; bold = true}
 
 let draw_background s c =
   let rows = C.rows c in
@@ -88,23 +92,39 @@ let draw_title_screen s c =
   let sub_col = max 1 ((cols - String.length sub) / 2) in
   let start_col = max 1 ((cols - String.length start) / 2) in
   let demo_col = max 1 ((cols - String.length demo) / 2) in
+  let title_bg = 17 in
   let base_row = max 4 ((rows / 2) - 3) in
-  C.draw_text c ~row:base_row ~col:title_col ~style:(bold_style_of 123) title ;
-  C.draw_text c ~row:(base_row + 2) ~col:sub_col ~style:(style_of 153) sub ;
+  C.draw_text
+    c
+    ~row:base_row
+    ~col:title_col
+    ~style:(bold_style_of ~bg:title_bg 123)
+    title ;
+  C.draw_text
+    c
+    ~row:(base_row + 2)
+    ~col:sub_col
+    ~style:(style_of ~bg:title_bg 153)
+    sub ;
   if s.frame / 20 mod 2 = 0 then
     C.draw_text
       c
       ~row:(base_row + 4)
       ~col:start_col
-      ~style:(bold_style_of 229)
+      ~style:(bold_style_of ~bg:title_bg 229)
       start ;
-  C.draw_text c ~row:(base_row + 6) ~col:demo_col ~style:(style_of 151) demo ;
+  C.draw_text
+    c
+    ~row:(base_row + 6)
+    ~col:demo_col
+    ~style:(style_of ~bg:title_bg 151)
+    demo ;
   let footer = "Esc:back" in
   C.draw_text
     c
     ~row:(rows - 1)
     ~col:(max 1 (cols - 10))
-    ~style:(style_of 240)
+    ~style:(style_of ~bg:title_bg 240)
     footer
 
 let camera_offset s =
@@ -121,6 +141,11 @@ let draw_game s c =
   if s.show_title then draw_title_screen s c
   else begin
     let cam_x, cam_y = camera_offset s in
+    let theme = theme_for_level s.level in
+    (* Theme-bg-aware style helpers: every canvas cell must carry an explicit
+       background so draw_text doesn't clobber the fill_rect background. *)
+    let gst fg = style_of ~bg:theme.bg fg in
+    let gbst fg = bold_style_of ~bg:theme.bg fg in
     C.clear c ;
     draw_background s c ;
 
@@ -131,9 +156,8 @@ let draw_game s c =
       ~width:cols
       ~height:rows
       ~border:Single
-      ~style:(style_of 240) ;
+      ~style:(gst 240) ;
 
-    let theme = theme_for_level s.level in
     let kind = shot_kind_of s.shot_color in
     let power = if s.shot_power = 0 then "-" else string_of_int s.shot_power in
     let weapon_fg =
@@ -169,22 +193,22 @@ let draw_game s c =
         let col = max 1 ((cols - String.length msg) / 2) in
         let sub_col = max 1 ((cols - String.length sub) / 2) in
         let row = rows / 2 in
-        C.draw_text c ~row ~col ~style:(bold_style_of 226) msg ;
-        C.draw_text c ~row:(row + 1) ~col:sub_col ~style:(style_of 250) sub
+        C.draw_text c ~row ~col ~style:(gbst 226) msg ;
+        C.draw_text c ~row:(row + 1) ~col:sub_col ~style:(gst 250) sub
     | Wave_clear anim ->
         let fg = if Anim.value anim > 0.5 then 46 else 120 in
         let msg = Printf.sprintf "WAVE %d CLEAR" s.level in
         let col = max 1 ((cols - String.length msg) / 2) in
-        C.draw_text c ~row:(rows / 2) ~col ~style:(bold_style_of fg) msg
+        C.draw_text c ~row:(rows / 2) ~col ~style:(gbst fg) msg
     | Game_over anim ->
         let fg = if Anim.value anim > 0.5 then 196 else 203 in
         let msg = "GAME OVER" in
         let col = max 1 ((cols - String.length msg) / 2) in
         let row = rows / 2 in
-        C.draw_text c ~row ~col ~style:(bold_style_of fg) msg ;
+        C.draw_text c ~row ~col ~style:(gbst fg) msg ;
         let sub = "Press 'r' to restart" in
         let sub_col = max 1 ((cols - String.length sub) / 2) in
-        C.draw_text c ~row:(row + 1) ~col:sub_col ~style:(style_of 245) sub) ;
+        C.draw_text c ~row:(row + 1) ~col:sub_col ~style:(gst 245) sub) ;
 
     (match
        List.find_opt (fun (a : alien) -> a.alive && a.kind = Boss) s.aliens
@@ -201,12 +225,12 @@ let draw_game s c =
         let bar = "[" ^ String.make filled '#' ^ String.make empty '-' ^ "]" in
         let label = Printf.sprintf " BOSS HP %d/%d " boss.hp boss.hp_max in
         let col = max 1 ((cols - String.length bar) / 2) in
-        C.draw_text c ~row:1 ~col ~style:(bold_style_of 196) bar ;
+        C.draw_text c ~row:1 ~col ~style:(gbst 196) bar ;
         C.draw_text
           c
           ~row:1
           ~col:(max 1 (col - String.length label - 1))
-          ~style:(style_of 209)
+          ~style:(gst 209)
           label) ;
 
     (match s.boss_intro with
@@ -219,8 +243,8 @@ let draw_game s c =
         let warning = C.create ~rows:2 ~cols in
         let msg_col = max 1 ((cols - String.length msg) / 2) in
         let sub_col = max 1 ((cols - String.length sub) / 2) in
-        C.draw_text warning ~row:0 ~col:msg_col ~style:(bold_style_of fg) msg ;
-        C.draw_text warning ~row:1 ~col:sub_col ~style:(style_of 229) sub ;
+        C.draw_text warning ~row:0 ~col:msg_col ~style:(gbst fg) msg ;
+        C.draw_text warning ~row:1 ~col:sub_col ~style:(gst 229) sub ;
         C.compose
           ~dst:c
           ~layers:[{C.canvas = warning; row = 3; col = 0; opaque = false}]) ;
@@ -236,7 +260,7 @@ let draw_game s c =
               let fg =
                 match a.row mod 3 with 0 -> 196 | 1 -> 208 | _ -> 226
               in
-              C.draw_text c ~row ~col ~style:(bold_style_of fg) ch
+              C.draw_text c ~row ~col ~style:(gbst fg) ch
           | Boss ->
               let hp_ratio =
                 if a.hp_max <= 0 then 0.0
@@ -247,7 +271,7 @@ let draw_game s c =
                 else if hp_ratio > 0.33 then 214
                 else 196
               in
-              C.draw_text c ~row ~col ~style:(bold_style_of fg) boss_char
+              C.draw_text c ~row ~col ~style:(gbst fg) boss_char
         end)
       s.aliens ;
 
@@ -255,14 +279,14 @@ let draw_game s c =
       (fun (b : projectile) ->
         let col = Float.to_int b.ppos.x + cam_x in
         let row = Float.to_int b.ppos.y + cam_y in
-        C.draw_text c ~row ~col ~style:(bold_style_of b.fg) b.glyph)
+        C.draw_text c ~row ~col ~style:(gbst b.fg) b.glyph)
       s.bullets ;
 
     List.iter
       (fun (b : projectile) ->
         let col = Float.to_int b.ppos.x + cam_x in
         let row = Float.to_int b.ppos.y + cam_y in
-        C.draw_text c ~row ~col ~style:(bold_style_of b.fg) b.glyph)
+        C.draw_text c ~row ~col ~style:(gbst b.fg) b.glyph)
       s.alien_bullets ;
 
     List.iter
@@ -273,7 +297,7 @@ let draw_game s c =
           if (s.frame + int_of_float (b.phase *. 10.0)) mod 2 = 0 then "$"
           else "S"
         in
-        C.draw_text c ~row ~col ~style:(bold_style_of (bonus_fg b.color)) pulse)
+        C.draw_text c ~row ~col ~style:(gbst (bonus_fg b.color)) pulse)
       s.bonuses ;
 
     List.iter
@@ -288,7 +312,7 @@ let draw_game s c =
         in
         let col = Float.to_int e.epos.x + cam_x in
         let row = Float.to_int e.epos.y + cam_y in
-        C.draw_text c ~row ~col ~style:(bold_style_of fg) ch)
+        C.draw_text c ~row ~col ~style:(gbst fg) ch)
       s.explosions ;
 
     List.iter
@@ -296,7 +320,7 @@ let draw_game s c =
         let fg = if Anim.value p.lanim < 0.5 then 118 else 194 in
         let col = Float.to_int p.lpos.x - 3 + cam_x in
         let row = Float.to_int p.lpos.y + cam_y in
-        C.draw_text c ~row ~col ~style:(bold_style_of fg) "+1 LIFE")
+        C.draw_text c ~row ~col ~style:(gbst fg) "+1 LIFE")
       s.life_popups ;
 
     (match s.phase with
@@ -326,26 +350,26 @@ let draw_game s c =
               c
               ~row:ship_row
               ~col:left_col
-              ~style:(bold_style_of pulse_fg)
+              ~style:(gbst pulse_fg)
               aura ;
             C.draw_text
               c
               ~row:ship_row
               ~col:right_col
-              ~style:(bold_style_of pulse_fg)
+              ~style:(gbst pulse_fg)
               aura ;
             if ship_row > 1 then
               C.draw_text
                 c
                 ~row:(ship_row - 1)
                 ~col:(ship_col + half)
-                ~style:(style_of pulse_fg)
+                ~style:(gst pulse_fg)
                 "^") ;
         C.draw_text
           c
           ~row:ship_row
           ~col:ship_col
-          ~style:(bold_style_of ship_fg)
+          ~style:(gbst ship_fg)
           sprite) ;
 
     let hint =
@@ -369,7 +393,7 @@ let draw_game s c =
         ~width:hud_w
         ~height:hud_h
         ~border:Rounded
-        ~style:(style_of 250) ;
+        ~style:(style_of ~bg:236 250) ;
       C.fill_rect
         hud
         ~row:1
@@ -378,13 +402,18 @@ let draw_game s c =
         ~height:(hud_h - 2)
         ~char:" "
         ~style:{C.default_style with bg = 236} ;
-      C.draw_text hud ~row:1 ~col:2 ~style:(bold_style_of weapon_fg) hud_main ;
-      C.draw_text hud ~row:2 ~col:2 ~style:(style_of 252) hud_sub ;
+      C.draw_text
+        hud
+        ~row:1
+        ~col:2
+        ~style:(bold_style_of ~bg:236 weapon_fg)
+        hud_main ;
+      C.draw_text hud ~row:2 ~col:2 ~style:(style_of ~bg:236 252) hud_sub ;
       C.compose
         ~dst:c
         ~layers:[{C.canvas = hud; row = hud_row; col = hud_col; opaque = true}]
     end ;
 
     let hint_col = max 1 ((cols - String.length hint) / 2) in
-    C.draw_text c ~row:(rows - 1) ~col:hint_col ~style:(style_of 240) hint
+    C.draw_text c ~row:(rows - 1) ~col:hint_col ~style:(gst 240) hint
   end

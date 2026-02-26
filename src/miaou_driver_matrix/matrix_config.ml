@@ -28,7 +28,7 @@ let default =
     frame_time_ms = time_of_rate fps_cap;
     tps_cap;
     tick_time_ms = time_of_rate tps_cap;
-    scrub_interval_frames = 30;
+    scrub_interval_frames = 300;
     debug = false;
     enable_mouse = true;
     handle_sigint = true;
@@ -61,8 +61,8 @@ let load () =
     | Some s -> (
         match int_of_string_opt s with
         | Some n when n >= 0 && n <= 10000 -> n
-        | _ -> 30)
-    | None -> 30
+        | _ -> 300)
+    | None -> 300
   in
   let enable_mouse =
     match Sys.getenv_opt "MIAOU_ENABLE_MOUSE" with
