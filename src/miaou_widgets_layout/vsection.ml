@@ -45,3 +45,5 @@ let render ~size ~(header : string list) ~(content_footer : string list)
   let child_out = Helpers.concat_lines child_lines_adjusted in
   let parts = header @ [sep] @ [child_out] @ [sep] @ content_footer in
   Helpers.concat_lines parts
+
+[@@@enforce_exempt] (* non-widget module *)

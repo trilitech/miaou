@@ -13,3 +13,5 @@ let move_cursor ~total ~cursor ~delta =
 let page_move ~total ~cursor ~page_size ~dir =
   let delta = match dir with `Up -> -page_size | `Down -> page_size in
   move_cursor ~total ~cursor ~delta
+
+[@@@enforce_exempt] (* non-widget module *)

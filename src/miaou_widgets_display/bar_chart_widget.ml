@@ -268,3 +268,9 @@ let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
           lines := Buffer.contents values_line :: !lines) ;
 
         Helpers.concat_lines !lines
+
+let () =
+  Miaou_registry.register
+    ~name:"bar_chart"
+    ~mli:[%blob "bar_chart_widget.mli"]
+    ()

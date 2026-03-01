@@ -123,3 +123,6 @@ let render w ~cols =
   | `Terminal -> render_terminal w ~cols
 
 let handle_key w ~key:_ = w
+
+let () =
+  Miaou_registry.register ~name:"progress" ~mli:[%blob "progress_widget.mli"] ()

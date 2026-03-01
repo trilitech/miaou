@@ -257,3 +257,5 @@ let render t ~size =
         done
     done ;
     Buffer.contents buf
+
+[@@@enforce_exempt] (* non-widget module *)

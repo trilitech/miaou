@@ -23,7 +23,16 @@
  (instrumentation
   (backend bisect_ppx))
  (preprocess
-  (pps ppx_forbid))
+  (pps ppx_forbid ppx_blob ppx_enforce))
+ (preprocessor_deps
+  (file pager_widget.mli)
+  (file list_widget.mli)
+  (file description_list.mli)
+  (file table_widget.mli)
+  (file tree_widget.mli)
+  (file sparkline_widget.mli)
+  (file line_chart_widget.mli)
+  (file bar_chart_widget.mli))
  (libraries
   yojson
   str
@@ -35,4 +44,5 @@
   miaou-core.style
   qrc
   imagelib
-  imagelib.unix))
+  imagelib.unix
+  miaou-registry))

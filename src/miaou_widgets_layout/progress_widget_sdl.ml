@@ -122,3 +122,5 @@ let render ~width ~progress ~label ~title ~cols:_ =
   | Some lbl, _ -> Palette.fg_steel lbl ^ "  " ^ line
   | None, Some t -> two_lines (W.titleize t) line
   | None, None -> line
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -12,3 +12,5 @@ let handled = `Handled
 let bubble = `Bubble
 
 let to_bool = function `Handled -> true | `Bubble -> false
+
+[@@@enforce_exempt] (* non-widget module *)

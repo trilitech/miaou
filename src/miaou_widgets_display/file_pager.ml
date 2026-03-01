@@ -168,3 +168,5 @@ let open_file ?(follow = false) ?notify_render ?(poll_interval = 0.25) ?title
           | None -> ()) ;
         Ok fp
       with exn -> Error (Printexc.to_string exn))
+
+[@@@enforce_exempt] (* non-widget module *)

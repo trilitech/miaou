@@ -68,3 +68,5 @@ let render t width =
         join_two l r)
   in
   Helpers.concat_lines lines
+
+[@@@enforce_exempt] (* non-widget module *)

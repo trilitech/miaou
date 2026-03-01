@@ -98,3 +98,6 @@ let render t ~cols =
     | `Bottom_left | `Bottom_right -> base_lines
   in
   Helpers.concat_lines (apply_pos ordered)
+
+let () =
+  Miaou_registry.register ~name:"toast" ~mli:[%blob "toast_widget.mli"] ()

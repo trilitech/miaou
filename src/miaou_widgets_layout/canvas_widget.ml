@@ -67,3 +67,6 @@ let render t ~size =
 let rows t = t.c_rows
 
 let cols t = t.c_cols
+
+let () =
+  Miaou_registry.register ~name:"canvas" ~mli:[%blob "canvas_widget.mli"] ()

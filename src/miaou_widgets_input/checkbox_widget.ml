@@ -56,3 +56,6 @@ let set_checked t v = {t with checked_ = v}
 let is_cancelled t = t.cancelled
 
 let reset_cancelled t = {t with cancelled = false}
+
+let () =
+  Miaou_registry.register ~name:"checkbox" ~mli:[%blob "checkbox_widget.mli"] ()

@@ -109,3 +109,5 @@ let render t ~focus:_ =
   done ;
 
   Helpers.concat_lines (List.rev !lines)
+
+[@@@enforce_exempt] (* non-widget module *)

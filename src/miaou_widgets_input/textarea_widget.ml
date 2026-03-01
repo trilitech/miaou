@@ -350,3 +350,6 @@ let height t = t.height
 
 let with_dimensions t ~width ~height =
   {t with width = max 10 width; height = max 3 height}
+
+let () =
+  Miaou_registry.register ~name:"textarea" ~mli:[%blob "textarea_widget.mli"] ()

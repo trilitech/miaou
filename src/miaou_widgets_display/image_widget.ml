@@ -253,3 +253,5 @@ let render_sdl t ~x ~y ~scale =
      Format: (x, y, width, height, pixel_data)
      where pixel_data is the raw pixel array for direct SDL texture upload *)
   (x, y, t.width * scale, t.height * scale, t.pixels)
+
+[@@@enforce_exempt] (* non-widget module *)

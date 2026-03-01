@@ -376,3 +376,9 @@ let get_series t = t.series
 let get_title t = t.title
 
 let get_dimensions t = (t.width, t.height)
+
+let () =
+  Miaou_registry.register
+    ~name:"line_chart"
+    ~mli:[%blob "line_chart_widget.mli"]
+    ()

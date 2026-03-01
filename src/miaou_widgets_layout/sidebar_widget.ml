@@ -42,3 +42,5 @@ let render t ~cols =
       ~left:t.sidebar
       ~right:t.main
       ~left_width
+
+[@@@enforce_exempt] (* non-widget module *)

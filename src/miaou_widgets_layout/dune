@@ -21,7 +21,15 @@
  (instrumentation
   (backend bisect_ppx))
  (preprocess
-  (pps ppx_forbid))
+  (pps ppx_forbid ppx_blob ppx_enforce))
+ (preprocessor_deps
+  (file box_widget.mli)
+  (file progress_widget.mli)
+  (file spinner_widget.mli)
+  (file file_browser_widget.mli)
+  (file card_widget.mli)
+  (file toast_widget.mli)
+  (file canvas_widget.mli))
  (libraries
   miaou-core.widgets.display
   miaou-core.widgets.input
@@ -29,4 +37,5 @@
   miaou-core.interfaces
   miaou-core.canvas
   miaou-core.style
-  lambda-term))
+  lambda-term
+  miaou-registry))

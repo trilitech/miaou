@@ -334,3 +334,6 @@ let reset_cancelled (w : 'a t) =
 
 (* Convenience: label string for current selection *)
 let value (w : 'a t) : string = List.nth w.inner.items w.inner.cursor
+
+let () =
+  Miaou_registry.register ~name:"select" ~mli:[%blob "select_widget.mli"] ()

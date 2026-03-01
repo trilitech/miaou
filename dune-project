@@ -6,6 +6,15 @@
 (source (github trilitech/miaou))
 
 (package
+ (name miaou-registry)
+ (synopsis "Miaou widget registry (runtime discoverability + embedded mli)")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
+ (depends (ocaml (>= 5.2))))
+
+(package
  (name miaou-core)
  (synopsis "Miaou core/widgets (no drivers, no SDL)")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
@@ -27,6 +36,7 @@
    qrc
    ppx_blob
    (ppx_forbid :build)
+   (ppx_enforce :build)
    (alcotest :with-test)
    (bisect_ppx :with-test)))
 
