@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
@@ -1047,3 +1048,5 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     ~left
     ~canvas_h:rows
     ~canvas_w:cols
+
+[@@@enforce_exempt] (* non-widget module *)

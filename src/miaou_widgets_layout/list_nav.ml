@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 let clamp lo hi x = max lo (min hi x)
@@ -13,3 +14,5 @@ let move_cursor ~total ~cursor ~delta =
 let page_move ~total ~cursor ~page_size ~dir =
   let delta = match dir with `Up -> -page_size | `Down -> page_size in
   move_cursor ~total ~cursor ~delta
+
+[@@@enforce_exempt] (* non-widget module *)

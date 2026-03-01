@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
@@ -837,3 +838,9 @@ let mkdir_and_cd browser dirname =
           schedule_path_update new_path ;
           (* Return the original browser state - the update will be applied later *)
           Ok (browser, true))
+
+let () =
+  Miaou_registry.register
+    ~name:"file_browser"
+    ~mli:[%blob "file_browser_widget.mli"]
+    ()

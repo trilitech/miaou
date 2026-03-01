@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
@@ -48,3 +49,5 @@ let render_node indent n =
   Buffer.contents buf
 
 let render t ~focus:_ = render_node 0 t.root
+
+let () = Miaou_registry.register ~name:"tree" ~mli:[%blob "tree_widget.mli"] ()

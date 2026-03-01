@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -29,3 +30,5 @@ let selection_bg = Palette.selection_bg
 let selection_fg = Palette.selection_fg
 
 let purple_gradient_line = Palette.purple_gradient_line
+
+[@@@enforce_exempt] (* non-widget module *)

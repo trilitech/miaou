@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -98,3 +99,6 @@ let render t ~cols =
     | `Bottom_left | `Bottom_right -> base_lines
   in
   Helpers.concat_lines (apply_pos ordered)
+
+let () =
+  Miaou_registry.register ~name:"toast" ~mli:[%blob "toast_widget.mli"] ()

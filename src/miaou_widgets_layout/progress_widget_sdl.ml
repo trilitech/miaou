@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -122,3 +123,5 @@ let render ~width ~progress ~label ~title ~cols:_ =
   | Some lbl, _ -> Palette.fg_steel lbl ^ "  " ^ line
   | None, Some t -> two_lines (W.titleize t) line
   | None, None -> line
+
+[@@@enforce_exempt] (* non-widget module *)

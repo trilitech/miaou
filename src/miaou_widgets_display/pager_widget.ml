@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
@@ -1116,3 +1117,6 @@ let handle_key ?win (t : t) ~key : t * bool =
       match handle_nav_key t ~key ~win:body_win ~total ~page with
       | Some result -> result
       | None -> (t, false))
+
+let () =
+  Miaou_registry.register ~name:"pager" ~mli:[%blob "pager_widget.mli"] ()

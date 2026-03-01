@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
@@ -45,3 +46,5 @@ let render ~size ~(header : string list) ~(content_footer : string list)
   let child_out = Helpers.concat_lines child_lines_adjusted in
   let parts = header @ [sep] @ [child_out] @ [sep] @ content_footer in
   Helpers.concat_lines parts
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -253,3 +254,5 @@ let render_sdl t ~x ~y ~scale =
      Format: (x, y, width, height, pixel_data)
      where pixel_data is the raw pixel array for direct SDL texture upload *)
   (x, y, t.width * scale, t.height * scale, t.pixels)
+
+[@@@enforce_exempt] (* non-widget module *)

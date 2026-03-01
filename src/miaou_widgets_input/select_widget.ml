@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 (* Select widget: supports both monomorphic string items and a polymorphic API *)
@@ -334,3 +335,6 @@ let reset_cancelled (w : 'a t) =
 
 (* Convenience: label string for current selection *)
 let value (w : 'a t) : string = List.nth w.inner.items w.inner.cursor
+
+let () =
+  Miaou_registry.register ~name:"select" ~mli:[%blob "select_widget.mli"] ()

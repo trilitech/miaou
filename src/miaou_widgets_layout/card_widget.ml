@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -37,3 +38,5 @@ let render t ~cols =
   in
   let footer = match t.footer with Some f -> f | None -> "" in
   W.render_frame ~title ~body:t.body ~footer ~cols ()
+
+let () = Miaou_registry.register ~name:"card" ~mli:[%blob "card_widget.mli"] ()

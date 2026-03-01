@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -376,3 +377,9 @@ let get_series t = t.series
 let get_title t = t.title
 
 let get_dimensions t = (t.width, t.height)
+
+let () =
+  Miaou_registry.register
+    ~name:"line_chart"
+    ~mli:[%blob "line_chart_widget.mli"]
+    ()

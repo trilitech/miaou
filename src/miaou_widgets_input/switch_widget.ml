@@ -1,7 +1,8 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -51,3 +52,6 @@ let set_on t v = {t with on = v}
 let is_cancelled t = t.cancelled
 
 let reset_cancelled t = {t with cancelled = false}
+
+let () =
+  Miaou_registry.register ~name:"switch" ~mli:[%blob "switch_widget.mli"] ()

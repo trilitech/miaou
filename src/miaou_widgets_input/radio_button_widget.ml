@@ -1,7 +1,8 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -55,3 +56,9 @@ let set_selected t v = {t with selected = v}
 let is_cancelled t = t.cancelled
 
 let reset_cancelled t = {t with cancelled = false}
+
+let () =
+  Miaou_registry.register
+    ~name:"radio"
+    ~mli:[%blob "radio_button_widget.mli"]
+    ()

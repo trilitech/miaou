@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -22,3 +23,5 @@ let render_table_80_with_opts ?wrap ~cols ~header ~rows ~cursor ~sel_col ~opts
 
 let render_table_80 ~cols ~header ~rows ~cursor ~sel_col =
   Table_widget.render_table_80 ~cols ~header ~rows ~cursor ~sel_col
+
+[@@@enforce_exempt] (* non-widget module *)

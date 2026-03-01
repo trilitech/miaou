@@ -2,9 +2,9 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
-(* SPDX-License-Identifier: MIT *)
 
 type gradient_dir = Miaou_interfaces.Palette.gradient_dir =
   | Up
@@ -58,3 +58,5 @@ let selection_fg s = (p ()).selection_fg s
 let fixed_region_bg s = (p ()).fixed_region_bg s
 
 let header_bg s = (p ()).header_bg s
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -1,7 +1,8 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -140,3 +141,6 @@ let width t = t.width
 let with_width t width =
   let width = max 4 width in
   if width = t.width then t else {t with width}
+
+let () =
+  Miaou_registry.register ~name:"textbox" ~mli:[%blob "textbox_widget.mli"] ()

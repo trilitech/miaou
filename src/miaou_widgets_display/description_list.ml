@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 module Helpers = Miaou_helpers.Helpers
@@ -65,3 +66,9 @@ let render ?cols ?(wrap = true) t ~focus:_ =
       Buffer.add_string buf body ;
       Buffer.contents buf
   | None -> Helpers.concat_lines lines
+
+let () =
+  Miaou_registry.register
+    ~name:"description_list"
+    ~mli:[%blob "description_list.mli"]
+    ()
