@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -111,3 +112,5 @@ module Sdl_ops = struct
 
   let register_render_copy f = render_copy_ref := f
 end
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -1,0 +1,4 @@
+(library
+ (name miaou_registry)
+ (public_name miaou-registry)
+ (modules miaou_registry))

@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -226,3 +227,9 @@ let get_bounds t =
     (min_val, max_val, current)
 
 let is_empty t = Queue.is_empty t.data
+
+let () =
+  Miaou_registry.register
+    ~name:"sparkline"
+    ~mli:[%blob "sparkline_widget.mli"]
+    ()

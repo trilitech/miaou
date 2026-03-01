@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -10,3 +11,5 @@
 
 let render (w : 'a Select_widget.t) ~focus =
   Select_widget.render_for_backend `Sdl w ~focus
+
+[@@@enforce_exempt] (* non-widget module *)

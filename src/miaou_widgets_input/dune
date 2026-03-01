@@ -15,9 +15,19 @@
  (instrumentation
   (backend bisect_ppx))
  (preprocess
-  (pps ppx_forbid))
+  (pps ppx_forbid ppx_blob ppx_enforce))
+ (preprocessor_deps
+  (file textbox_widget.mli)
+  (file textarea_widget.mli)
+  (file validated_textbox_widget.mli)
+  (file select_widget.mli)
+  (file checkbox_widget.mli)
+  (file radio_button_widget.mli)
+  (file button_widget.mli)
+  (file switch_widget.mli))
  (libraries
   miaou-core.widgets.display
   miaou-core.helpers
   miaou-core.interfaces
-  lambda-term))
+  lambda-term
+  miaou-registry))

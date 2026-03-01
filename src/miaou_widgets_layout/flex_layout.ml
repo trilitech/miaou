@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -317,3 +318,5 @@ let render t ~size =
     | Column -> render_column t ~size
   in
   Helpers.concat_lines lines
+
+[@@@enforce_exempt] (* non-widget module *)

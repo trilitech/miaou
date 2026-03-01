@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 open Miaou_widgets_display.Widgets
@@ -137,3 +138,9 @@ let flush_validation t = if t.pending_validation then run_validation t else t
 
 (* Check if there's a pending validation that hasn't run yet *)
 let has_pending_validation t = t.pending_validation
+
+let () =
+  Miaou_registry.register
+    ~name:"validated_textbox"
+    ~mli:[%blob "validated_textbox_widget.mli"]
+    ()

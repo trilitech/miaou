@@ -1,7 +1,8 @@
 (*****************************************************************************)
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -257,3 +258,5 @@ let render t ~size =
         done
     done ;
     Buffer.contents buf
+
+[@@@enforce_exempt] (* non-widget module *)

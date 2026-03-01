@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -60,3 +61,5 @@ let render_braille_with_colors canvas styles =
       match styles.(y).(x) with
       | Some color -> Widgets.ansi color ch
       | None -> ch)
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 module Helpers = Miaou_helpers.Helpers
@@ -581,3 +582,6 @@ module Table = struct
     if t.cursor < 0 || t.cursor >= List.length t.rows then None
     else Some (List.nth t.rows t.cursor)
 end
+
+let () =
+  Miaou_registry.register ~name:"table" ~mli:[%blob "table_widget.mli"] ()

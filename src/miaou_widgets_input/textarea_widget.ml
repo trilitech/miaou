@@ -1,7 +1,8 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -350,3 +351,6 @@ let height t = t.height
 
 let with_dimensions t ~width ~height =
   {t with width = max 10 width; height = max 3 height}
+
+let () =
+  Miaou_registry.register ~name:"textarea" ~mli:[%blob "textarea_widget.mli"] ()

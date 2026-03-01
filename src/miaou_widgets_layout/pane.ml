@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 (* Pane splitting helpers for Miaou widgets *)
@@ -159,3 +160,5 @@ let split_horizontal ~height ~top_pad ~bottom_pad ~border ~wrap ~sep ~top
     in
     top_frame ^ "\n" ^ top_s ^ "\n" ^ sep ^ "\n" ^ bottom_s
   else top_s ^ "\n" ^ sep ^ "\n" ^ bottom_s
+
+[@@@enforce_exempt] (* non-widget module *)
