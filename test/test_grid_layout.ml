@@ -1,7 +1,8 @@
 (******************************************************************************)
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
-(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -142,6 +143,44 @@ let test_minmax_track () =
   check bool "minmax at least 3" true (a_count >= 3) ;
   check bool "minmax at most 8" true (a_count <= 8)
 
+let test_row_gap () =
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 1; Grid.Px 1]
+      ~cols:[Grid.Px 5]
+      ~row_gap:1
+      [
+        Grid.cell ~row:0 ~col:0 (fill_char 'A');
+        Grid.cell ~row:1 ~col:0 (fill_char 'B');
+      ]
+  in
+  let out = Grid.render grid ~size:(size 5 3) in
+  let lines = String.split_on_char '\n' out in
+  check int "line count" 3 (List.length lines) ;
+  check string "row 0" "AAAAA" (List.nth lines 0) ;
+  check string "gap" "     " (List.nth lines 1) ;
+  check string "row 1" "BBBBB" (List.nth lines 2)
+
+let test_row_gap_multi_line () =
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 2; Grid.Px 2]
+      ~cols:[Grid.Px 4]
+      ~row_gap:1
+      [
+        Grid.cell ~row:0 ~col:0 (fill_char 'A');
+        Grid.cell ~row:1 ~col:0 (fill_char 'B');
+      ]
+  in
+  let out = Grid.render grid ~size:(size 4 5) in
+  let lines = String.split_on_char '\n' out in
+  check int "line count" 5 (List.length lines) ;
+  check string "row 0 line 0" "AAAA" (List.nth lines 0) ;
+  check string "row 0 line 1" "AAAA" (List.nth lines 1) ;
+  check string "gap" "    " (List.nth lines 2) ;
+  check string "row 1 line 0" "BBBB" (List.nth lines 3) ;
+  check string "row 1 line 1" "BBBB" (List.nth lines 4)
+
 let () =
   run
     "grid_layout"
@@ -157,5 +196,7 @@ let () =
           test_case "row span" `Quick test_row_span;
           test_case "empty grid" `Quick test_empty_grid;
           test_case "minmax track" `Quick test_minmax_track;
+          test_case "row gap" `Quick test_row_gap;
+          test_case "row gap multi-line" `Quick test_row_gap_multi_line;
         ] );
     ]
