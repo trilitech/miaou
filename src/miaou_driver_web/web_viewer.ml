@@ -13,9 +13,24 @@
 
 [@@@warning "-32-34-37-69"]
 
-type t = {mutex : Mutex.t; mutable viewers : Web_websocket.t list; port : int}
+type t = {
+  mutex : Mutex.t;
+  mutable viewers : Web_websocket.t list;
+  port : int;
+  mutable rows : int;
+  mutable cols : int;
+  mutable last_frame : string option;
+}
 
-let create ~port = {mutex = Mutex.create (); viewers = []; port}
+let create ~port =
+  {
+    mutex = Mutex.create ();
+    viewers = [];
+    port;
+    rows = 24;
+    cols = 80;
+    last_frame = None;
+  }
 
 let add_viewer t ws =
   Mutex.lock t.mutex ;
@@ -35,16 +50,27 @@ let lf_to_crlf s =
     s ;
   Buffer.contents buf
 
-let broadcast t data =
+let dims_msg ~rows ~cols =
+  Printf.sprintf {|{"type":"dimensions","rows":%d,"cols":%d}|} rows cols
+
+let broadcast t ~rows ~cols data =
   (* Cursor home + clear screen + data with \n → \r\n for xterm.js *)
   let frame = "\027[H\027[2J" ^ lf_to_crlf data in
   Mutex.lock t.mutex ;
+  let dims_changed = t.rows <> rows || t.cols <> cols in
+  t.rows <- rows ;
+  t.cols <- cols ;
+  t.last_frame <- Some frame ;
   t.viewers <-
     List.filter
       (fun ws ->
         if Web_websocket.is_closed ws then false
         else begin
-          (try Web_websocket.send_text ws frame with _ -> ()) ;
+          (try
+             if dims_changed then
+               Web_websocket.send_text ws (dims_msg ~rows ~cols) ;
+             Web_websocket.send_text ws frame
+           with _ -> ()) ;
           not (Web_websocket.is_closed ws)
         end)
       t.viewers ;
@@ -135,6 +161,18 @@ let start ~sw ~net ~port () =
                       (* Send role message so client.js knows it's a viewer *)
                       let role_msg = {|{"type":"role","role":"viewer"}|} in
                       Web_websocket.send_text ws role_msg ;
+                      (* Send current dimensions so client resizes xterm.js *)
+                      Mutex.lock t.mutex ;
+                      let rows = t.rows in
+                      let cols = t.cols in
+                      let cached = t.last_frame in
+                      Mutex.unlock t.mutex ;
+                      Web_websocket.send_text ws (dims_msg ~rows ~cols) ;
+                      (* Replay last frame so viewer doesn't start blank *)
+                      (match cached with
+                      | Some frame -> (
+                          try Web_websocket.send_text ws frame with _ -> ())
+                      | None -> ()) ;
                       add_viewer t ws ;
                       (* Drain incoming messages until close *)
                       (try
