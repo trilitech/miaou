@@ -27,6 +27,7 @@
   miaou-core.core
   miaou-core.lib_miaou_internal
   yojson
+  eio.unix
   unix))
 
 (library

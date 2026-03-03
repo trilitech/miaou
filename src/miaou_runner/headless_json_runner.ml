@@ -156,7 +156,13 @@ let run (page : (module Tui_page.PAGE_SIG)) =
   let module P = (val page : Tui_page.PAGE_SIG) in
   HD.Stateful.init (module P) ;
   let rec loop () =
-    match input_line stdin with
+    (* Use run_in_systhread so the blocking input_line runs in a system
+       thread.  This keeps the eio event loop active, allowing background
+       fibers (e.g. LLM subprocess I/O) to make progress between commands. *)
+    match
+      Eio_unix.run_in_systhread ~label:"headless-stdin" (fun () ->
+          input_line stdin)
+    with
     | exception End_of_file -> ()
     | line -> (
         let line = String.trim line in
