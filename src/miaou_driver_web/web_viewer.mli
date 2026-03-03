@@ -25,10 +25,12 @@ val start :
   unit ->
   t
 
-(** [broadcast t data] sends the raw ANSI frame [data] to all connected
-    viewers, prepended with cursor-home so the frame overwrites the previous
-    content. *)
-val broadcast : t -> string -> unit
+(** [broadcast t ~rows ~cols data] sends the raw ANSI frame [data] to all
+    connected viewers.  The terminal dimensions [rows] x [cols] are tracked
+    so that newly connecting viewers can resize their xterm.js terminal to
+    match the headless driver.  If the dimensions change, a JSON
+    ["dimensions"] message is sent before the ANSI frame. *)
+val broadcast : t -> rows:int -> cols:int -> string -> unit
 
 (** [url t] returns the viewer URL, e.g. ["http://127.0.0.1:8765/viewer"]. *)
 val url : t -> string
