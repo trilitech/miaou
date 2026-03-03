@@ -190,7 +190,32 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
               emit (error_response "Expected a JSON object") ;
               loop ())
   in
-  loop () ;
+  (* When a viewer is attached, fork a daemon fiber that periodically
+     re-renders the screen and broadcasts changes.  Eio's cooperative
+     scheduling ensures the refresh fiber only runs while the main loop
+     is blocked on stdin (run_in_systhread), so there is no concurrent
+     access to the headless driver state. *)
+  (match !on_frame_fn with
+  | Some _ ->
+      Eio.Switch.run @@ fun sw ->
+      Eio.Fiber.fork_daemon ~sw (fun () ->
+          let prev = ref "" in
+          while true do
+            Eio_unix.run_in_systhread ~label:"viewer-refresh" (fun () ->
+                (Unix.sleepf [@allow_forbidden "periodic viewer refresh"]) 0.2) ;
+            ignore (HD.Stateful.idle_wait ~iterations:1 ()) ;
+            let size = HD.get_size () in
+            let raw = HD.Screen.get () in
+            if raw <> !prev then (
+              prev := raw ;
+              match !on_frame_fn with
+              | Some f ->
+                  f ~rows:size.LTerm_geom.rows ~cols:size.LTerm_geom.cols raw
+              | None -> ())
+          done ;
+          `Stop_daemon) ;
+      loop ()
+  | None -> loop ()) ;
   (* Exit cleanly — same pattern as Tui_driver_common which calls exit 0
      after its event loop to avoid blocking on pending Eio fibers. *)
   exit 0
