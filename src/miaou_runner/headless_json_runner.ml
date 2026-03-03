@@ -202,7 +202,12 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
           let prev = ref "" in
           while true do
             Eio_unix.sleep 0.2 ;
-            ignore (HD.Stateful.idle_wait ~iterations:1 ()) ;
+            (* Read the cached screen content written by the command handler.
+               Do NOT call idle_wait here — that would race with the command
+               handler's own idle_wait (both mutate the shared page-state ref
+               and double-tick clocks/timers whenever the command handler
+               yields).  The cache is always fresh: every tick/key/render
+               command updates it before returning a response. *)
             let size = HD.get_size () in
             let raw = HD.Screen.get () in
             if raw <> !prev then (
