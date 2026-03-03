@@ -39,11 +39,19 @@ let ansi_strip s =
   done ;
   Buffer.contents buf
 
+(* ── on_frame callback ──────────────────────────────────────────────────── *)
+
+(** Optional callback invoked with the raw ANSI frame on every frame emit.
+    Set by [run ~on_frame] before the command loop starts. *)
+let on_frame_fn : (string -> unit) option ref = ref None
+
 (* ── Frame helpers ───────────────────────────────────────────────────────── *)
 
 let current_frame () =
   let size = HD.get_size () in
-  let text = ansi_strip (HD.Screen.get ()) in
+  let raw = HD.Screen.get () in
+  (match !on_frame_fn with Some f -> f raw | None -> ()) ;
+  let text = ansi_strip raw in
   `Assoc
     [
       ("type", `String "frame");
@@ -141,7 +149,8 @@ let handle_cmd (cmd : (string * Yojson.Safe.t) list) : bool =
 
 (* ── Main entry point ────────────────────────────────────────────────────── *)
 
-let run (page : (module Tui_page.PAGE_SIG)) =
+let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
+  on_frame_fn := on_frame ;
   (* Redirect stderr to /dev/null unless verbose mode requested *)
   (match Sys.getenv_opt "MIAOU_HEADLESS_VERBOSE" with
   | None | Some "" -> (
