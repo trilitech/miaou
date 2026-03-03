@@ -27,8 +27,17 @@ let remove_viewer t ws =
   t.viewers <- List.filter (fun v -> v != ws) t.viewers ;
   Mutex.unlock t.mutex
 
+let lf_to_crlf s =
+  let buf = Buffer.create (String.length s + 64) in
+  String.iter
+    (fun c ->
+      if c = '\n' then Buffer.add_string buf "\r\n" else Buffer.add_char buf c)
+    s ;
+  Buffer.contents buf
+
 let broadcast t data =
-  let frame = "\027[H" ^ data in
+  (* Cursor home + clear screen + data with \n → \r\n for xterm.js *)
+  let frame = "\027[H\027[2J" ^ lf_to_crlf data in
   Mutex.lock t.mutex ;
   t.viewers <-
     List.filter
