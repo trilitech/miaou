@@ -42,15 +42,19 @@ let ansi_strip s =
 (* ── on_frame callback ──────────────────────────────────────────────────── *)
 
 (** Optional callback invoked with the raw ANSI frame on every frame emit.
-    Set by [run ~on_frame] before the command loop starts. *)
-let on_frame_fn : (string -> unit) option ref = ref None
+    Set by [run ~on_frame] before the command loop starts.  The callback
+    receives the terminal dimensions (rows, cols) followed by the raw ANSI
+    data so that a viewer can resize its terminal to match. *)
+let on_frame_fn : (rows:int -> cols:int -> string -> unit) option ref = ref None
 
 (* ── Frame helpers ───────────────────────────────────────────────────────── *)
 
 let current_frame () =
   let size = HD.get_size () in
   let raw = HD.Screen.get () in
-  (match !on_frame_fn with Some f -> f raw | None -> ()) ;
+  (match !on_frame_fn with
+  | Some f -> f ~rows:size.LTerm_geom.rows ~cols:size.LTerm_geom.cols raw
+  | None -> ()) ;
   let text = ansi_strip raw in
   `Assoc
     [

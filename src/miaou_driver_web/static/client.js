@@ -96,8 +96,11 @@ window.MiaouTerminal = function (container, options) {
   // Uses ResizeObserver to reliably detect when the container has its
   // final dimensions (works even when the initial layout is delayed).
   var resizeObserver = new ResizeObserver(function () {
-    fitAddon.fit();
-    sendResize();
+    // Only auto-fit for controllers; viewer size is set by the server
+    if (role !== 'viewer') {
+      fitAddon.fit();
+      sendResize();
+    }
   });
   resizeObserver.observe(container);
 
@@ -110,7 +113,10 @@ window.MiaouTerminal = function (container, options) {
     return url;
   }
 
+  var wasViewer = false;
+
   function connect(password) {
+    var prevRole = role;
     role = null;
     var gotRole = false;
     ws = new WebSocket(buildWsUrl(password));
@@ -145,12 +151,31 @@ window.MiaouTerminal = function (container, options) {
           // Not JSON, treat as ANSI data below
         }
       }
+      // For viewers: handle dimension messages from the server
+      if (role === 'viewer' && typeof event.data === 'string' && event.data.charAt(0) === '{') {
+        try {
+          var msg = JSON.parse(event.data);
+          if (msg.type === 'dimensions' && msg.rows && msg.cols) {
+            term.resize(msg.cols, msg.rows);
+            return;
+          }
+        } catch (e) {
+          // Not JSON, treat as ANSI data below
+        }
+      }
       term.write(event.data);
     };
 
     ws.onclose = function () {
       onStatusChange('disconnected', 'Disconnected');
-      if (!gotRole) {
+      if (gotRole && role === 'viewer') {
+        wasViewer = true;
+      }
+      if (wasViewer || prevRole === 'viewer') {
+        // Auto-reconnect for viewers — keep retrying
+        wasViewer = true;
+        setTimeout(function () { connect(password); }, 2000);
+      } else if (!gotRole) {
         sessionStorage.removeItem(storageKey);
         if (onAuthRequired) {
           onAuthRequired(!!password, function (newPassword) {
