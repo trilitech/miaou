@@ -201,8 +201,7 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
       Eio.Fiber.fork_daemon ~sw (fun () ->
           let prev = ref "" in
           while true do
-            Eio_unix.run_in_systhread ~label:"viewer-refresh" (fun () ->
-                (Unix.sleepf [@allow_forbidden "periodic viewer refresh"]) 0.2) ;
+            Eio_unix.sleep 0.2 ;
             ignore (HD.Stateful.idle_wait ~iterations:1 ()) ;
             let size = HD.get_size () in
             let raw = HD.Screen.get () in
