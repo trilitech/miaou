@@ -346,6 +346,11 @@ module Stateful = struct
         | (`Quit | `Back | `SwitchTo _) as r -> r
         | `Continue ->
             !refresh_impl () ;
+            (* Yield to the eio scheduler so that fibers spawned via
+               Fiber.fork (e.g. async LLM calls) can make progress. *)
+            (match Fibers.switch_opt () with
+            | Some _ -> Eio.Fiber.yield ()
+            | None -> ()) ;
             (if sleep > 0.0 then
                try
                  (Unix.sleepf
