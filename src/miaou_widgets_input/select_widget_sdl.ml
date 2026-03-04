@@ -10,3 +10,5 @@
 
 let render (w : 'a Select_widget.t) ~focus =
   Select_widget.render_for_backend `Sdl w ~focus
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -581,3 +581,6 @@ module Table = struct
     if t.cursor < 0 || t.cursor >= List.length t.rows then None
     else Some (List.nth t.rows t.cursor)
 end
+
+let () =
+  Miaou_registry.register ~name:"table" ~mli:[%blob "table_widget.mli"] ()

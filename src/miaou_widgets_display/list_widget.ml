@@ -196,3 +196,5 @@ let handle_key t ~key =
         match parent_path with Some p -> {t with cursor = p} | None -> t)
   | "Enter" | " " -> toggle t
   | _ -> t
+
+let () = Miaou_registry.register ~name:"list" ~mli:[%blob "list_widget.mli"] ()

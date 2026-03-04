@@ -22,3 +22,5 @@ let render_table_80_with_opts ?wrap ~cols ~header ~rows ~cursor ~sel_col ~opts
 
 let render_table_80 ~cols ~header ~rows ~cursor ~sel_col =
   Table_widget.render_table_80 ~cols ~header ~rows ~cursor ~sel_col
+
+[@@@enforce_exempt] (* non-widget module *)

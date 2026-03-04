@@ -317,3 +317,5 @@ let render t ~size =
     | Column -> render_column t ~size
   in
   Helpers.concat_lines lines
+
+[@@@enforce_exempt] (* non-widget module *)

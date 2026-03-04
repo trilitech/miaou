@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Web Viewer for headless sessions** (`Web_viewer`): standalone HTTP+WebSocket server that runs alongside the headless driver, letting a human observe an AI agent's TUI session in real time via a browser. Serves the existing xterm.js viewer page, broadcasts ANSI frames to all connected viewers, and tracks terminal dimensions so xterm.js resizes to match the headless render size. New viewers receive the current dimensions and last frame on connect (no blank screen).
+- **`on_frame` callback in headless runner**: `Headless_json_runner.run` and `Runner_tui.run` accept an optional `?on_frame:(rows:int -> cols:int -> string -> unit)` callback invoked with the raw ANSI frame and terminal dimensions on every frame emit. This enables external consumers (like `Web_viewer`) to observe frames without modifying the headless protocol.
+- **Viewer auto-reconnect**: the xterm.js client (`client.js`) now automatically reconnects with a 2-second retry when a viewer WebSocket disconnects, surviving server restarts without requiring a manual browser refresh.
+- **Viewer dimension sync**: when the headless driver's terminal size changes, a `{"type":"dimensions","rows":R,"cols":C}` JSON message is sent to all viewers. The client resizes xterm.js to match; FitAddon auto-fit is disabled for viewers so the terminal size is controlled by the server.
+
 ### Fixed
 
 - **Web driver Tab key**: `ev.preventDefault()` is now called for all recognized keys in the web client's keyboard handler. Previously, Tab (and other browser-reserved keys like F5) were forwarded to the server but also processed by the browser for focus navigation / page reload. Tab now reaches the Miaou application correctly.

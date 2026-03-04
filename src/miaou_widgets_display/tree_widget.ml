@@ -48,3 +48,5 @@ let render_node indent n =
   Buffer.contents buf
 
 let render t ~focus:_ = render_node 0 t.root
+
+let () = Miaou_registry.register ~name:"tree" ~mli:[%blob "tree_widget.mli"] ()

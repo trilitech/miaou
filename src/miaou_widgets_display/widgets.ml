@@ -1047,3 +1047,5 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     ~left
     ~canvas_h:rows
     ~canvas_w:cols
+
+[@@@enforce_exempt] (* non-widget module *)

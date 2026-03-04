@@ -1116,3 +1116,6 @@ let handle_key ?win (t : t) ~key : t * bool =
       match handle_nav_key t ~key ~win:body_win ~total ~page with
       | Some result -> result
       | None -> (t, false))
+
+let () =
+  Miaou_registry.register ~name:"pager" ~mli:[%blob "pager_widget.mli"] ()

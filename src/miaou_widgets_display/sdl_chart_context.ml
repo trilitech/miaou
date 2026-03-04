@@ -111,3 +111,5 @@ module Sdl_ops = struct
 
   let register_render_copy f = render_copy_ref := f
 end
+
+[@@@enforce_exempt] (* non-widget module *)

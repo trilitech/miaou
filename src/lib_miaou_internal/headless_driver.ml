@@ -13,7 +13,12 @@ module Timer = Miaou_interfaces.Timer
 module Clipboard = Miaou_interfaces.Clipboard
 module Style_context = Miaou_style.Style_context
 module Theme_loader = Miaou_style.Theme_loader
+module Keys = Miaou_core.Keys
 open LTerm_geom
+
+(** Convert a string key name to a [Keys.t], falling back to [Char s]. *)
+let key_of_string s =
+  match Keys.of_string s with Some k -> k | None -> Keys.Char s
 
 (* Helper: apply any pending navigation from modal callbacks to pstate *)
 let apply_pending_modal_nav ps =
@@ -176,11 +181,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                   Miaou_core.Modal_manager.handle_key k ;
                   ps)
                 else
-                  match k with
-                  | "Up" -> P.move ps (-1)
-                  | "Down" -> P.move ps 1
-                  | "q" | "Q" -> Navigation.quit ps
-                  | _ -> P.handle_key ps k ~size:(get_size ())
+                  let key = key_of_string k in
+                  let new_ps, _result = P.on_key ps key ~size:(get_size ()) in
+                  new_ps
               in
               let ps' = apply_pending_modal_nav ps' in
               render_page_with (module P) ps' ;
@@ -253,13 +256,8 @@ module Stateful = struct
         handle_modal_key k ;
         render ())
       else
-        let new_ps =
-          match k with
-          | "Up" -> P.move !ps (-1)
-          | "Down" -> P.move !ps 1
-          | "q" | "Q" -> Navigation.quit !ps
-          | _ -> P.handle_key !ps k ~size:(get_size ())
-        in
+        let key = key_of_string k in
+        let new_ps, _result = P.on_key !ps key ~size:(get_size ()) in
         ps := new_ps ;
         render ()
     in
@@ -341,6 +339,11 @@ module Stateful = struct
         | (`Quit | `Back | `SwitchTo _) as r -> r
         | `Continue ->
             !refresh_impl () ;
+            (* Yield to the eio scheduler so that fibers spawned via
+               Fiber.fork (e.g. async LLM calls) can make progress. *)
+            (match Fibers.switch_opt () with
+            | Some _ -> Eio.Fiber.yield ()
+            | None -> ()) ;
             (if sleep > 0.0 then
                try
                  (Unix.sleepf

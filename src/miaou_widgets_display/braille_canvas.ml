@@ -162,3 +162,5 @@ let render_with t ~f =
 let add_cell_bits t ~cell_x ~cell_y bits =
   if cell_x >= 0 && cell_x < t.width && cell_y >= 0 && cell_y < t.height then
     t.cells.(cell_y).(cell_x) <- t.cells.(cell_y).(cell_x) lor bits
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -1,0 +1,4 @@
+# ppx_enforce rules for Miaou widget libraries
+# Every widget .ml file must self-register in Miaou_registry so tools like
+# the MCP server can discover the full widget API at runtime.
+call Miaou_registry.register "Widget must self-register: add 'let () = Miaou_registry.register ~name:\"<name>\" ~mli:[%blob \"<file>.mli\"] ()' at the end of this file"

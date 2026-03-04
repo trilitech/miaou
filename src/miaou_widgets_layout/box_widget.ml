@@ -254,3 +254,5 @@ let render ?(title = "") ?(style = Single)
           else body_rows
     in
     H.concat_lines ([top_border] @ body_rows @ [bottom_border])
+
+let () = Miaou_registry.register ~name:"box" ~mli:[%blob "box_widget.mli"] ()

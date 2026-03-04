@@ -51,3 +51,6 @@ let set_on t v = {t with on = v}
 let is_cancelled t = t.cancelled
 
 let reset_cancelled t = {t with cancelled = false}
+
+let () =
+  Miaou_registry.register ~name:"switch" ~mli:[%blob "switch_widget.mli"] ()

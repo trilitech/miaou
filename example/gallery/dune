@@ -6,6 +6,7 @@
   demo_modals
   ; All demo libraries
   checkbox_demo
+  clipboard_demo
   radio_demo
   switch_demo
   button_demo

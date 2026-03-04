@@ -55,3 +55,9 @@ let set_selected t v = {t with selected = v}
 let is_cancelled t = t.cancelled
 
 let reset_cancelled t = {t with cancelled = false}
+
+let () =
+  Miaou_registry.register
+    ~name:"radio"
+    ~mli:[%blob "radio_button_widget.mli"]
+    ()

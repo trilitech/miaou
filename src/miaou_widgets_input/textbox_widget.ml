@@ -140,3 +140,6 @@ let width t = t.width
 let with_width t width =
   let width = max 4 width in
   if width = t.width then t else {t with width}
+
+let () =
+  Miaou_registry.register ~name:"textbox" ~mli:[%blob "textbox_widget.mli"] ()

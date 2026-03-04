@@ -412,8 +412,15 @@ let demos =
                          text
                          (String.length text))
                     ()
-              | `Cancel -> ()) ;
+               | `Cancel -> ()) ;
           ps);
+    };
+    {
+      title = "Clipboard";
+      open_demo =
+        goto
+          "demo_clipboard"
+          (module Clipboard_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
   ]
 
@@ -438,7 +445,7 @@ let demo_tree =
         demo_group "Layout" [11; 12; 13; 24; 34; 37; 38];
         demo_group "Display" [4; 8; 9; 10; 25; 26; 27; 28; 30; 31; 32];
       ];
-    demo_group "Core" [6; 7; 14; 33];
+    demo_group "Core" [6; 7; 14; 33; 41];
     demo_group "Styling" [5; 35];
     demo_group "Showcases" [29];
     demo_group "Games" [39];

@@ -58,3 +58,5 @@ let selection_fg s = (p ()).selection_fg s
 let fixed_region_bg s = (p ()).fixed_region_bg s
 
 let header_bg s = (p ()).header_bg s
+
+[@@@enforce_exempt] (* non-widget module *)

@@ -159,3 +159,5 @@ let split_horizontal ~height ~top_pad ~bottom_pad ~border ~wrap ~sep ~top
     in
     top_frame ^ "\n" ^ top_s ^ "\n" ^ sep ^ "\n" ^ bottom_s
   else top_s ^ "\n" ^ sep ^ "\n" ^ bottom_s
+
+[@@@enforce_exempt] (* non-widget module *)

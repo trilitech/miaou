@@ -15,7 +15,7 @@
 (library
  (name miaou_runner_tui)
  (public_name miaou-runner.tui)
- (modules runner_tui)
+ (modules runner_tui headless_json_runner)
  (instrumentation
   (backend bisect_ppx))
  (preprocess
@@ -23,7 +23,12 @@
  (libraries
   miaou_runner_common
   miaou-driver-term.driver
-  miaou-driver-matrix.driver))
+  miaou-driver-matrix.driver
+  miaou-core.core
+  miaou-core.lib_miaou_internal
+  yojson
+  eio.unix
+  unix))
 
 (library
  (name miaou_runner_native)

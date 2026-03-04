@@ -10,3 +10,5 @@
 
 let render (t : Spinner_widget.t) : string =
   Spinner_widget.render_with_backend `Sdl t
+
+[@@@enforce_exempt] (* non-widget module *)

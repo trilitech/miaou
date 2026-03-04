@@ -151,3 +151,6 @@ let render
     ?(backend : Miaou_widgets_display.Widgets.backend =
       Miaou_widgets_display.Widgets.get_backend ()) t =
   render_with_backend backend t
+
+let () =
+  Miaou_registry.register ~name:"spinner" ~mli:[%blob "spinner_widget.mli"] ()

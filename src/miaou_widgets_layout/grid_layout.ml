@@ -248,12 +248,16 @@ let render t ~size =
         if row < n_rows - 1 || line_idx < row_h - 1 then
           Buffer.add_char buf '\n'
       done ;
-      (* Row gap *)
+      (* Row gap — each gap line is a full blank row.  The '\n' comes
+         AFTER the blank so the next row's first content line starts on
+         its own line. *)
       if row < n_rows - 1 then
         for _ = 1 to t.row_gap do
-          Buffer.add_char buf '\n' ;
           Buffer.add_string buf left_pad ;
-          Buffer.add_string buf blank_line
+          Buffer.add_string buf blank_line ;
+          Buffer.add_char buf '\n'
         done
     done ;
     Buffer.contents buf
+
+[@@@enforce_exempt] (* non-widget module *)

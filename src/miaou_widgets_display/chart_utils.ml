@@ -60,3 +60,5 @@ let render_braille_with_colors canvas styles =
       match styles.(y).(x) with
       | Some color -> Widgets.ansi color ch
       | None -> ch)
+
+[@@@enforce_exempt] (* non-widget module *)

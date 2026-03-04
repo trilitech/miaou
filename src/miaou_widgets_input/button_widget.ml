@@ -38,3 +38,6 @@ let on_key t ~key =
 let handle_key t ~key =
   let t', result = on_key t ~key in
   (t', Miaou_interfaces.Key_event.to_bool result)
+
+let () =
+  Miaou_registry.register ~name:"button" ~mli:[%blob "button_widget.mli"] ()
