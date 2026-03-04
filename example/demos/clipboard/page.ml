@@ -14,6 +14,9 @@ module Inner = struct
   module Toast = Miaou_widgets_layout.Toast_widget
   module Textbox = Miaou_widgets_input.Textbox_widget
 
+  (* Global ref to store text copied from modal *)
+  let pending_modal_copy : string option ref = ref None
+
   type state = {
     toasts : Toast.t;
     last_copied : string option;
@@ -24,7 +27,12 @@ module Inner = struct
   type msg = unit
 
   let init () =
-    {toasts = Toast.empty (); last_copied = None; copy_count = 0; next_page = None}
+    {
+      toasts = Toast.empty ();
+      last_copied = None;
+      copy_count = 0;
+      next_page = None;
+    }
 
   let update s (_ : msg) = s
 
@@ -128,9 +136,14 @@ module Inner = struct
             let textbox = modal_ps.Miaou.Core.Navigation.s in
             let text = Textbox.get_text textbox in
             if text <> "" then (
+              (* Copy to clipboard *)
               match Clipboard.get () with
-              | Some clip -> clip.copy text
-              | None -> ())
+              | Some clip -> 
+                  clip.copy text ;
+                  (* Store for toast notification in next refresh *)
+                  pending_modal_copy := Some text
+              | None -> 
+                  pending_modal_copy := Some "" (* Empty string = error *))
         | `Cancel -> ()) ;
     s
 
@@ -200,7 +213,24 @@ module Inner = struct
 
   let move s _ = s
 
-  let refresh s = {s with toasts = Toast.tick s.toasts}
+  let refresh s = 
+    let s = {s with toasts = Toast.tick s.toasts} in
+    (* Process pending modal copy *)
+    match !pending_modal_copy with
+    | None -> s
+    | Some "" ->
+        (* Error case *)
+        pending_modal_copy := None ;
+        {s with toasts = Toast.enqueue s.toasts Toast.Error "Clipboard not available"}
+    | Some text ->
+        (* Success case *)
+        pending_modal_copy := None ;
+        {
+          s with
+          toasts = Toast.enqueue s.toasts Toast.Success (Printf.sprintf "Copied: %s" text);
+          last_copied = Some text;
+          copy_count = s.copy_count + 1;
+        }
 
   let enter s = s
 
