@@ -58,8 +58,8 @@ module Inner = struct
           {
             s with
             toasts =
-              Toast.enqueue s.toasts Toast.Success
-                (Printf.sprintf "Copied: %s" text);
+              Toast.enqueue s.toasts Toast.Info
+                (Printf.sprintf "Sent to clipboard: %s" text);
             last_copied = Some text;
             copy_count = s.copy_count + 1;
           })
@@ -160,7 +160,10 @@ module Inner = struct
       W.themed_text
         "This demo shows how to copy text to clipboard from a modal.\n\
          Press Space or Enter to open a modal where you can type text.\n\
-         When you press Enter in the modal, it copies to your clipboard!"
+         When you press Enter in the modal, it attempts to copy to clipboard.\n\
+         \n\
+         Note: Install wl-clipboard (Wayland) or xclip (X11) for reliable copying.\n\
+         Without native tools, OSC 52 is used which may not work in all terminals."
     in
 
     let samples_section =
@@ -227,7 +230,7 @@ module Inner = struct
         pending_modal_copy := None ;
         {
           s with
-          toasts = Toast.enqueue s.toasts Toast.Success (Printf.sprintf "Copied: %s" text);
+          toasts = Toast.enqueue s.toasts Toast.Info (Printf.sprintf "Sent to clipboard: %s" text);
           last_copied = Some text;
           copy_count = s.copy_count + 1;
         }
