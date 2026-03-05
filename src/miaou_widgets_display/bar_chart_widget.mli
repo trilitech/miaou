@@ -2,6 +2,7 @@
 (*                                                                           *)
 (* SPDX-License-Identifier: MIT                                              *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
 
@@ -52,6 +53,10 @@ type render_mode =
   | ASCII  (** Use block characters (█▀) - standard resolution *)
   | Braille
       (** Use Unicode Braille patterns - higher resolution (2x4 dots per cell) *)
+  | Octant
+      (** Use Unicode 16 octant blocks (U+1CD00) — same 2×4 resolution as
+          Braille but with per-bar fg color.  Requires a terminal that
+          supports Unicode 16 (VTE ≥ 7800, foot, WezTerm, Kitty). *)
 
 (** The bar chart widget type. *)
 type t

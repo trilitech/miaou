@@ -34,6 +34,7 @@
   pager_demo
   system_monitor_demo
   braille_demo
+  framebuffer_demo
   direct_page_demo
   box_widget_demo
   style_system_demo

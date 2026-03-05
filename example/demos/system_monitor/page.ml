@@ -2,6 +2,7 @@
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -100,7 +101,10 @@ module Inner = struct
       [{Sparkline.value = 90.0; color = "31"}; {value = 75.0; color = "33"}]
     in
     let mode_label =
-      match s.mode with Line_chart.ASCII -> "ASCII" | Braille -> "Braille"
+      match s.mode with
+      | Line_chart.ASCII -> "ASCII"
+      | Braille -> "Braille"
+      | Octant -> "Octant"
     in
     let separator_width = 3 in
     let left_width = min 50 (width / 2) in
@@ -134,7 +138,8 @@ module Inner = struct
     let spark_mode =
       match s.mode with
       | Line_chart.ASCII -> Sparkline.ASCII
-      | Braille -> Braille
+      | Braille -> Sparkline.Braille
+      | Octant -> Sparkline.Octant
     in
     let cpu_line_adj =
       Printf.sprintf "CPU: %5.1f " cpu_val
@@ -261,7 +266,8 @@ module Inner = struct
         let mode =
           match s.mode with
           | Line_chart.ASCII -> Line_chart.Braille
-          | Braille -> Line_chart.ASCII
+          | Braille -> Line_chart.Octant
+          | Octant -> Line_chart.ASCII
         in
         {s with mode}
     | _ -> s
