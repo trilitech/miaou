@@ -14,7 +14,7 @@ type series = {label : string; points : point list; color : string option}
 
 type threshold = {value : float; color : string}
 
-type render_mode = ASCII | Braille
+type render_mode = ASCII | Braille | Octant
 
 type axis_config = {
   show_labels : bool;
@@ -189,8 +189,81 @@ let calculate_bounds series_list =
     let y_min, y_max = Chart_utils.bounds ys in
     (x_min, x_max, y_min, y_max)
 
+let render_octant t ~thresholds =
+  (* Octant line chart: same structure as Braille but with per-series color *)
+  let canvas = Octant_canvas.create ~width:t.width ~height:t.height in
+  let dot_width, dot_height = Octant_canvas.get_dot_dimensions canvas in
+  let has_colors =
+    thresholds <> []
+    || List.exists
+         (fun (s : series) ->
+           s.color <> None
+           || List.exists (fun (p : point) -> p.color <> None) s.points)
+         t.series
+  in
+  let x_min, x_max, y_min, y_max = calculate_bounds t.series in
+  let x_range = x_max -. x_min in
+  let y_range = y_max -. y_min in
+  let inv_x = if x_range = 0. then 0. else 1. /. x_range in
+  let inv_y = if y_range = 0. then 0. else 1. /. y_range in
+
+  let map_x x =
+    if x_range = 0. then dot_width / 2
+    else int_of_float ((x -. x_min) *. inv_x *. float_of_int (dot_width - 1))
+  in
+  let map_y y =
+    if y_range = 0. then dot_height / 2
+    else
+      dot_height - 1
+      - int_of_float ((y -. y_min) *. inv_y *. float_of_int (dot_height - 1))
+  in
+
+  List.iter
+    (fun (s : series) ->
+      let sorted_thresholds =
+        if has_colors then
+          List.sort (fun a b -> Float.compare b.value a.value) thresholds
+        else []
+      in
+      let get_color_cached (point : point) : string option =
+        match point.color with
+        | Some c -> Some c
+        | None -> (
+            match
+              List.find_opt (fun t -> point.y > t.value) sorted_thresholds
+            with
+            | Some t -> Some t.color
+            | None -> s.color)
+      in
+      List.iteri
+        (fun idx (point : point) ->
+          let x = map_x point.x in
+          let y = map_y point.y in
+          let color = if has_colors then get_color_cached point else s.color in
+          Octant_canvas.set_dot canvas ~x ~y ~color ;
+          match List.nth_opt s.points (idx + 1) with
+          | Some next_point ->
+              let next_x = map_x next_point.x in
+              let next_y = map_y next_point.y in
+              Octant_canvas.draw_line
+                canvas
+                ~x0:x
+                ~y0:y
+                ~x1:next_x
+                ~y1:next_y
+                ~color
+          | None -> ())
+        s.points)
+    t.series ;
+
+  let chart_output = Octant_canvas.render canvas in
+  match t.title with
+  | Some title -> W.themed_emphasis title ^ "\n" ^ chart_output
+  | None -> chart_output
+
 let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
   match mode with
+  | Octant -> render_octant t ~thresholds
   | ASCII -> (
       let grid = make_grid t.width t.height in
       let x_min, x_max, y_min, y_max = calculate_bounds t.series in

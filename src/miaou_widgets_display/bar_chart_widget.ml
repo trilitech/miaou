@@ -13,7 +13,7 @@ type bar = string * float * string option
 
 type threshold = {value : float; color : string}
 
-type render_mode = ASCII | Braille
+type render_mode = ASCII | Braille | Octant
 
 type t = {
   width : int;
@@ -63,10 +63,84 @@ let get_color ~thresholds ~default_color (value, bar_color) =
       | Some t -> Some t.color
       | None -> default_color)
 
+let render_octant t ~show_values ~thresholds =
+  (* Octant bars: same 2×4 resolution as Braille but with per-bar fg color *)
+  let min_val, max_val = calculate_bounds t in
+  let range = max_val -. min_val in
+  let inv_range = if range = 0. then 0. else 1. /. range in
+  let num_bars = List.length t.data in
+  let bar_width_cells = max 1 (t.width / num_bars) in
+  let canvas = Octant_canvas.create ~width:t.width ~height:t.height in
+  let dot_width, dot_height = Octant_canvas.get_dot_dimensions canvas in
+  let bar_width_dots = max 1 (dot_width / num_bars) in
+
+  List.iteri
+    (fun idx (_label, value, bar_color) ->
+      let color =
+        get_color ~thresholds ~default_color:t.color (value, bar_color)
+      in
+      let bar_height_dots =
+        if range = 0. then dot_height
+        else
+          int_of_float
+            ((value -. min_val) *. inv_range *. float_of_int dot_height)
+      in
+      let x_start = idx * bar_width_dots in
+      let x_end = min dot_width ((idx + 1) * bar_width_dots) in
+      for x = x_start to x_end - 1 do
+        for dot_from_top = 0 to bar_height_dots - 1 do
+          let y = dot_height - 1 - dot_from_top in
+          Octant_canvas.set_dot canvas ~x ~y ~color
+        done
+      done)
+    t.data ;
+
+  let lines = ref [] in
+  (match t.title with
+  | Some title -> lines := W.themed_emphasis title :: !lines
+  | None -> ()) ;
+  lines := Octant_canvas.render canvas :: !lines ;
+  let labels_line = Buffer.create t.width in
+  List.iter
+    (fun (label, _, _) ->
+      let truncated =
+        if String.length label > bar_width_cells then
+          String.sub label 0 bar_width_cells
+        else label
+      in
+      let padding = max 0 (bar_width_cells - String.length truncated) / 2 in
+      Buffer.add_string labels_line (String.make padding ' ') ;
+      Buffer.add_string labels_line truncated ;
+      Buffer.add_string
+        labels_line
+        (String.make (bar_width_cells - String.length truncated - padding) ' '))
+    t.data ;
+  lines := Buffer.contents labels_line :: !lines ;
+  if show_values then (
+    let values_line = Buffer.create t.width in
+    List.iter
+      (fun (_, value, _) ->
+        let s = Printf.sprintf "%.1f" value in
+        let s =
+          if String.length s > bar_width_cells then
+            String.sub s 0 bar_width_cells
+          else s
+        in
+        let padding = max 0 (bar_width_cells - String.length s) / 2 in
+        Buffer.add_string values_line (String.make padding ' ') ;
+        Buffer.add_string values_line s ;
+        Buffer.add_string
+          values_line
+          (String.make (bar_width_cells - String.length s - padding) ' '))
+      t.data ;
+    lines := Buffer.contents values_line :: !lines) ;
+  Miaou_helpers.Helpers.concat_lines !lines
+
 let render t ~show_values ?(thresholds = []) ?(mode = ASCII) () =
   if t.data = [] then ""
   else
     match mode with
+    | Octant -> render_octant t ~show_values ~thresholds
     | ASCII ->
         let min_val, max_val = calculate_bounds t in
         let range = max_val -. min_val in

@@ -1,0 +1,19 @@
+(library
+ (name framebuffer_demo)
+ (modules page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
+ (libraries
+  demo_shared
+  miaou
+  miaou-core.lib_miaou_internal
+  miaou-core.widgets.display))
+
+(executable
+ (name main)
+ (public_name miaou.framebuffer-demo)
+ (package miaou)
+ (modules main)
+ (libraries framebuffer_demo miaou-runner.tui miaou-core.helpers eio_main))

@@ -2,6 +2,7 @@
 (*                                                                            *)
 (* SPDX-License-Identifier: MIT                                               *)
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                 *)
+(* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>        *)
 (*                                                                            *)
 (******************************************************************************)
 
@@ -84,7 +85,10 @@ module Inner = struct
       [{Line_chart.value = 80.0; color = "31"}; {value = 60.0; color = "33"}]
     in
     let mode_label =
-      match s.mode with Line_chart.ASCII -> "ASCII" | Braille -> "Braille"
+      match s.mode with
+      | Line_chart.ASCII -> "ASCII"
+      | Braille -> "Braille"
+      | Octant -> "Octant"
     in
     let chart_output =
       Line_chart.render
@@ -115,7 +119,8 @@ module Inner = struct
         let mode =
           match s.mode with
           | Line_chart.ASCII -> Line_chart.Braille
-          | Braille -> Line_chart.ASCII
+          | Braille -> Line_chart.Octant
+          | Octant -> Line_chart.ASCII
         in
         {s with mode}
     | Some (Miaou.Core.Keys.Char " ") -> add_points s

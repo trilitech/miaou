@@ -13,7 +13,7 @@ let blocks = [|" "; " "; "▂"; "▃"; "▄"; "▅"; "▆"; "▇"; "█"|]
 
 type threshold = {value : float; color : string}
 
-type render_mode = ASCII | Braille
+type render_mode = ASCII | Braille | Octant
 
 type t = {
   width : int;
@@ -67,12 +67,59 @@ let get_color ~thresholds ~(default_color : string option) value =
   | Some t -> Some t.color
   | None -> default_color
 
+let render_octant t ~focus ~show_value ?color ?(thresholds = []) () =
+  let values = Queue.to_seq t.data |> Array.of_seq in
+  let min_val, max_val, current = stats t in
+  let canvas = Octant_canvas.create ~width:t.width ~height:1 in
+  let dot_width, dot_height = Octant_canvas.get_dot_dimensions canvas in
+  let range = max_val -. min_val in
+  let inv_range = if range = 0. then 0. else 1. /. range in
+  let point_count = Array.length values in
+  let samples =
+    if point_count > dot_width then
+      let step = float_of_int point_count /. float_of_int dot_width in
+      Array.init dot_width (fun i ->
+          let start_f = float_of_int i *. step in
+          let stop_f = float_of_int (i + 1) *. step in
+          let start_i = int_of_float start_f in
+          let stop_i = min point_count (int_of_float stop_f) in
+          let sum = ref 0. in
+          let count = ref 0 in
+          for idx = start_i to stop_i - 1 do
+            sum := !sum +. values.(idx) ;
+            incr count
+          done ;
+          if !count = 0 then min_val else !sum /. float_of_int !count)
+    else if point_count = dot_width then Array.copy values
+    else
+      let pad_left = (dot_width - point_count) / 2 in
+      let arr = Array.make dot_width min_val in
+      Array.blit values 0 arr pad_left point_count ;
+      arr
+  in
+  Array.iteri
+    (fun x value ->
+      let y =
+        if range = 0. then dot_height / 2
+        else
+          let ratio = (value -. min_val) *. inv_range in
+          int_of_float (ratio *. float_of_int (dot_height - 1))
+      in
+      let y = dot_height - 1 - y in
+      let color_str = get_color ~thresholds ~default_color:color value in
+      Octant_canvas.set_dot canvas ~x ~y ~color:color_str)
+    samples ;
+  let sparkline = Octant_canvas.render canvas in
+  let sparkline = if focus then W.themed_emphasis sparkline else sparkline in
+  if show_value then Printf.sprintf "%s %.1f" sparkline current else sparkline
+
 let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
   if Queue.is_empty t.data then
     let empty = String.make t.width ' ' in
     if show_value then empty ^ " 0.0" else empty
   else
     match mode with
+    | Octant -> render_octant t ~focus ~show_value ?color ~thresholds ()
     | ASCII ->
         let values = Queue.to_seq t.data |> List.of_seq in
         let min_val, max_val, current = stats t in
