@@ -75,26 +75,43 @@ Quick start — build & depend
 
 Prerequisites
 
-- OCaml (5.3.x recommended) and opam
-- dune (>= 3.12)
-- the runtime dependencies below (opam will install them)
-
-Build in this repository (preferred):
+- OCaml **>= 5.2** (5.3.x recommended — matches CI) and opam
+- dune >= 3.15
+- SDL2 system libraries (required even for the TUI demo, because the example
+  app includes SDL widgets):
 
 ```sh
-# Install deps, build, test, format
-make deps
-make build
-make test          # runs repo tests
-# optional: make fmt
+# Debian/Ubuntu
+sudo apt-get install libsdl2-dev libsdl2-ttf-dev libsdl2-image-dev
+# macOS (Homebrew)
+brew install sdl2 sdl2_ttf sdl2_image
 ```
 
-Alternative (direct dune):
+Build from source (step by step):
 
 ```sh
+# 1. Pin the external PPX packages (not yet in the opam repository)
+opam pin add ppx_forbid  git+https://github.com/atacama-dev/ppx_forbid.git --no-action
+opam pin add ppx_enforce git+https://github.com/atacama-dev/ppx_forbid.git --no-action
+
+# 2. Install all opam dependencies
+opam install --deps-only --with-test -y .
+
+# 3. Build and test
 eval $(opam env)
 dune build @all
 dune runtest
+
+# 4. Run the demo gallery
+dune exec -- miaou.demo
+```
+
+Or using the Makefile shortcuts (steps 1–3 above in one go):
+
+```sh
+make deps    # pin PPX packages + opam install --deps-only
+make build   # dune build @all
+make test    # dune runtest
 ```
 
 Using from another project
@@ -201,7 +218,9 @@ opam install miaou-tui
 # Full install with SDL
 opam install miaou
 
-# Development (install from source)
+# Development (install from source) — pin external PPX first
+opam pin add ppx_forbid  git+https://github.com/atacama-dev/ppx_forbid.git --no-action
+opam pin add ppx_enforce git+https://github.com/atacama-dev/ppx_forbid.git --no-action
 opam install --deps-only -y .
 ```
 
