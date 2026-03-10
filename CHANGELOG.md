@@ -14,8 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Viewer auto-reconnect**: the xterm.js client (`client.js`) now automatically reconnects with a 2-second retry when a viewer WebSocket disconnects, surviving server restarts without requiring a manual browser refresh.
 - **Viewer dimension sync**: when the headless driver's terminal size changes, a `{"type":"dimensions","rows":R,"cols":C}` JSON message is sent to all viewers. The client resizes xterm.js to match; FitAddon auto-fit is disabled for viewers so the terminal size is controlled by the server.
 
+### Added
+
+- **Octant rendering mode** (`Octant_canvas`): high-resolution chart rendering using Unicode 16 octant block characters (2×4 sub-cell pixels per character cell). Gives 8× resolution compared to ASCII mode with per-cell color support. Octant mode is available on `Sparkline_widget`, `Line_chart_widget`, and `Bar_chart_widget` via a new `~mode:Octant` parameter.
+- **Framebuffer widget** (`Framebuffer_widget`): direct pixel/cell-based drawing surface embeddable in any layout slot. Supports both character-cell and sub-cell (Octant) pixel addressing, making it easy to build custom visualisations, games, or image renderers.
+- **Terminal capabilities detection** (`Terminal_caps`): detects whether the connected terminal supports Unicode 16 octant characters. Used internally by the Octant rendering mode to fall back gracefully on older terminals.
+- **Periodic viewer refresh daemon** (headless runner): when an `on_frame` callback is registered (e.g. by `Web_viewer`), a background Eio daemon fiber re-renders the screen every 200 ms and broadcasts the updated frame. This keeps live viewers up-to-date during agent idle periods (timers, async I/O, spinners) without requiring a key press or tick.
+- **"Framebuffer & Octant Charts" demo** added to the gallery, showcasing both the `Framebuffer_widget` and Octant chart modes side-by-side.
+
 ### Fixed
 
+- **Viewer daemon race condition**: the periodic viewer-refresh fiber previously called `idle_wait` each iteration, which allowed it to interleave with the command handler's own `idle_wait` and concurrently mutate shared page-state (double-ticking clocks/timers). The daemon now reads the cached screen content directly via `HD.Screen.get` without advancing any state.
 - **Web driver Tab key**: `ev.preventDefault()` is now called for all recognized keys in the web client's keyboard handler. Previously, Tab (and other browser-reserved keys like F5) were forwarded to the server but also processed by the browser for focus navigation / page reload. Tab now reaches the Miaou application correctly.
 
 ## [0.4.2] - Unreleased
