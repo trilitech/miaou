@@ -117,27 +117,33 @@ let get_rgb t px py =
 (* ── Render: Half_block ──────────────────────────────────────────────────── *)
 
 let render_half_block t cols rows =
-  (* 1×2 pixels per cell: top pixel = fg ("▀"), bottom pixel = bg *)
+  (* 1×2 pixels per cell: top pixel = fg ("▀"), bottom pixel = bg.
+     Pure-black cells (0,0,0) are treated as transparent → space. *)
   let buf = Buffer.create (rows * ((cols * 25) + 1)) in
   for cy = 0 to rows - 1 do
     if cy > 0 then Buffer.add_char buf '\n' ;
     for cx = 0 to cols - 1 do
       let r_top, g_top, b_top = get_rgb t cx (cy * 2) in
       let r_bot, g_bot, b_bot = get_rgb t cx ((cy * 2) + 1) in
-      let fg_idx = rgb_to_ansi_256 r_top g_top b_top in
-      let bg_idx = rgb_to_ansi_256 r_bot g_bot b_bot in
-      if fg_idx = bg_idx then
-        Buffer.add_string
-          buf
-          (Printf.sprintf "\027[38;5;%dm\xE2\x96\x88%s" fg_idx ansi_reset)
-      else
-        Buffer.add_string
-          buf
-          (Printf.sprintf
-             "\027[38;5;%dm\027[48;5;%dm\xE2\x96\x80%s"
-             fg_idx
-             bg_idx
-             ansi_reset)
+      if r_top = 0 && g_top = 0 && b_top = 0
+      && r_bot = 0 && g_bot = 0 && b_bot = 0 then
+        Buffer.add_char buf ' '
+      else begin
+        let fg_idx = rgb_to_ansi_256 r_top g_top b_top in
+        let bg_idx = rgb_to_ansi_256 r_bot g_bot b_bot in
+        if fg_idx = bg_idx then
+          Buffer.add_string
+            buf
+            (Printf.sprintf "\027[38;5;%dm\xE2\x96\x88%s" fg_idx ansi_reset)
+        else
+          Buffer.add_string
+            buf
+            (Printf.sprintf
+               "\027[38;5;%dm\027[48;5;%dm\xE2\x96\x80%s"
+               fg_idx
+               bg_idx
+               ansi_reset)
+      end
     done
   done ;
   Buffer.contents buf
@@ -230,10 +236,14 @@ let render_octant t cols rows =
               let r = !fg_r / !fg_n
               and g = !fg_g / !fg_n
               and b = !fg_b / !fg_n in
-              let idx = rgb_to_ansi_256 r g b in
-              Buffer.add_string
-                buf
-                (Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
+              (* All-black cell → transparent (space) *)
+              if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
+              else begin
+                let idx = rgb_to_ansi_256 r g b in
+                Buffer.add_string
+                  buf
+                  (Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
+              end
             end
             else Buffer.add_string buf glyph
         | _ ->
@@ -346,13 +356,16 @@ let render_sextant t cols rows =
       | 0x3F ->
           if !fg_n > 0 then begin
             let r = !fg_r / !fg_n and g = !fg_g / !fg_n and b = !fg_b / !fg_n in
-            Buffer.add_string
-              buf
-              (Printf.sprintf
-                 "\027[38;5;%dm%s%s"
-                 (rgb_to_ansi_256 r g b)
-                 glyph
-                 ansi_reset)
+            (* All-black cell → transparent (space) *)
+            if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
+            else
+              Buffer.add_string
+                buf
+                (Printf.sprintf
+                   "\027[38;5;%dm%s%s"
+                   (rgb_to_ansi_256 r g b)
+                   glyph
+                   ansi_reset)
           end
           else Buffer.add_string buf glyph
       | _ ->
@@ -380,6 +393,87 @@ let render_sextant t cols rows =
   done ;
   Buffer.contents buf
 
+(* ── Render: Sixel ───────────────────────────────────────────────────────── *)
+
+(* DCS Sixel encoding.
+   Each sixel character covers a 1-pixel-wide × 6-pixel-tall column.
+   Bit pattern: bit 0 = top row, bit 5 = bottom row. ASCII: pattern + 63.
+   Pb=1 → unset pixels show terminal background (transparent). *)
+let render_sixel t cols rows =
+  let buf = Buffer.create (max 1024 (t.width_px * t.height_px / 4)) in
+  Buffer.add_string buf "\027P0;1;0q" ;
+  (* Build a compact palette; pure black (0,0,0) is treated as transparent. *)
+  let palette_tbl = Hashtbl.create 64 in
+  let palette_rgb = Array.make 256 (0, 0, 0) in
+  let n_colors = ref 0 in
+  let transparent = -1 in
+  let get_idx r g b =
+    if r = 0 && g = 0 && b = 0 then transparent
+    else
+      let key = (r lsl 16) lor (g lsl 8) lor b in
+      match Hashtbl.find_opt palette_tbl key with
+      | Some i -> i
+      | None ->
+          if !n_colors >= 256 then begin
+            (* Nearest-color fallback *)
+            let best_i = ref 0 and best_d = ref max_int in
+            for i = 0 to !n_colors - 1 do
+              let pr, pg, pb = palette_rgb.(i) in
+              let d = ((r - pr) * (r - pr)) + ((g - pg) * (g - pg))
+                      + ((b - pb) * (b - pb)) in
+              if d < !best_d then begin best_d := d ; best_i := i end
+            done ;
+            !best_i
+          end else begin
+            let i = !n_colors in
+            Hashtbl.add palette_tbl key i ;
+            palette_rgb.(i) <- (r, g, b) ;
+            incr n_colors ;
+            i
+          end
+  in
+  for py = 0 to t.height_px - 1 do
+    for px = 0 to t.width_px - 1 do
+      let r, g, b = get_rgb t px py in
+      ignore (get_idx r g b)
+    done
+  done ;
+  let nc = !n_colors in
+  for i = 0 to nc - 1 do
+    let r, g, b = palette_rgb.(i) in
+    Buffer.add_string buf
+      (Printf.sprintf "#%d;2;%d;%d;%d" i (r * 100 / 255) (g * 100 / 255) (b * 100 / 255))
+  done ;
+  let n_bands = (t.height_px + 5) / 6 in
+  for band = 0 to n_bands - 1 do
+    let py0 = band * 6 in
+    for ci = 0 to nc - 1 do
+      let has_pixel = ref false in
+      let sixel_data = Array.init t.width_px (fun px ->
+        let pattern = ref 0 in
+        for row = 0 to 5 do
+          let py = py0 + row in
+          if py < t.height_px then begin
+            let r, g, b = get_rgb t px py in
+            if get_idx r g b = ci then begin
+              pattern := !pattern lor (1 lsl row) ;
+              has_pixel := true
+            end
+          end
+        done ;
+        !pattern) in
+      if !has_pixel then begin
+        Buffer.add_string buf (Printf.sprintf "#%d" ci) ;
+        Array.iter (fun p -> Buffer.add_char buf (Char.chr (p + 63))) sixel_data ;
+        Buffer.add_char buf '$'
+      end
+    done ;
+    if band < n_bands - 1 then Buffer.add_char buf '-'
+  done ;
+  Buffer.add_string buf "\027\\" ;
+  ignore (cols, rows) ;
+  Buffer.contents buf
+
 (* ── Main render dispatcher ──────────────────────────────────────────────── *)
 
 (* Sub-pixel dimensions for each mode: (px_per_cell_x, px_per_cell_y) *)
@@ -392,28 +486,22 @@ let px_per_cell mode =
   | Terminal_caps.Half_block -> (1, 2)
   | Terminal_caps.Braille -> (2, 4)
 
-let render t ~cols ~rows =
-  let mode = Terminal_caps.detect () in
+let render_with_mode t ~mode ~cols ~rows =
   let px_x, px_y = px_per_cell mode in
   let need_w = cols * px_x and need_h = rows * px_y in
-  (* Resize pixel buffer if terminal size changed *)
   if cols <> t.last_cols || rows <> t.last_rows then begin
     resize_pixels t ~width:need_w ~height:need_h ;
     t.last_cols <- cols ;
     t.last_rows <- rows ;
     t.render_cache <- None
   end ;
-  (* Return cached output if clean *)
   if (not t.dirty) && t.render_cache <> None then Option.get t.render_cache
   else begin
-    (* Ensure buffer is at least the required size *)
     if t.width_px = 0 || t.height_px = 0 then
       resize_pixels t ~width:need_w ~height:need_h ;
     let output =
       match mode with
-      | Terminal_caps.Sixel ->
-          (* Phase 2: Sixel not yet implemented; fall back to Half_block *)
-          render_half_block t cols rows
+      | Terminal_caps.Sixel -> render_sixel t cols rows
       | Terminal_caps.Octant -> render_octant t cols rows
       | Terminal_caps.Sextant -> render_sextant t cols rows
       | Terminal_caps.Half_block -> render_half_block t cols rows
@@ -423,6 +511,9 @@ let render t ~cols ~rows =
     t.render_cache <- Some output ;
     output
   end
+
+let render t ~cols ~rows =
+  render_with_mode t ~mode:(Terminal_caps.detect ()) ~cols ~rows
 
 let () =
   Miaou_registry.register

@@ -10,11 +10,13 @@ type parse_state =
   | EscapeStart
   | CSI of int list * int (* accumulated params, current param *)
   | OSC (* inside an OSC sequence — skip until ST *)
+  | DCS (* inside a DCS sequence (e.g. Sixel) — accumulate until ST *)
 
 type t = {
   mutable style : Matrix_cell.style;
   mutable state : parse_state;
   osc_buf : Buffer.t;
+  dcs_buf : Buffer.t;
 }
 
 let create () =
@@ -22,12 +24,14 @@ let create () =
     style = Matrix_cell.default_style;
     state = Normal;
     osc_buf = Buffer.create 64;
+    dcs_buf = Buffer.create 1024;
   }
 
 let reset t =
   t.style <- Matrix_cell.default_style ;
   t.state <- Normal ;
-  Buffer.clear t.osc_buf
+  Buffer.clear t.osc_buf ;
+  Buffer.clear t.dcs_buf
 
 let current_style t = t.style
 
@@ -167,8 +171,14 @@ let parse_core t ~emit_char input =
               Buffer.clear t.osc_buf ;
               t.state <- OSC ;
               incr pos
+          | 'P' ->
+              (* DCS sequence (e.g. Sixel graphics) — accumulate and emit as cell *)
+              Buffer.clear t.dcs_buf ;
+              Buffer.add_string t.dcs_buf "\027P" ;
+              t.state <- DCS ;
+              incr pos
           | _ ->
-              (* Not a CSI/OSC sequence, back to normal *)
+              (* Not a CSI/OSC/DCS sequence, back to normal *)
               t.state <- Normal ;
               incr pos)
         else t.state <- Normal
@@ -189,6 +199,21 @@ let parse_core t ~emit_char input =
           else (
             Buffer.add_char t.osc_buf c ;
             incr pos)
+        else t.state <- Normal
+    | DCS ->
+        (* Accumulate DCS payload until ESC \ (String Terminator) *)
+        if !pos < len then (
+          let c = input.[!pos] in
+          if c = '\027' && !pos + 1 < len && input.[!pos + 1] = '\\' then begin
+            Buffer.add_string t.dcs_buf "\027\\" ;
+            (* Emit the entire DCS sequence as a single passthrough cell *)
+            emit_char (Buffer.contents t.dcs_buf) t.style ;
+            t.state <- Normal ;
+            pos := !pos + 2
+          end else begin
+            Buffer.add_char t.dcs_buf c ;
+            incr pos
+          end)
         else t.state <- Normal
     | CSI (params, current) ->
         if !pos < len then (
@@ -282,11 +307,18 @@ let visible_length input =
   let pos = ref 0 in
   let in_escape = ref false in
   let in_osc = ref false in
+  let in_dcs = ref false in
 
   while !pos < len do
     let c = input.[!pos] in
-    if !in_osc then begin
-      (* Skip OSC payload until ST (ESC \ or BEL) *)
+    if !in_dcs then begin
+      (* Skip DCS payload until ESC \ *)
+      if c = '\027' && !pos + 1 < len && input.[!pos + 1] = '\\' then (
+        in_dcs := false ;
+        pos := !pos + 2)
+      else incr pos
+    end
+    else if !in_osc then begin
       if c = '\007' then (
         in_osc := false ;
         incr pos)
@@ -297,9 +329,13 @@ let visible_length input =
     end
     else if !in_escape then begin
       if c = ']' then (
-        (* OSC sequence *)
         in_escape := false ;
         in_osc := true ;
+        incr pos)
+      else if c = 'P' then (
+        (* DCS sequence *)
+        in_escape := false ;
+        in_dcs := true ;
         incr pos)
       else (
         if c = 'm' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') then

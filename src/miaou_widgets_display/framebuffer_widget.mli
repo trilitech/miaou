@@ -59,3 +59,9 @@ val fill_rect :
     Output is cached; re-encoding only occurs when the buffer is dirty or
     the size changes. *)
 val render : t -> cols:int -> rows:int -> string
+
+(** Like {!render} but with an explicit render mode, bypassing auto-detection.
+    Useful when embedding pixel content in a TUI that cannot pass Sixel DCS
+    sequences through (e.g. use [Octant] instead of [Sixel] in that case). *)
+val render_with_mode :
+  t -> mode:Terminal_caps.render_mode -> cols:int -> rows:int -> string
