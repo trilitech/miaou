@@ -23,6 +23,7 @@
  (bug_reports "https://github.com/trilitech/miaou/issues")
   (depends
    (ocaml (>= 5.2))
+   miaou-registry
    cohttp
    cohttp-eio
    eio
