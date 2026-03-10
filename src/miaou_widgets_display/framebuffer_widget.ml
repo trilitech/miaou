@@ -151,18 +151,34 @@ let render_half_block t cols rows =
 (* ── Render: Braille ─────────────────────────────────────────────────────── *)
 
 let render_braille t cols rows =
-  (* 2×4 pixels per cell — monochrome via brightness threshold *)
+  (* 2×4 pixels per cell — dots from luma threshold, color from cell average *)
   let canvas = Braille_canvas.create ~width:cols ~height:rows in
-  let dot_w = cols * 2 and dot_h = rows * 4 in
-  for dy = 0 to dot_h - 1 do
-    for dx = 0 to dot_w - 1 do
-      let r, g, b = get_rgb t dx dy in
-      (* Luma threshold: set dot if pixel is bright enough *)
-      let luma = ((r * 299) + (g * 587) + (b * 114)) / 1000 in
-      if luma >= 128 then Braille_canvas.set_dot canvas ~x:dx ~y:dy
+  let cell_colors = Array.make_matrix rows cols (0, 0, 0) in
+  for cy = 0 to rows - 1 do
+    for cx = 0 to cols - 1 do
+      let sum_r = ref 0 and sum_g = ref 0 and sum_b = ref 0 and n = ref 0 in
+      for dy = 0 to 3 do
+        for dx = 0 to 1 do
+          let px = cx * 2 + dx and py = cy * 4 + dy in
+          if px < t.width_px && py < t.height_px then begin
+            let r, g, b = get_rgb t px py in
+            let luma = ((r * 299) + (g * 587) + (b * 114)) / 1000 in
+            if luma >= 128 then Braille_canvas.set_dot canvas ~x:px ~y:py ;
+            sum_r := !sum_r + r ;
+            sum_g := !sum_g + g ;
+            sum_b := !sum_b + b ;
+            incr n
+          end
+        done
+      done ;
+      if !n > 0 then
+        cell_colors.(cy).(cx) <- (!sum_r / !n, !sum_g / !n, !sum_b / !n)
     done
   done ;
-  Braille_canvas.render canvas
+  Braille_canvas.render_with canvas ~f:(fun ~x ~y glyph ->
+    let r, g, b = cell_colors.(y).(x) in
+    let idx = rgb_to_ansi_256 r g b in
+    Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
 
 (* ── Render: Octant ──────────────────────────────────────────────────────── *)
 
