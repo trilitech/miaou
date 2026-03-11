@@ -29,16 +29,19 @@ let wezterm () =
 let kitty () =
   match Sys.getenv_opt "KITTY_WINDOW_ID" with Some _ -> true | _ -> false
 
-(* Sixel: foot, WezTerm, kitty, iTerm2 have reliable Sixel support.
-   VTE-based terminals (GNOME Terminal, Terminator) technically support Sixel
-   from VTE 0.70+ but it's often disabled at compile time and hard to detect
-   reliably. Users can override with MIAOU_PIXEL_MODE=sixel. *)
+let konsole () =
+  Sys.getenv_opt "KONSOLE_VERSION" <> None
+
+(* Sixel: foot, WezTerm, kitty, iTerm2, Konsole (>=22.04) have reliable
+   Sixel support. VTE-based terminals (GNOME Terminal, Terminator) technically
+   support Sixel from VTE 0.70+ but it's often disabled at compile time and
+   hard to detect reliably. Users can override with MIAOU_PIXEL_MODE=sixel. *)
 let detect_sixel () =
   let iterm =
     match Sys.getenv_opt "TERM_PROGRAM" with
     | Some "iTerm.app" -> true | _ -> false
   in
-  foot_terminal () || wezterm () || kitty () || iterm
+  foot_terminal () || wezterm () || kitty () || konsole () || iterm
 
 (* Octant (U+1CD00, Unicode 16): foot, WezTerm, kitty have font support.
    VTE >= 7800 supports the codepoints but user fonts rarely include them. *)

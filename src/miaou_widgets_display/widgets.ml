@@ -278,7 +278,6 @@ let apply_themed_background ~rows ~cols content =
     Style.to_resolved ~dark_mode:theme.Miaou_style.Theme.dark_mode bg_style
   in
   if resolved.Style.r_bg < 0 then content
-  else if has_pixel_proto content then content
   else
     let lines = String.split_on_char '\n' content in
     let line_count = List.length lines in
