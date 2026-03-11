@@ -385,15 +385,16 @@ let render_sixel t cols rows =
   let w = t.width_px and h = t.height_px in
   let buf = Buffer.create (max 1024 (w * h / 4)) in
   Buffer.add_string buf "\027P0;1;0q" ;
-  (* Pass 1: build palette and pre-compute color index for every pixel. *)
+  (* Pass 1: build palette and color index map in one pass. *)
   let palette_tbl = Hashtbl.create 64 in
   let palette_rgb = Array.make 256 (0, 0, 0) in
   let n_colors = ref 0 in
   let transparent = -1 in
   let idx_map = Array.make (w * h) transparent in
   for py = 0 to h - 1 do
+    let row_off = py * w in
     for px = 0 to w - 1 do
-      let off = (py * w + px) * 3 in
+      let off = (row_off + px) * 3 in
       let r = Char.code (Bytes.unsafe_get t.pixels off) in
       let g = Char.code (Bytes.unsafe_get t.pixels (off + 1)) in
       let b = Char.code (Bytes.unsafe_get t.pixels (off + 2)) in
@@ -417,21 +418,25 @@ let render_sixel t cols rows =
               incr n_colors ; i
             end
         in
-        idx_map.(py * w + px) <- ci
+        idx_map.(row_off + px) <- ci
       end
     done
   done ;
   let nc = !n_colors in
-  (* Emit palette definitions. *)
+  (* Emit palette. *)
   for i = 0 to nc - 1 do
     let r, g, b = palette_rgb.(i) in
     Buffer.add_string buf
       (Printf.sprintf "#%d;2;%d;%d;%d" i (r*100/255) (g*100/255) (b*100/255))
   done ;
-  (* Pass 2: emit sixel bands with RLE compression. *)
+  (* Pass 2: single-pass per band — build all color patterns simultaneously,
+     then emit only colors that appeared.  O(w × 6 × bands) instead of
+     O(nc × w × 6 × bands). *)
   let n_bands = (h + 5) / 6 in
-  let patterns = Array.make w 0 in
-  let emit_rle buf pat count =
+  (* Per-color pattern array: band_pat.(ci).(px) = sixel bit pattern *)
+  let band_pat = Array.init (max 1 nc) (fun _ -> Array.make w 0) in
+  let color_present = Array.make (max 1 nc) false in
+  let emit_rle pat count =
     let c = Char.chr (pat + 63) in
     if count <= 3 then
       for _ = 1 to count do Buffer.add_char buf c done
@@ -443,33 +448,42 @@ let render_sixel t cols rows =
   in
   for band = 0 to n_bands - 1 do
     let py0 = band * 6 in
+    (* Clear presence flags *)
+    Array.fill color_present 0 nc false ;
+    (* Single pass: scatter each pixel's bit into its color's pattern row *)
+    for row = 0 to 5 do
+      let py = py0 + row in
+      if py < h then begin
+        let row_off = py * w in
+        let bit = 1 lsl row in
+        for px = 0 to w - 1 do
+          let ci = idx_map.(row_off + px) in
+          if ci >= 0 then begin
+            band_pat.(ci).(px) <- band_pat.(ci).(px) lor bit ;
+            color_present.(ci) <- true
+          end
+        done
+      end
+    done ;
+    (* Emit each color that appeared in this band *)
     for ci = 0 to nc - 1 do
-      let has_pixel = ref false in
-      for px = 0 to w - 1 do
-        let pat = ref 0 in
-        for row = 0 to 5 do
-          let py = py0 + row in
-          if py < h && idx_map.(py * w + px) = ci then
-            pat := !pat lor (1 lsl row)
-        done ;
-        patterns.(px) <- !pat ;
-        if !pat <> 0 then has_pixel := true
-      done ;
-      if !has_pixel then begin
+      if color_present.(ci) then begin
+        let pats = band_pat.(ci) in
         Buffer.add_string buf (Printf.sprintf "#%d" ci) ;
-        let run_pat = ref patterns.(0) in
+        let run_pat = ref pats.(0) in
         let run_len = ref 1 in
         for px = 1 to w - 1 do
-          if patterns.(px) = !run_pat then
-            incr run_len
+          if pats.(px) = !run_pat then incr run_len
           else begin
-            emit_rle buf !run_pat !run_len ;
-            run_pat := patterns.(px) ;
+            emit_rle !run_pat !run_len ;
+            run_pat := pats.(px) ;
             run_len := 1
           end
         done ;
-        emit_rle buf !run_pat !run_len ;
-        Buffer.add_char buf '$'
+        emit_rle !run_pat !run_len ;
+        Buffer.add_char buf '$' ;
+        (* Clear for next band *)
+        Array.fill pats 0 w 0
       end
     done ;
     if band < n_bands - 1 then Buffer.add_char buf '-'
