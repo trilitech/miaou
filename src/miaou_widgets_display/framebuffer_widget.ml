@@ -10,6 +10,14 @@
 
 let ansi_reset = "\027[0m"
 
+let rgb_to_ansi_256 r g b =
+  if r = g && g = b then
+    if r < 8 then 16 else if r > 248 then 231 else 232 + ((r - 8) / 10)
+  else
+    let r' = r * 6 / 256 in
+    let g' = g * 6 / 256 in
+    let b' = b * 6 / 256 in
+    16 + (36 * r') + (6 * g') + b'
 
 type t = {
   mutable pixels : bytes; (* flat RGB, stride = width_px * 3 *)
@@ -213,20 +221,22 @@ let render_octant t cols rows =
               let r = !bg_r / !bg_n
               and g = !bg_g / !bg_n
               and b = !bg_b / !bg_n in
+              let idx = rgb_to_ansi_256 r g b in
               Buffer.add_string
                 buf
-                (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
+                (Printf.sprintf "\027[48;5;%dm %s" idx ansi_reset)
             end
             else Buffer.add_char buf ' '
         | 0xFF ->
-            (* All bright: use bg+space for pixel-exact solid fill *)
+            (* All bright: use fg glyph for solid fill *)
             if !fg_n > 0 then begin
               let r = !fg_r / !fg_n
               and g = !fg_g / !fg_n
               and b = !fg_b / !fg_n in
               if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
               else
-                Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
+                let idx = rgb_to_ansi_256 r g b in
+                Buffer.add_string buf (Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
             end
             else Buffer.add_char buf ' '
         | _ ->
@@ -236,7 +246,7 @@ let render_octant t cols rows =
                 let r = !fg_r / !fg_n
                 and g = !fg_g / !fg_n
                 and b = !fg_b / !fg_n in
-                Printf.sprintf "\027[38;2;%d;%d;%dm" r g b
+                Printf.sprintf "\027[38;5;%dm" (rgb_to_ansi_256 r g b)
               else ""
             in
             let bg_code =
@@ -244,7 +254,7 @@ let render_octant t cols rows =
                 let r = !bg_r / !bg_n
                 and g = !bg_g / !bg_n
                 and b = !bg_b / !bg_n in
-                Printf.sprintf "\027[48;2;%d;%d;%dm" r g b
+                Printf.sprintf "\027[48;5;%dm" (rgb_to_ansi_256 r g b)
               else ""
             in
             Buffer.add_string buf fg_code ;
