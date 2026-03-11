@@ -382,71 +382,93 @@ let render_sextant t cols rows =
    Bit pattern: bit 0 = top row, bit 5 = bottom row. ASCII: pattern + 63.
    Pb=1 → unset pixels show terminal background (transparent). *)
 let render_sixel t cols rows =
-  let buf = Buffer.create (max 1024 (t.width_px * t.height_px / 4)) in
+  let w = t.width_px and h = t.height_px in
+  let buf = Buffer.create (max 1024 (w * h / 4)) in
   Buffer.add_string buf "\027P0;1;0q" ;
-  (* Build a compact palette; pure black (0,0,0) is treated as transparent. *)
+  (* Pass 1: build palette and pre-compute color index for every pixel. *)
   let palette_tbl = Hashtbl.create 64 in
   let palette_rgb = Array.make 256 (0, 0, 0) in
   let n_colors = ref 0 in
   let transparent = -1 in
-  let get_idx r g b =
-    if r = 0 && g = 0 && b = 0 then transparent
-    else
-      let key = (r lsl 16) lor (g lsl 8) lor b in
-      match Hashtbl.find_opt palette_tbl key with
-      | Some i -> i
-      | None ->
-          if !n_colors >= 256 then begin
-            (* Nearest-color fallback *)
-            let best_i = ref 0 and best_d = ref max_int in
-            for i = 0 to !n_colors - 1 do
-              let pr, pg, pb = palette_rgb.(i) in
-              let d = ((r - pr) * (r - pr)) + ((g - pg) * (g - pg))
-                      + ((b - pb) * (b - pb)) in
-              if d < !best_d then begin best_d := d ; best_i := i end
-            done ;
-            !best_i
-          end else begin
-            let i = !n_colors in
-            Hashtbl.add palette_tbl key i ;
-            palette_rgb.(i) <- (r, g, b) ;
-            incr n_colors ;
-            i
-          end
-  in
-  for py = 0 to t.height_px - 1 do
-    for px = 0 to t.width_px - 1 do
-      let r, g, b = get_rgb t px py in
-      ignore (get_idx r g b)
+  let idx_map = Array.make (w * h) transparent in
+  for py = 0 to h - 1 do
+    for px = 0 to w - 1 do
+      let off = (py * w + px) * 3 in
+      let r = Char.code (Bytes.unsafe_get t.pixels off) in
+      let g = Char.code (Bytes.unsafe_get t.pixels (off + 1)) in
+      let b = Char.code (Bytes.unsafe_get t.pixels (off + 2)) in
+      if r <> 0 || g <> 0 || b <> 0 then begin
+        let key = (r lsl 16) lor (g lsl 8) lor b in
+        let ci = match Hashtbl.find_opt palette_tbl key with
+          | Some i -> i
+          | None ->
+            if !n_colors >= 256 then begin
+              let best_i = ref 0 and best_d = ref max_int in
+              for i = 0 to !n_colors - 1 do
+                let pr, pg, pb = palette_rgb.(i) in
+                let d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb) in
+                if d < !best_d then (best_d := d ; best_i := i)
+              done ;
+              !best_i
+            end else begin
+              let i = !n_colors in
+              Hashtbl.add palette_tbl key i ;
+              palette_rgb.(i) <- (r, g, b) ;
+              incr n_colors ; i
+            end
+        in
+        idx_map.(py * w + px) <- ci
+      end
     done
   done ;
   let nc = !n_colors in
+  (* Emit palette definitions. *)
   for i = 0 to nc - 1 do
     let r, g, b = palette_rgb.(i) in
     Buffer.add_string buf
-      (Printf.sprintf "#%d;2;%d;%d;%d" i (r * 100 / 255) (g * 100 / 255) (b * 100 / 255))
+      (Printf.sprintf "#%d;2;%d;%d;%d" i (r*100/255) (g*100/255) (b*100/255))
   done ;
-  let n_bands = (t.height_px + 5) / 6 in
+  (* Pass 2: emit sixel bands with RLE compression. *)
+  let n_bands = (h + 5) / 6 in
+  let patterns = Array.make w 0 in
+  let emit_rle buf pat count =
+    let c = Char.chr (pat + 63) in
+    if count <= 3 then
+      for _ = 1 to count do Buffer.add_char buf c done
+    else begin
+      Buffer.add_char buf '!' ;
+      Buffer.add_string buf (string_of_int count) ;
+      Buffer.add_char buf c
+    end
+  in
   for band = 0 to n_bands - 1 do
     let py0 = band * 6 in
     for ci = 0 to nc - 1 do
       let has_pixel = ref false in
-      let sixel_data = Array.init t.width_px (fun px ->
-        let pattern = ref 0 in
+      for px = 0 to w - 1 do
+        let pat = ref 0 in
         for row = 0 to 5 do
           let py = py0 + row in
-          if py < t.height_px then begin
-            let r, g, b = get_rgb t px py in
-            if get_idx r g b = ci then begin
-              pattern := !pattern lor (1 lsl row) ;
-              has_pixel := true
-            end
-          end
+          if py < h && idx_map.(py * w + px) = ci then
+            pat := !pat lor (1 lsl row)
         done ;
-        !pattern) in
+        patterns.(px) <- !pat ;
+        if !pat <> 0 then has_pixel := true
+      done ;
       if !has_pixel then begin
         Buffer.add_string buf (Printf.sprintf "#%d" ci) ;
-        Array.iter (fun p -> Buffer.add_char buf (Char.chr (p + 63))) sixel_data ;
+        let run_pat = ref patterns.(0) in
+        let run_len = ref 1 in
+        for px = 1 to w - 1 do
+          if patterns.(px) = !run_pat then
+            incr run_len
+          else begin
+            emit_rle buf !run_pat !run_len ;
+            run_pat := patterns.(px) ;
+            run_len := 1
+          end
+        done ;
+        emit_rle buf !run_pat !run_len ;
         Buffer.add_char buf '$'
       end
     done ;
