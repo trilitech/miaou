@@ -236,8 +236,13 @@ let apply_themed_foreground content =
                 else if code_sets_fg parts !i then fg_seen := true ;
                 if part = "38" && !i + 1 < Array.length parts then
                   match parts.(!i + 1) with
-                  | "5" -> i := !i + 2
-                  | "2" -> i := !i + 4
+                  | "5" -> i := !i + 3
+                  | "2" -> i := !i + 5
+                  | _ -> i := !i + 1
+                else if part = "48" && !i + 1 < Array.length parts then
+                  match parts.(!i + 1) with
+                  | "5" -> i := !i + 3
+                  | "2" -> i := !i + 5
                   | _ -> i := !i + 1
                 else i := !i + 1
               done ;
