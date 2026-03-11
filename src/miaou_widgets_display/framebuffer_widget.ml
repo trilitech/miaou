@@ -10,15 +10,6 @@
 
 let ansi_reset = "\027[0m"
 
-(* Shared RGB → ANSI 256 color conversion *)
-let rgb_to_ansi_256 r g b =
-  if r = g && g = b then
-    if r < 8 then 16 else if r > 248 then 231 else 232 + ((r - 8) / 10)
-  else
-    let r' = r * 6 / 256 in
-    let g' = g * 6 / 256 in
-    let b' = b * 6 / 256 in
-    16 + (36 * r') + (6 * g') + b'
 
 type t = {
   mutable pixels : bytes; (* flat RGB, stride = width_px * 3 *)
@@ -129,20 +120,14 @@ let render_half_block t cols rows =
       && r_bot = 0 && g_bot = 0 && b_bot = 0 then
         Buffer.add_char buf ' '
       else begin
-        let fg_idx = rgb_to_ansi_256 r_top g_top b_top in
-        let bg_idx = rgb_to_ansi_256 r_bot g_bot b_bot in
-        if fg_idx = bg_idx then
-          Buffer.add_string
-            buf
-            (Printf.sprintf "\027[38;5;%dm\xE2\x96\x88%s" fg_idx ansi_reset)
+        (* Use fg=top (▀), bg=bottom — both as truecolor bg fills for solid rendering.
+           When colors match, one bg+space suffices. Otherwise ▀ with fg+bg. *)
+        if r_top = r_bot && g_top = g_bot && b_top = b_bot then
+          Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r_top g_top b_top ansi_reset)
         else
-          Buffer.add_string
-            buf
-            (Printf.sprintf
-               "\027[38;5;%dm\027[48;5;%dm\xE2\x96\x80%s"
-               fg_idx
-               bg_idx
-               ansi_reset)
+          Buffer.add_string buf
+            (Printf.sprintf "\027[38;2;%d;%d;%dm\027[48;2;%d;%d;%dm\xE2\x96\x80%s"
+               r_top g_top b_top r_bot g_bot b_bot ansi_reset)
       end
     done
   done ;
@@ -151,55 +136,22 @@ let render_half_block t cols rows =
 (* ── Render: Braille ─────────────────────────────────────────────────────── *)
 
 let render_braille t cols rows =
-  (* 2×4 pixels per cell.
-     Dot placement: adaptive local threshold (average luma of the cell) so
-     every cell contributes dots relative to its own content, not a global cutoff.
-     Color: 24-bit truecolor average of only the pixels that set dots, so the
-     color reflects the lit area rather than the dark background. *)
   let canvas = Braille_canvas.create ~width:cols ~height:rows in
-  let cell_colors = Array.make_matrix rows cols (0, 0, 0) in
   for cy = 0 to rows - 1 do
     for cx = 0 to cols - 1 do
-      (* Pass 1: compute average luma for local threshold *)
-      let sum_luma = ref 0 and cnt = ref 0 in
-      for dy = 0 to 3 do
-        for dx = 0 to 1 do
-          let px = cx * 2 + dx and py = cy * 4 + dy in
-          if px < t.width_px && py < t.height_px then begin
-            let r, g, b = get_rgb t px py in
-            sum_luma := !sum_luma + ((r * 299) + (g * 587) + (b * 114)) / 1000 ;
-            incr cnt
-          end
-        done
-      done ;
-      let threshold = if !cnt > 0 then !sum_luma / !cnt else 128 in
-      (* Pass 2: set dots above threshold, accumulate fg color *)
-      let sum_r = ref 0 and sum_g = ref 0 and sum_b = ref 0 and n = ref 0 in
       for dy = 0 to 3 do
         for dx = 0 to 1 do
           let px = cx * 2 + dx and py = cy * 4 + dy in
           if px < t.width_px && py < t.height_px then begin
             let r, g, b = get_rgb t px py in
             let luma = ((r * 299) + (g * 587) + (b * 114)) / 1000 in
-            if luma > threshold then begin
-              Braille_canvas.set_dot canvas ~x:px ~y:py ;
-              sum_r := !sum_r + r ;
-              sum_g := !sum_g + g ;
-              sum_b := !sum_b + b ;
-              incr n
-            end
+            if luma > 128 then Braille_canvas.set_dot canvas ~x:px ~y:py
           end
         done
-      done ;
-      if !n > 0 then
-        cell_colors.(cy).(cx) <- (!sum_r / !n, !sum_g / !n, !sum_b / !n)
+      done
     done
   done ;
-  (* Use 24-bit truecolor for accurate color reproduction *)
-  Braille_canvas.render_with canvas ~f:(fun ~x ~y glyph ->
-    let r, g, b = cell_colors.(y).(x) in
-    if r = 0 && g = 0 && b = 0 then " "
-    else Printf.sprintf "\027[38;2;%d;%d;%dm%s%s" r g b glyph ansi_reset)
+  Braille_canvas.render canvas
 
 (* ── Render: Octant ──────────────────────────────────────────────────────── *)
 
@@ -261,28 +213,22 @@ let render_octant t cols rows =
               let r = !bg_r / !bg_n
               and g = !bg_g / !bg_n
               and b = !bg_b / !bg_n in
-              let idx = rgb_to_ansi_256 r g b in
               Buffer.add_string
                 buf
-                (Printf.sprintf "\027[48;5;%dm %s" idx ansi_reset)
+                (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
             end
             else Buffer.add_char buf ' '
         | 0xFF ->
-            (* All bright: full block with fg color *)
+            (* All bright: use bg+space for pixel-exact solid fill *)
             if !fg_n > 0 then begin
               let r = !fg_r / !fg_n
               and g = !fg_g / !fg_n
               and b = !fg_b / !fg_n in
-              (* All-black cell → transparent (space) *)
               if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
-              else begin
-                let idx = rgb_to_ansi_256 r g b in
-                Buffer.add_string
-                  buf
-                  (Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
-              end
+              else
+                Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
             end
-            else Buffer.add_string buf glyph
+            else Buffer.add_char buf ' '
         | _ ->
             (* Mixed: fg for set bits, bg for unset bits *)
             let fg_code =
@@ -290,7 +236,7 @@ let render_octant t cols rows =
                 let r = !fg_r / !fg_n
                 and g = !fg_g / !fg_n
                 and b = !fg_b / !fg_n in
-                Printf.sprintf "\027[38;5;%dm" (rgb_to_ansi_256 r g b)
+                Printf.sprintf "\027[38;2;%d;%d;%dm" r g b
               else ""
             in
             let bg_code =
@@ -298,7 +244,7 @@ let render_octant t cols rows =
                 let r = !bg_r / !bg_n
                 and g = !bg_g / !bg_n
                 and b = !bg_b / !bg_n in
-                Printf.sprintf "\027[48;5;%dm" (rgb_to_ansi_256 r g b)
+                Printf.sprintf "\027[48;2;%d;%d;%dm" r g b
               else ""
             in
             Buffer.add_string buf fg_code ;
@@ -382,36 +328,25 @@ let render_sextant t cols rows =
       | 0 ->
           if !bg_n > 0 then begin
             let r = !bg_r / !bg_n and g = !bg_g / !bg_n and b = !bg_b / !bg_n in
-            Buffer.add_string
-              buf
-              (Printf.sprintf
-                 "\027[48;5;%dm %s"
-                 (rgb_to_ansi_256 r g b)
-                 ansi_reset)
+            Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
           end
           else Buffer.add_char buf ' '
       | 0x3F ->
+          (* All bright: use bg+space for pixel-exact solid fill (fg glyphs can
+             have font-dependent gaps showing the terminal background through) *)
           if !fg_n > 0 then begin
             let r = !fg_r / !fg_n and g = !fg_g / !fg_n and b = !fg_b / !fg_n in
-            (* All-black cell → transparent (space) *)
             if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
-            else
-              Buffer.add_string
-                buf
-                (Printf.sprintf
-                   "\027[38;5;%dm%s%s"
-                   (rgb_to_ansi_256 r g b)
-                   glyph
-                   ansi_reset)
+            else Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
           end
-          else Buffer.add_string buf glyph
+          else Buffer.add_char buf ' '
       | _ ->
           let fg_code =
             if !fg_n > 0 then
               let r = !fg_r / !fg_n
               and g = !fg_g / !fg_n
               and b = !fg_b / !fg_n in
-              Printf.sprintf "\027[38;5;%dm" (rgb_to_ansi_256 r g b)
+              Printf.sprintf "\027[38;2;%d;%d;%dm" r g b
             else ""
           in
           let bg_code =
@@ -419,7 +354,7 @@ let render_sextant t cols rows =
               let r = !bg_r / !bg_n
               and g = !bg_g / !bg_n
               and b = !bg_b / !bg_n in
-              Printf.sprintf "\027[48;5;%dm" (rgb_to_ansi_256 r g b)
+              Printf.sprintf "\027[48;2;%d;%d;%dm" r g b
             else ""
           in
           Buffer.add_string buf fg_code ;
