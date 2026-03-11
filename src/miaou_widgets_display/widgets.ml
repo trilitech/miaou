@@ -136,7 +136,24 @@ let themed_background_alt s = styled (Style_context.background_secondary ()) s
     from the theme. The style is determined by Style_context.current_style(). *)
 let themed_contextual s = Style_context.styled s
 
+let has_pixel_proto s =
+  (* Returns true if s contains Sixel DCS (\027P) or Kitty APC (\027_)
+     sequences that must not have CSI codes injected into them. *)
+  let n = String.length s in
+  let rec loop i =
+    if i >= n - 1 then false
+    else if Char.code s.[i] = 27 then
+      let c = s.[i + 1] in
+      c = 'P' || c = '_' || loop (i + 1)
+    else loop (i + 1)
+  in
+  loop 0
+
 let apply_bg_fill ~bg s =
+  (* Pixel protocol sequences (Sixel DCS, Kitty APC) must not have SGR codes
+     injected — return as-is. *)
+  if has_pixel_proto s then s
+  else
   let prefix = "\027[" ^ Miaou_style.Style.bg_ansi_code bg ^ "m" in
   let reset = Style.ansi_reset in
   let len_s = String.length s in
@@ -170,19 +187,6 @@ let apply_bg_fill ~bg s =
     - For each plain text segment not preceded by a foreground color code,
       wrap it with the theme's text foreground color
     - Preserve all existing ANSI codes *)
-let has_pixel_proto s =
-  (* Returns true if s contains Sixel DCS (\027P) or Kitty APC (\027_)
-     sequences that must not have CSI codes injected into them. *)
-  let n = String.length s in
-  let rec loop i =
-    if i >= n - 1 then false
-    else if Char.code s.[i] = 27 then
-      let c = s.[i + 1] in
-      c = 'P' || c = '_' || loop (i + 1)
-    else loop (i + 1)
-  in
-  loop 0
-
 let apply_themed_foreground content =
   let theme = Style_context.current_theme () in
   let text_style = theme.Miaou_style.Theme.text in
@@ -274,6 +278,7 @@ let apply_themed_background ~rows ~cols content =
     Style.to_resolved ~dark_mode:theme.Miaou_style.Theme.dark_mode bg_style
   in
   if resolved.Style.r_bg < 0 then content
+  else if has_pixel_proto content then content
   else
     let lines = String.split_on_char '\n' content in
     let line_count = List.length lines in
