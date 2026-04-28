@@ -202,7 +202,7 @@ let parse_core t ~emit_char input =
         else t.state <- Normal
     | DCS ->
         (* Accumulate DCS payload until ESC \ (String Terminator) *)
-        if !pos < len then (
+        if !pos < len then
           let c = input.[!pos] in
           if c = '\027' && !pos + 1 < len && input.[!pos + 1] = '\\' then begin
             Buffer.add_string t.dcs_buf "\027\\" ;
@@ -210,10 +210,11 @@ let parse_core t ~emit_char input =
             emit_char (Buffer.contents t.dcs_buf) t.style ;
             t.state <- Normal ;
             pos := !pos + 2
-          end else begin
+          end
+          else begin
             Buffer.add_char t.dcs_buf c ;
             incr pos
-          end)
+          end
         else t.state <- Normal
     | CSI (params, current) ->
         if !pos < len then (

@@ -37,6 +37,10 @@ type key =
   | Down
   | Left
   | Right
+  | PageUp  (** ESC [ 5 ~ *)
+  | PageDown  (** ESC [ 6 ~ *)
+  | Home  (** ESC [ H, ESC O H, ESC [ 1 ~, ESC [ 7 ~ *)
+  | End  (** ESC [ F, ESC O F, ESC [ 4 ~, ESC [ 8 ~ *)
   | Delete
   | Ctrl of char  (** Control + letter, e.g., Ctrl 'a' for C-a *)
   | Mouse of {row : int; col : int; button : int; release : bool}
@@ -93,7 +97,7 @@ val drain_esc : t -> int
     [Mouse {row=5; col=10; _}] -> ["Mouse:5:10"] *)
 val key_to_string : key -> string
 
-(** Check if key is a navigation key (Up/Down/Left/Right/Tab/Delete).
+(** Check if key is a navigation key (Up/Down/Left/Right/Tab/Delete/PageUp/PageDown/Home/End).
     These are candidates for draining. *)
 val is_nav_key : key -> bool
 
