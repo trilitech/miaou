@@ -9,6 +9,11 @@
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (name test_tree_widget)
+ (modules test_tree_widget)
+ (libraries alcotest miaou-core.widgets.display))
+
+(test
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))
