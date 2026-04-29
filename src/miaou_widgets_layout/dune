@@ -16,6 +16,7 @@
   sidebar_widget
   flex_layout
   grid_layout
+  responsive
   toast_widget
   wizard_widget
   canvas_widget)
@@ -29,6 +30,7 @@
   (file spinner_widget.mli)
   (file file_browser_widget.mli)
   (file card_widget.mli)
+  (file responsive.mli)
   (file toast_widget.mli)
   (file wizard_widget.mli)
   (file canvas_widget.mli))
