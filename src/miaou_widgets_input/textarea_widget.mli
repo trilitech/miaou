@@ -100,6 +100,8 @@ val render : t -> focus:bool -> string
     - [Up]/[Down]: Move between lines
     - [Home]: Move to start of line
     - [End]: Move to end of line
+    - [C-z]: Undo last edit (see {!undo})
+    - [C-y] / [C-Z]: Redo last undone edit (see {!redo})
     - [Esc]/[Escape]: Mark as cancelled
 
     {b Note}: [Enter] is NOT handled - use it for form submission.
@@ -145,3 +147,21 @@ val height : t -> int
 
 (** Set new dimensions. Width minimum: 10, height minimum: 3. *)
 val with_dimensions : t -> width:int -> height:int -> t
+
+(** {1 Undo / Redo} *)
+
+(** Revert the most recent edit. Consecutive single-character inserts are
+    coalesced into a single undo step, so a typed word is reverted in one go.
+    Other edits (newline, backspace, delete) each produce their own step.
+    No-op when there is nothing to undo. *)
+val undo : t -> t
+
+(** Re-apply the most recently undone edit. Cleared whenever a new edit is
+    performed. No-op when there is nothing to redo. *)
+val redo : t -> t
+
+(** Whether {!undo} would change the textarea. *)
+val can_undo : t -> bool
+
+(** Whether {!redo} would change the textarea. *)
+val can_redo : t -> bool

@@ -67,7 +67,9 @@ module Inner = struct
         String.concat "\n" preview_lines
     in
     let controls =
-      W.dim "Alt+Enter: newline | Arrows: move | Esc: back | t: tutorial"
+      W.dim
+        "Alt+Enter: newline | Arrows: move | Ctrl+Z/Y: undo/redo | Esc: back | \
+         t: tutorial"
     in
     String.concat
       "\n"

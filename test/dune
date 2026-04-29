@@ -14,6 +14,11 @@
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (name test_textarea_undo)
+ (modules test_textarea_undo)
+ (libraries alcotest miaou-core.widgets.input))
+
+(test
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))
