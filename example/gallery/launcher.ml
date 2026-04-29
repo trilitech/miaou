@@ -192,6 +192,20 @@ let demos =
           (module Wizard_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
+      title = "Responsive Layout";
+      open_demo =
+        goto
+          "demo_responsive"
+          (module Responsive_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
+      title = "Inline Select";
+      open_demo =
+        goto
+          "demo_inline_select"
+          (module Inline_select_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
       title = "Layout Helpers";
       open_demo =
         goto
@@ -430,6 +444,20 @@ let demos =
               | `Cancel -> ()) ;
           ps);
     };
+    {
+      title = "Inline CLI";
+      open_demo =
+        goto
+          "demo_inline_cli"
+          (module Inline_cli_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
+      title = "Inline Color Picker";
+      open_demo =
+        goto
+          "demo_inline_color_picker"
+          (module Inline_color_picker_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let demo_at idx = List.nth_opt demos idx
@@ -449,14 +477,14 @@ let demo_tree =
       [
         demo_group
           "Input"
-          [0; 1; 2; 3; 15; 16; 17; 18; 19; 20; 21; 22; 23; 36; 40];
-        demo_group "Layout" [11; 12; 13; 24; 34; 37; 38];
-        demo_group "Display" [4; 8; 9; 10; 25; 26; 27; 28; 30; 31; 32];
+          [0; 1; 2; 3; 13; 17; 18; 19; 20; 21; 22; 23; 24; 25; 38; 42];
+        demo_group "Layout" [11; 12; 14; 15; 26; 36; 39; 40];
+        demo_group "Display" [4; 8; 9; 10; 27; 28; 29; 30; 32; 33; 34];
       ];
-    demo_group "Core" [6; 7; 14; 33];
-    demo_group "Styling" [5; 35];
-    demo_group "Showcases" [29];
-    demo_group "Games" [39];
+    demo_group "Core" [6; 7; 16; 35; 45; 46];
+    demo_group "Styling" [5; 37];
+    demo_group "Showcases" [31];
+    demo_group "Games" [41];
   ]
 
 let init () =
