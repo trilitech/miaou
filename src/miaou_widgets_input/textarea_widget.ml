@@ -10,6 +10,10 @@
 
 open Miaou_widgets_display.Widgets
 
+type edit_op = No_edit | Char_insert | Other_edit
+
+type snapshot = {s_lines : string array; s_cursor_row : int; s_cursor_col : int}
+
 type t = {
   lines : string array;  (** Content lines *)
   cursor_row : int;  (** Current line (0-indexed) *)
@@ -20,7 +24,73 @@ type t = {
   title : string option;
   placeholder : string option;
   cancelled : bool;
+  undo_stack : snapshot list;
+  redo_stack : snapshot list;
+  last_op : edit_op;
 }
+
+let undo_cap = 200
+
+let snap_of t =
+  {
+    s_lines = Array.copy t.lines;
+    s_cursor_row = t.cursor_row;
+    s_cursor_col = t.cursor_col;
+  }
+
+let restore_snap t s =
+  {
+    t with
+    lines = Array.copy s.s_lines;
+    cursor_row = s.s_cursor_row;
+    cursor_col = s.s_cursor_col;
+  }
+
+let cap_undo stack =
+  let rec take n = function
+    | [] -> []
+    | _ when n = 0 -> []
+    | x :: rest -> x :: take (n - 1) rest
+  in
+  if List.length stack > undo_cap then take undo_cap stack else stack
+
+(* Push a snapshot before applying an edit, except when coalescing with
+   a prior char-insert burst. Always clears redo stack. *)
+let push_undo t ~op =
+  if op = Char_insert && t.last_op = Char_insert then {t with redo_stack = []}
+  else
+    let stack = cap_undo (snap_of t :: t.undo_stack) in
+    {t with undo_stack = stack; redo_stack = []}
+
+let undo t =
+  match t.undo_stack with
+  | [] -> t
+  | last :: rest ->
+      let cur = snap_of t in
+      let t' = restore_snap t last in
+      {
+        t' with
+        undo_stack = rest;
+        redo_stack = cap_undo (cur :: t.redo_stack);
+        last_op = Other_edit;
+      }
+
+let redo t =
+  match t.redo_stack with
+  | [] -> t
+  | last :: rest ->
+      let cur = snap_of t in
+      let t' = restore_snap t last in
+      {
+        t' with
+        redo_stack = rest;
+        undo_stack = cap_undo (cur :: t.undo_stack);
+        last_op = Other_edit;
+      }
+
+let can_undo t = t.undo_stack <> []
+
+let can_redo t = t.redo_stack <> []
 
 let create ?title ?(width = 60) ?(height = 10) ?(initial = "") ?placeholder () =
   let lines =
@@ -39,6 +109,9 @@ let create ?title ?(width = 60) ?(height = 10) ?(initial = "") ?placeholder () =
     title;
     placeholder;
     cancelled = false;
+    undo_stack = [];
+    redo_stack = [];
+    last_op = No_edit;
   }
 
 let open_centered ?title ?(width = 60) ?(height = 10) ?(initial = "")
@@ -277,12 +350,17 @@ let render t ~focus:(_ : bool) =
 (** Handle key input *)
 let on_key t ~key =
   let open Miaou_interfaces.Key_event in
+  let edit ~op f =
+    let t = push_undo t ~op in
+    let t = f t in
+    {t with last_op = op}
+  in
   match key with
   | "A-Enter" | "Alt-Enter" ->
       (* Alt+Enter inserts newline *)
-      (insert_newline t, Handled)
-  | "Backspace" -> (backspace t, Handled)
-  | "Delete" -> (delete t, Handled)
+      (edit ~op:Other_edit insert_newline, Handled)
+  | "Backspace" -> (edit ~op:Other_edit backspace, Handled)
+  | "Delete" -> (edit ~op:Other_edit delete, Handled)
   | "Left" -> (move_left t, Handled)
   | "Right" -> (move_right t, Handled)
   | "Up" -> (move_up t, Handled)
@@ -290,6 +368,8 @@ let on_key t ~key =
   | "Home" -> (move_home t, Handled)
   | "End" -> (move_end t, Handled)
   | "Esc" | "Escape" -> ({t with cancelled = true}, Handled)
+  | "C-z" -> (undo t, Handled)
+  | "C-y" | "C-Z" -> (redo t, Handled)
   | "WheelUp" ->
       (* Scroll up by moving view, not cursor *)
       let new_scroll =
@@ -302,7 +382,8 @@ let on_key t ~key =
         min max_scroll (t.scroll_offset + Miaou_helpers.Mouse.wheel_scroll_lines)
       in
       ({t with scroll_offset = new_scroll}, Handled)
-  | k when String.length k = 1 -> (insert_char t k, Handled)
+  | k when String.length k = 1 ->
+      (edit ~op:Char_insert (fun t -> insert_char t k), Handled)
   | key -> (
       (* Check for mouse click to position cursor *)
       match Miaou_helpers.Mouse.parse_click key with
