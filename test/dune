@@ -19,6 +19,11 @@
  (libraries alcotest miaou-core.widgets.input))
 
 (test
+ (name test_wizard_widget)
+ (modules test_wizard_widget)
+ (libraries alcotest miaou-core.widgets.layout))
+
+(test
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))

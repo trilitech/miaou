@@ -39,6 +39,7 @@
   box_widget_demo
   style_system_demo
   textarea_demo
+  wizard_demo
   focus_container_demo
   canvas_demo
   miaou_invaders_demo
