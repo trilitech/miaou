@@ -40,6 +40,10 @@
   style_system_demo
   textarea_demo
   wizard_demo
+  responsive_demo
+  inline_select_demo
+  inline_cli_demo
+  inline_color_picker_demo
   focus_container_demo
   canvas_demo
   miaou_invaders_demo
