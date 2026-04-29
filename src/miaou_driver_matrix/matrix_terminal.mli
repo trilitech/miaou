@@ -65,3 +65,13 @@ val clear_resize_pending : t -> unit
 (** Set screen content to dump on exit for debugging.
     The content will be printed after exiting alternate screen mode. *)
 val set_exit_screen_dump : t -> string -> unit
+
+(** Configure whether {!enter_raw} should switch to the alternate screen.
+    Default is [true] (alt-screen on). When set to [false] {b before}
+    {!enter_raw}, the driver runs in inline mode — the TUI renders over the
+    current terminal contents and its final frame stays in scrollback after
+    cleanup. See {!Miaou_driver_common.Terminal_raw.set_alt_screen}. *)
+val set_alt_screen : t -> bool -> unit
+
+(** Whether the alternate screen is currently enabled. *)
+val alt_screen_enabled : t -> bool

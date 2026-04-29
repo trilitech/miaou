@@ -17,6 +17,10 @@ type t = {
   resize_pending : bool Atomic.t;
   (* Screen content to dump on exit for debugging *)
   mutable exit_screen_dump : string option;
+  (* When false, enter_raw / cleanup skip the alternate-screen
+     sequences. The TUI then renders inline at the cursor position
+     and its final frame stays in the terminal scrollback. *)
+  mutable use_alt_screen : bool;
 }
 
 let setup () =
@@ -38,9 +42,14 @@ let setup () =
     cleanup_done = false;
     resize_pending = Atomic.make false;
     exit_screen_dump = None;
+    use_alt_screen = true;
   }
 
 let set_exit_screen_dump t dump = t.exit_screen_dump <- Some dump
+
+let set_alt_screen t enabled = t.use_alt_screen <- enabled
+
+let alt_screen_enabled t = t.use_alt_screen
 
 let fd t = t.fd
 
@@ -60,16 +69,17 @@ let enter_raw t =
         }
       in
       Unix.tcsetattr t.fd Unix.TCSANOW raw ;
-      (* Enter alternate screen mode first *)
-      try
-        let alt_seq = "\027[?1049h" in
-        ignore
-          (Unix.write
-             t.tty_out_fd
-             (Bytes.of_string alt_seq)
-             0
-             (String.length alt_seq))
-      with _ -> ())
+      (* Enter alternate screen mode unless inline mode is on *)
+      if t.use_alt_screen then
+        try
+          let alt_seq = "\027[?1049h" in
+          ignore
+            (Unix.write
+               t.tty_out_fd
+               (Bytes.of_string alt_seq)
+               0
+               (String.length alt_seq))
+        with _ -> ())
 
 let leave_raw t =
   match t.orig_termios with
@@ -132,42 +142,52 @@ let enable_mouse t =
 let cleanup t =
   if not t.cleanup_done then begin
     t.cleanup_done <- true ;
-    (* Step 1: Exit alternate screen mode (restores main buffer) *)
-    let exit_alt_seq = "\027[?1049l" in
-    (try
-       ignore
-         (Unix.write
-            t.tty_out_fd
-            (Bytes.of_string exit_alt_seq)
-            0
-            (String.length exit_alt_seq)) ;
-       Unix.tcdrain t.tty_out_fd
-     with _ -> ()) ;
+    (* Step 1: Exit alternate screen mode (restores main buffer).
+       In inline mode we skip this — the rendered frame stays in
+       scrollback. We do, however, append a newline so the next shell
+       prompt does not land on top of the last rendered row. *)
+    (if t.use_alt_screen then
+       let exit_alt_seq = "\027[?1049l" in
+       try
+         ignore
+           (Unix.write
+              t.tty_out_fd
+              (Bytes.of_string exit_alt_seq)
+              0
+              (String.length exit_alt_seq)) ;
+         Unix.tcdrain t.tty_out_fd
+       with _ -> ()
+     else
+       try
+         ignore (Unix.write t.tty_out_fd (Bytes.of_string "\n") 0 1) ;
+         Unix.tcdrain t.tty_out_fd
+       with _ -> ()) ;
     (* Step 2: Restore terminal settings *)
     leave_raw t ;
-    (* Step 3: Print saved screen content (if any) for debugging *)
-    (* Write directly to /dev/tty to avoid shell interference (ble.sh, etc.) *)
-    (match t.exit_screen_dump with
-    | Some dump -> (
-        try
-          (* Clear screen and move cursor home before printing dump *)
-          let clear_seq = "\027[2J\027[H" in
-          ignore
-            (Unix.write
-               t.tty_out_fd
-               (Bytes.of_string clear_seq)
-               0
-               (String.length clear_seq)) ;
-          ignore
-            (Unix.write
-               t.tty_out_fd
-               (Bytes.of_string dump)
-               0
-               (String.length dump)) ;
-          ignore (Unix.write t.tty_out_fd (Bytes.of_string "\n") 0 1) ;
-          Unix.tcdrain t.tty_out_fd
-        with _ -> ())
-    | None -> ()) ;
+    (* Step 3: Print saved screen content (if any) for debugging.
+       Write directly to /dev/tty to avoid shell interference (ble.sh, etc.).
+       Skipped in inline mode — the live frame is already in scrollback. *)
+    (if t.use_alt_screen then
+       match t.exit_screen_dump with
+       | Some dump -> (
+           try
+             let clear_seq = "\027[2J\027[H" in
+             ignore
+               (Unix.write
+                  t.tty_out_fd
+                  (Bytes.of_string clear_seq)
+                  0
+                  (String.length clear_seq)) ;
+             ignore
+               (Unix.write
+                  t.tty_out_fd
+                  (Bytes.of_string dump)
+                  0
+                  (String.length dump)) ;
+             ignore (Unix.write t.tty_out_fd (Bytes.of_string "\n") 0 1) ;
+             Unix.tcdrain t.tty_out_fd
+           with _ -> ())
+       | None -> ()) ;
     (* Step 4: Show cursor, reset style *)
     let final_seq = "\027[?25h\027[0m" in
     try

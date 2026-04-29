@@ -14,6 +14,7 @@ type t = {
   debug : bool;
   enable_mouse : bool;
   handle_sigint : bool;
+  inline_mode : bool;
 }
 
 let time_of_rate rate =
@@ -32,6 +33,7 @@ let default =
     debug = false;
     enable_mouse = true;
     handle_sigint = true;
+    inline_mode = false;
   }
 
 let load () =
@@ -64,10 +66,16 @@ let load () =
         | _ -> 300)
     | None -> 300
   in
+  let inline_mode =
+    match Sys.getenv_opt "MIAOU_INLINE_MODE" with
+    | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
+    | _ -> false
+  in
   let enable_mouse =
     match Sys.getenv_opt "MIAOU_ENABLE_MOUSE" with
     | Some ("0" | "false" | "FALSE" | "no" | "NO") -> false
-    | _ -> true
+    | _ -> not inline_mode
+    (* mouse tracking interferes with inline-mode copy/paste *)
   in
   {
     fps_cap;
@@ -78,6 +86,7 @@ let load () =
     debug;
     enable_mouse;
     handle_sigint = true;
+    inline_mode;
   }
 
 let with_mouse_disabled config = {config with enable_mouse = false}
