@@ -34,6 +34,11 @@
  (libraries alcotest astring miaou-core.widgets.layout))
 
 (test
+ (name test_keymap_config)
+ (modules test_keymap_config)
+ (libraries alcotest astring miaou-core.core))
+
+(test
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))

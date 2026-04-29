@@ -5,6 +5,7 @@
  (public_name miaou-core.core)
  (modules
   keys
+  keymap_config
   logger_alias
   logger
   navigation
