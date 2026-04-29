@@ -2,6 +2,19 @@
 
 Guidelines for AI agents and contributors working on the miaou repository.
 
+## Installed Agent Team
+
+This project has a tuned multi-agent team in `.claude/agents/`:
+
+| Role | Agent | Purpose |
+|---|---|---|
+| Orchestrator | `tech-lead` | Drives the implement → review → QA pipeline, gates merges |
+| Implementer | `implementer` | Worktree-isolated phase work; runs `dune build && runtest && fmt` before handoff; commits + CHANGELOG entry per phase |
+| Reviewer | `reviewer` | Structured code review; enforces MIAOU OCaml conventions and tmux verification |
+| QA | `qa` | Runs tests + **tmux-based runtime verification** (capture-pane evidence is mandatory for any user-visible change) |
+
+Agents are sourced from `mathiasbourgoin/agent-roster` with project-local tuning (build/test/format commands, OCaml conventions, MIAOU-specific tmux harness).
+
 ## Project Overview
 
 Miaou is a TUI (Text User Interface) library for OCaml with a state-view-handlers architecture. It provides widgets, layout helpers, and multiple rendering backends for building terminal applications.
