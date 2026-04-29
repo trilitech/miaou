@@ -29,6 +29,11 @@
  (libraries alcotest miaou-core.widgets.layout))
 
 (test
+ (name test_file_icons)
+ (modules test_file_icons)
+ (libraries alcotest astring miaou-core.widgets.layout))
+
+(test
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))

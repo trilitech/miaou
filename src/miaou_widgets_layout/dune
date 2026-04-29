@@ -19,6 +19,7 @@
   responsive
   toast_widget
   wizard_widget
+  file_icons
   canvas_widget)
  (instrumentation
   (backend bisect_ppx))
@@ -33,6 +34,7 @@
   (file responsive.mli)
   (file toast_widget.mli)
   (file wizard_widget.mli)
+  (file file_icons.mli)
   (file canvas_widget.mli))
  (libraries
   miaou-core.widgets.display
