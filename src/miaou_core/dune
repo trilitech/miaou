@@ -12,6 +12,7 @@
   system
   service_lifecycle
   modal_manager
+  prompt
   quit_flag
   registry
   tui_capture
