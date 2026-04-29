@@ -43,7 +43,7 @@ module Inner = struct
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
     | Some Miaou.Core.Keys.Escape -> go_back s
-    | _ -> s
+    | _ -> {s with tree = Tree.handle_key s.tree ~key:key_str}
 
   let move s _ = s
 
