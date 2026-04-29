@@ -63,9 +63,13 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
           ~write:(Matrix_terminal.write terminal)
       in
 
-      (* Enter raw mode and enable mouse *)
+      (* Configure inline vs alt-screen before entering raw mode *)
+      Matrix_terminal.set_alt_screen terminal (not config.inline_mode) ;
+
+      (* Enter raw mode and enable mouse (mouse off in inline mode) *)
       Matrix_terminal.enter_raw terminal ;
-      if config.enable_mouse then Matrix_terminal.enable_mouse terminal ;
+      if config.enable_mouse && not config.inline_mode then
+        Matrix_terminal.enable_mouse terminal ;
 
       (* Re-check size after raw mode; some terminals report 80x24 initially *)
       let sleep_s seconds = Eio.Time.sleep env#clock seconds in
@@ -86,8 +90,12 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
       (* Hide cursor *)
       Matrix_terminal.write terminal Matrix_ansi_writer.cursor_hide ;
 
-      (* Clear screen initially *)
-      Matrix_terminal.write terminal "\027[2J\027[H" ;
+      (* Clear screen initially. In inline mode we skip the clear and let
+         the diff renderer paint over the current scrollback contents
+         starting from the cursor position; the final frame stays in
+         scrollback after exit. *)
+      if not config.inline_mode then
+        Matrix_terminal.write terminal "\027[2J\027[H" ;
 
       (* Start render domain - runs at 60 FPS in parallel *)
       Matrix_render_loop.start render_loop ;

@@ -47,3 +47,7 @@ let install_signals' t cleanup_fn ?(handle_sigint = true) () =
     ()
 
 let set_exit_screen_dump = Raw.set_exit_screen_dump
+
+let set_alt_screen = Raw.set_alt_screen
+
+let alt_screen_enabled = Raw.alt_screen_enabled

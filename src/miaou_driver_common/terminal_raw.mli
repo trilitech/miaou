@@ -90,3 +90,23 @@ val clear_resize_pending : t -> unit
     The content will be printed to stdout after exiting alternate screen mode,
     preserving the TUI output in terminal scrollback. *)
 val set_exit_screen_dump : t -> string -> unit
+
+(** Choose whether {!enter_raw} switches to the alternate screen.
+
+    By default the terminal enters the alt-screen on {!enter_raw} and leaves
+    it on {!cleanup}, restoring the prior shell content. Calling
+    [set_alt_screen t false] before {!enter_raw} switches to {b inline mode}:
+    the TUI renders directly over the current terminal contents and the final
+    frame stays in the scrollback after the program exits. A trailing newline
+    is appended on cleanup so the next shell prompt starts on a fresh line.
+
+    Inline mode trades the standard "take over the screen" experience for one
+    where the rendered output is preserved as part of the user's terminal
+    history — useful for short-running CLI helpers, debugging, and any tool
+    you want to read after it exits.
+
+    Must be called before {!enter_raw} to take effect. *)
+val set_alt_screen : t -> bool -> unit
+
+(** Whether the alternate screen is currently enabled (default [true]). *)
+val alt_screen_enabled : t -> bool
