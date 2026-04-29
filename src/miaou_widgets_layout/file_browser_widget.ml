@@ -766,7 +766,11 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
           else name_for_display ^ size_suffix
         in
         let clipped = plain |> truncate in
-        let colored = if e.is_dir then W.themed_accent clipped else clipped in
+        (* Apply icon prefix and per-extension foreground colour. The
+           selection highlight applied below still wins for the cursor row. *)
+        let colored =
+          File_icons.decorate ~name:e.name ~is_dir:e.is_dir clipped
+        in
         let label =
           if w.mode = EditingPath then W.themed_muted colored else colored
         in
