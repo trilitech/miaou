@@ -39,6 +39,11 @@
  (libraries alcotest astring miaou-core.core))
 
 (test
+ (name test_prompt)
+ (modules test_prompt)
+ (libraries alcotest miaou-core.core))
+
+(test
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))
