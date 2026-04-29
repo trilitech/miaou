@@ -185,6 +185,13 @@ let demos =
         goto "demo_tree" (module Tree_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
     {
+      title = "Wizard";
+      open_demo =
+        goto
+          "demo_wizard"
+          (module Wizard_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
       title = "Layout Helpers";
       open_demo =
         goto
