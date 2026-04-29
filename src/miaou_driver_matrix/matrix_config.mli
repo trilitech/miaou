@@ -14,6 +14,10 @@
       (default: 30, set 0 to disable)
     - MIAOU_MATRIX_DEBUG: Enable debug logging (default: false)
     - MIAOU_ENABLE_MOUSE: Enable mouse tracking (default: true, set to 0/false/no to disable for easier copy/paste)
+    - MIAOU_INLINE_MODE: Run inline (no alt-screen). The TUI renders over
+      the current terminal contents and its final frame stays in scrollback
+      after exit. Mouse tracking is forced off in this mode for sane
+      copy/paste. Default: false. Set to 1/true/yes to enable.
 *)
 
 type t = {
@@ -29,6 +33,11 @@ type t = {
   handle_sigint : bool;
       (** If false, SIGINT (Ctrl+C) is not intercepted, allowing the app
           to receive it as a key event. Default: true *)
+  inline_mode : bool;
+      (** When true, the matrix driver skips the alternate-screen sequences.
+          The TUI renders over the current terminal contents and its final
+          frame stays in scrollback after exit. Mouse tracking is suppressed.
+          Default: false. *)
 }
 
 (** Default configuration: 60 FPS, 60 TPS, no debug. *)
