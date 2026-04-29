@@ -198,19 +198,24 @@ let render t ~cols ~rows =
       incr i
     done
   done ;
-  (* 3) Coastline. *)
-  Array.iter
-    (fun (lat, lon) ->
-      let xyz = rotate ~yaw:t.yaw ~pitch:t.pitch (latlon_to_xyz lat lon) in
-      let x, y, z = xyz in
-      match project x y z with
-      | None -> ()
-      | Some (sx, sy) ->
-          let diffuse = x in
-          (* lit hemisphere has x > 0 because of how we projected *)
-          let color = shade_color diffuse in
-          Octant_canvas.set_dot canvas ~x:sx ~y:sy ~color)
-    t.coastline ;
+  (* 3) Coastline overlay — only when no land classifier is supplied. With
+     [is_land] the per-cell fill already paints filled continents in the
+     correct shade; redrawing 60K coastline points on top would just add
+     visual noise (and substantial per-frame work). *)
+  (match t.is_land with
+  | Some _ -> ()
+  | None ->
+      Array.iter
+        (fun (lat, lon) ->
+          let xyz = rotate ~yaw:t.yaw ~pitch:t.pitch (latlon_to_xyz lat lon) in
+          let x, y, z = xyz in
+          match project x y z with
+          | None -> ()
+          | Some (sx, sy) ->
+              let diffuse = x in
+              let color = shade_color diffuse in
+              Octant_canvas.set_dot canvas ~x:sx ~y:sy ~color)
+        t.coastline) ;
   Octant_canvas.render canvas
 
 let () =
