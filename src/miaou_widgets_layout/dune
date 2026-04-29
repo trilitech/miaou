@@ -17,6 +17,7 @@
   flex_layout
   grid_layout
   toast_widget
+  wizard_widget
   canvas_widget)
  (instrumentation
   (backend bisect_ppx))
@@ -29,6 +30,7 @@
   (file file_browser_widget.mli)
   (file card_widget.mli)
   (file toast_widget.mli)
+  (file wizard_widget.mli)
   (file canvas_widget.mli))
  (libraries
   miaou-core.widgets.display
