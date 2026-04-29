@@ -15,6 +15,7 @@
   chart_utils
   braille_canvas
   octant_canvas
+  globe_widget
   terminal_caps
   framebuffer_widget
   sdl_chart_context
@@ -36,7 +37,8 @@
   (file sparkline_widget.mli)
   (file line_chart_widget.mli)
   (file bar_chart_widget.mli)
-  (file framebuffer_widget.mli))
+  (file framebuffer_widget.mli)
+  (file globe_widget.mli))
  (libraries
   yojson
   str

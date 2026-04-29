@@ -458,6 +458,13 @@ let demos =
           "demo_inline_color_picker"
           (module Inline_color_picker_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "Geo Quiz (Game)";
+      open_demo =
+        goto
+          "demo_geo_quiz"
+          (module Geo_quiz_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let demo_at idx = List.nth_opt demos idx
@@ -484,7 +491,7 @@ let demo_tree =
     demo_group "Core" [6; 7; 37; 45; 46];
     demo_group "Styling" [5; 39];
     demo_group "Showcases" [32];
-    demo_group "Games" [43];
+    demo_group "Games" [43; 47];
   ]
 
 let init () =

@@ -47,6 +47,7 @@
   focus_container_demo
   canvas_demo
   miaou_invaders_demo
+  geo_quiz_demo
   ; Core miaou
   miaou
   miaou-core.lib_miaou_internal))
