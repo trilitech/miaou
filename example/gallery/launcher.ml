@@ -477,14 +477,14 @@ let demo_tree =
       [
         demo_group
           "Input"
-          [0; 1; 2; 3; 13; 17; 18; 19; 20; 21; 22; 23; 24; 25; 38; 42];
-        demo_group "Layout" [11; 12; 14; 15; 26; 36; 39; 40];
-        demo_group "Display" [4; 8; 9; 10; 27; 28; 29; 30; 32; 33; 34];
+          [0; 1; 3; 13; 17; 18; 19; 20; 21; 22; 23; 40; 41; 44];
+        demo_group "Layout" [11; 12; 14; 15; 16; 24; 25; 27; 38; 42];
+        demo_group "Display" [2; 4; 8; 9; 10; 26; 28; 29; 30; 31; 33; 34; 35; 36];
       ];
-    demo_group "Core" [6; 7; 16; 35; 45; 46];
-    demo_group "Styling" [5; 37];
-    demo_group "Showcases" [31];
-    demo_group "Games" [41];
+    demo_group "Core" [6; 7; 37; 45; 46];
+    demo_group "Styling" [5; 39];
+    demo_group "Showcases" [32];
+    demo_group "Games" [43];
   ]
 
 let init () =
