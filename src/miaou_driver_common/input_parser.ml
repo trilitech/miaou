@@ -21,6 +21,10 @@ type key =
   | Down
   | Left
   | Right
+  | PageUp
+  | PageDown
+  | Home
+  | End
   | Delete
   | Ctrl of char  (** C-a, C-b, etc. *)
   | Mouse of {row : int; col : int; button : int; release : bool}
@@ -136,6 +140,8 @@ let peek_key t =
         | 'B' -> Some Down
         | 'C' -> Some Right
         | 'D' -> Some Left
+        | 'H' -> Some Home
+        | 'F' -> Some End
         | 'Z' -> Some ShiftTab (* Shift+Tab: ESC [ Z *)
         | '3' ->
             (* Delete: ESC [ 3 ~ *)
@@ -145,7 +151,13 @@ let peek_key t =
         | '0' .. '9' -> (
             (* Numeric CSI sequence - check if complete *)
             match find_csi_end t.pending with
-            | Some (body, _len) -> Some (Unknown body)
+            | Some (body, _len) -> (
+                match body with
+                | "5" -> Some PageUp
+                | "6" -> Some PageDown
+                | "1" | "7" -> Some Home
+                | "4" | "8" -> Some End
+                | _ -> Some (Unknown body))
             | None -> None (* Incomplete *))
         | _ -> Some (Unknown (String.make 1 c))
       else if len >= 3 && String.get t.pending 1 = 'O' then
@@ -155,6 +167,8 @@ let peek_key t =
         | 'B' -> Some Down
         | 'C' -> Some Right
         | 'D' -> Some Left
+        | 'H' -> Some Home
+        | 'F' -> Some End
         | _ -> Some (Unknown (String.make 1 c))
       else if len = 1 then Some Escape
       else if len >= 2 then
@@ -167,6 +181,8 @@ let peek_key t =
 (** Bytes to consume for a given key type *)
 let bytes_for_key = function
   | Up | Down | Left | Right -> 3 (* ESC [ A/B/C/D *)
+  | PageUp | PageDown | Home | End ->
+      0 (* Variable-length CSI — handled like Mouse *)
   | Tab | Backspace | Enter -> 1
   | ShiftTab -> 3 (* ESC [ Z *)
   | AltEnter -> 2 (* ESC + newline *)
@@ -300,6 +316,12 @@ let parse_key t =
         | 'D' ->
             consume t 3 ;
             Some Left
+        | 'H' ->
+            consume t 3 ;
+            Some Home
+        | 'F' ->
+            consume t 3 ;
+            Some End
         | 'Z' ->
             (* Shift+Tab: ESC [ Z *)
             consume t 3 ;
@@ -328,9 +350,14 @@ let parse_key t =
             in
             wait_for_terminator 10 ;
             match find_csi_end t.pending with
-            | Some (body, seq_len) ->
+            | Some (body, seq_len) -> (
                 consume t seq_len ;
-                Some (Unknown body)
+                match body with
+                | "5" -> Some PageUp
+                | "6" -> Some PageDown
+                | "1" | "7" -> Some Home
+                | "4" | "8" -> Some End
+                | _ -> Some (Unknown body))
             | None ->
                 consume t 3 ;
                 Some (Unknown (String.make 1 c)))
@@ -346,6 +373,8 @@ let parse_key t =
         | 'B' -> Some Down
         | 'C' -> Some Right
         | 'D' -> Some Left
+        | 'H' -> Some Home
+        | 'F' -> Some End
         | _ -> Some (Unknown (String.make 1 c))
       end
       else if len >= 2 then begin
@@ -418,6 +447,10 @@ let key_to_string = function
   | Down -> "Down"
   | Left -> "Left"
   | Right -> "Right"
+  | PageUp -> "PageUp"
+  | PageDown -> "PageDown"
+  | Home -> "Home"
+  | End -> "End"
   | Delete -> "Delete"
   | Ctrl c -> "C-" ^ String.make 1 c
   | Mouse {row; col; _} -> Printf.sprintf "Mouse:%d:%d" row col
@@ -429,7 +462,8 @@ let key_to_string = function
 
 (** Check if key is a navigation key (for draining) *)
 let is_nav_key = function
-  | Up | Down | Left | Right | Tab | Delete -> true
+  | Up | Down | Left | Right | Tab | Delete | PageUp | PageDown | Home | End ->
+      true
   | _ -> false
 
 (** Get pending buffer length (for debugging) *)
