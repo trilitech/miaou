@@ -154,29 +154,29 @@ let apply_bg_fill ~bg s =
      injected — return as-is. *)
   if has_pixel_proto s then s
   else
-  let prefix = "\027[" ^ Miaou_style.Style.bg_ansi_code bg ^ "m" in
-  let reset = Style.ansi_reset in
-  let len_s = String.length s in
-  let len_reset = String.length reset in
-  let rec find_sub start =
-    if start + len_reset > len_s then None
-    else if String.sub s start len_reset = reset then Some start
-    else find_sub (start + 1)
-  in
-  let buf = Buffer.create (len_s + 16) in
-  Buffer.add_string buf prefix ;
-  let rec loop i =
-    match find_sub i with
-    | None -> Buffer.add_string buf (String.sub s i (len_s - i))
-    | Some j ->
-        Buffer.add_string buf (String.sub s i (j - i)) ;
-        Buffer.add_string buf reset ;
-        Buffer.add_string buf prefix ;
-        loop (j + len_reset)
-  in
-  loop 0 ;
-  Buffer.add_string buf reset ;
-  Buffer.contents buf
+    let prefix = "\027[" ^ Miaou_style.Style.bg_ansi_code bg ^ "m" in
+    let reset = Style.ansi_reset in
+    let len_s = String.length s in
+    let len_reset = String.length reset in
+    let rec find_sub start =
+      if start + len_reset > len_s then None
+      else if String.sub s start len_reset = reset then Some start
+      else find_sub (start + 1)
+    in
+    let buf = Buffer.create (len_s + 16) in
+    Buffer.add_string buf prefix ;
+    let rec loop i =
+      match find_sub i with
+      | None -> Buffer.add_string buf (String.sub s i (len_s - i))
+      | Some j ->
+          Buffer.add_string buf (String.sub s i (j - i)) ;
+          Buffer.add_string buf reset ;
+          Buffer.add_string buf prefix ;
+          loop (j + len_reset)
+    in
+    loop 0 ;
+    Buffer.add_string buf reset ;
+    Buffer.contents buf
 
 (** Apply themed foreground color to text that has no foreground set.
     This ensures all text is visible regardless of terminal defaults.
@@ -193,8 +193,9 @@ let apply_themed_foreground content =
   let dark_mode = theme.Miaou_style.Theme.dark_mode in
   let resolved = Style.to_resolved ~dark_mode text_style in
   let fg = resolved.Style.r_fg in
-  if fg < 0 then content (* No text color in theme *)
-  (* Pixel protocol sequences (Sixel DCS, Kitty APC) must not have SGR codes
+  if fg < 0 then content
+    (* No text color in theme *)
+    (* Pixel protocol sequences (Sixel DCS, Kitty APC) must not have SGR codes
      injected into them.  Skip themed fg for any content that contains them. *)
   else if has_pixel_proto content then content
   else

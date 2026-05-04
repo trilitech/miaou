@@ -31,6 +31,10 @@ let test_key_to_string () =
   check string "Down" "Down" (Parser.key_to_string Parser.Down) ;
   check string "Left" "Left" (Parser.key_to_string Parser.Left) ;
   check string "Right" "Right" (Parser.key_to_string Parser.Right) ;
+  check string "PageUp" "PageUp" (Parser.key_to_string Parser.PageUp) ;
+  check string "PageDown" "PageDown" (Parser.key_to_string Parser.PageDown) ;
+  check string "Home" "Home" (Parser.key_to_string Parser.Home) ;
+  check string "End" "End" (Parser.key_to_string Parser.End) ;
   check string "Delete" "Delete" (Parser.key_to_string Parser.Delete) ;
   check string "Ctrl-a" "C-a" (Parser.key_to_string (Parser.Ctrl 'a')) ;
   check string "Ctrl-c" "C-c" (Parser.key_to_string (Parser.Ctrl 'c')) ;
@@ -70,7 +74,11 @@ let test_is_nav_key () =
   check bool "Delete is nav" true (Parser.is_nav_key Parser.Delete) ;
   check bool "Enter not nav" false (Parser.is_nav_key Parser.Enter) ;
   check bool "Escape not nav" false (Parser.is_nav_key Parser.Escape) ;
-  check bool "Char not nav" false (Parser.is_nav_key (Parser.Char "a"))
+  check bool "Char not nav" false (Parser.is_nav_key (Parser.Char "a")) ;
+  check bool "PageUp is nav" true (Parser.is_nav_key Parser.PageUp) ;
+  check bool "PageDown is nav" true (Parser.is_nav_key Parser.PageDown) ;
+  check bool "Home is nav" true (Parser.is_nav_key Parser.Home) ;
+  check bool "End is nav" true (Parser.is_nav_key Parser.End)
 
 (* Test simple key parsing *)
 let test_parse_simple_keys () =
@@ -394,6 +402,75 @@ let test_peek_no_consume () =
   check int "buffer now empty" 0 (Parser.pending_length p) ;
   cleanup (p, r)
 
+(* Test PageUp/PageDown/Home/End parsing — all terminal encoding variants *)
+let test_parse_page_home_end_keys () =
+  let check_key label input expected =
+    let p, r = parser_with_input input in
+    (match Parser.parse_key p with
+    | Some k when k = expected -> ()
+    | Some k ->
+        fail
+          (Printf.sprintf
+             "%s: expected %s, got %s"
+             label
+             (Parser.key_to_string expected)
+             (Parser.key_to_string k))
+    | None -> fail (Printf.sprintf "%s: got None" label)) ;
+    check int (label ^ " buffer empty") 0 (Parser.pending_length p) ;
+    cleanup (p, r)
+  in
+  (* PageUp: ESC [ 5 ~ *)
+  check_key "PageUp ESC[5~" "\027[5~" Parser.PageUp ;
+  (* PageDown: ESC [ 6 ~ *)
+  check_key "PageDown ESC[6~" "\027[6~" Parser.PageDown ;
+  (* Home: ESC [ H  (xterm/VT220) *)
+  check_key "Home ESC[H" "\027[H" Parser.Home ;
+  (* Home: ESC O H  (SS3, application cursor key mode) *)
+  check_key "Home ESCOH" "\027OH" Parser.Home ;
+  (* Home: ESC [ 1 ~  (VT100) *)
+  check_key "Home ESC[1~" "\027[1~" Parser.Home ;
+  (* Home: ESC [ 7 ~  (rxvt) *)
+  check_key "Home ESC[7~" "\027[7~" Parser.Home ;
+  (* End: ESC [ F  (xterm/VT220) *)
+  check_key "End ESC[F" "\027[F" Parser.End ;
+  (* End: ESC O F  (SS3) *)
+  check_key "End ESCOF" "\027OF" Parser.End ;
+  (* End: ESC [ 4 ~  (VT100) *)
+  check_key "End ESC[4~" "\027[4~" Parser.End ;
+  (* End: ESC [ 8 ~  (rxvt) *)
+  check_key "End ESC[8~" "\027[8~" Parser.End
+
+(* Verify peek_key also recognises all new sequences without consuming *)
+let test_peek_page_home_end_keys () =
+  let check_peek label input expected =
+    let p, r = parser_with_input input in
+    let len_before = Parser.pending_length p in
+    (match Parser.peek_key p with
+    | Some k when k = expected -> ()
+    | Some k ->
+        fail
+          (Printf.sprintf
+             "%s: expected %s, got %s"
+             label
+             (Parser.key_to_string expected)
+             (Parser.key_to_string k))
+    | None -> fail (Printf.sprintf "%s: got None" label)) ;
+    check
+      int
+      (label ^ " buffer unchanged after peek")
+      len_before
+      (Parser.pending_length p) ;
+    cleanup (p, r)
+  in
+  check_peek "PageUp" "\027[5~" Parser.PageUp ;
+  check_peek "PageDown" "\027[6~" Parser.PageDown ;
+  check_peek "Home ESC[H" "\027[H" Parser.Home ;
+  check_peek "Home ESCOH" "\027OH" Parser.Home ;
+  check_peek "Home ESC[1~" "\027[1~" Parser.Home ;
+  check_peek "End ESC[F" "\027[F" Parser.End ;
+  check_peek "End ESCOF" "\027OF" Parser.End ;
+  check_peek "End ESC[4~" "\027[4~" Parser.End
+
 (* Test clear *)
 let test_clear () =
   let p, r = parser_with_input "abc" in
@@ -415,6 +492,7 @@ let () =
         [
           test_case "simple keys" `Quick test_parse_simple_keys;
           test_case "arrow keys" `Quick test_parse_arrow_keys;
+          test_case "page/home/end keys" `Quick test_parse_page_home_end_keys;
           test_case "alt enter" `Quick test_parse_alt_enter;
           test_case "escape" `Quick test_parse_escape;
           test_case "escape unknown pair" `Quick test_parse_escape_unknown_pair;
@@ -426,6 +504,7 @@ let () =
       ( "peek",
         [
           test_case "no consume" `Quick test_peek_no_consume;
+          test_case "page/home/end keys" `Quick test_peek_page_home_end_keys;
           test_case "clear" `Quick test_clear;
         ] );
     ]

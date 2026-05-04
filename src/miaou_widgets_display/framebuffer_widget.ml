@@ -124,18 +124,34 @@ let render_half_block t cols rows =
     for cx = 0 to cols - 1 do
       let r_top, g_top, b_top = get_rgb t cx (cy * 2) in
       let r_bot, g_bot, b_bot = get_rgb t cx ((cy * 2) + 1) in
-      if r_top = 0 && g_top = 0 && b_top = 0
-      && r_bot = 0 && g_bot = 0 && b_bot = 0 then
-        Buffer.add_char buf ' '
+      if
+        r_top = 0 && g_top = 0 && b_top = 0 && r_bot = 0 && g_bot = 0
+        && b_bot = 0
+      then Buffer.add_char buf ' '
       else begin
         (* Use fg=top (▀), bg=bottom — both as truecolor bg fills for solid rendering.
            When colors match, one bg+space suffices. Otherwise ▀ with fg+bg. *)
         if r_top = r_bot && g_top = g_bot && b_top = b_bot then
-          Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r_top g_top b_top ansi_reset)
+          Buffer.add_string
+            buf
+            (Printf.sprintf
+               "\027[48;2;%d;%d;%dm %s"
+               r_top
+               g_top
+               b_top
+               ansi_reset)
         else
-          Buffer.add_string buf
-            (Printf.sprintf "\027[38;2;%d;%d;%dm\027[48;2;%d;%d;%dm\xE2\x96\x80%s"
-               r_top g_top b_top r_bot g_bot b_bot ansi_reset)
+          Buffer.add_string
+            buf
+            (Printf.sprintf
+               "\027[38;2;%d;%d;%dm\027[48;2;%d;%d;%dm\xE2\x96\x80%s"
+               r_top
+               g_top
+               b_top
+               r_bot
+               g_bot
+               b_bot
+               ansi_reset)
       end
     done
   done ;
@@ -149,7 +165,7 @@ let render_braille t cols rows =
     for cx = 0 to cols - 1 do
       for dy = 0 to 3 do
         for dx = 0 to 1 do
-          let px = cx * 2 + dx and py = cy * 4 + dy in
+          let px = (cx * 2) + dx and py = (cy * 4) + dy in
           if px < t.width_px && py < t.height_px then begin
             let r, g, b = get_rgb t px py in
             let luma = ((r * 299) + (g * 587) + (b * 114)) / 1000 in
@@ -236,7 +252,9 @@ let render_octant t cols rows =
               if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
               else
                 let idx = rgb_to_ansi_256 r g b in
-                Buffer.add_string buf (Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
+                Buffer.add_string
+                  buf
+                  (Printf.sprintf "\027[38;5;%dm%s%s" idx glyph ansi_reset)
             end
             else Buffer.add_char buf ' '
         | _ ->
@@ -338,7 +356,9 @@ let render_sextant t cols rows =
       | 0 ->
           if !bg_n > 0 then begin
             let r = !bg_r / !bg_n and g = !bg_g / !bg_n and b = !bg_b / !bg_n in
-            Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
+            Buffer.add_string
+              buf
+              (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
           end
           else Buffer.add_char buf ' '
       | 0x3F ->
@@ -347,7 +367,10 @@ let render_sextant t cols rows =
           if !fg_n > 0 then begin
             let r = !fg_r / !fg_n and g = !fg_g / !fg_n and b = !fg_b / !fg_n in
             if r = 0 && g = 0 && b = 0 then Buffer.add_char buf ' '
-            else Buffer.add_string buf (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
+            else
+              Buffer.add_string
+                buf
+                (Printf.sprintf "\027[48;2;%d;%d;%dm %s" r g b ansi_reset)
           end
           else Buffer.add_char buf ' '
       | _ ->
@@ -400,23 +423,32 @@ let render_sixel t cols rows =
       let b = Char.code (Bytes.unsafe_get t.pixels (off + 2)) in
       if r <> 0 || g <> 0 || b <> 0 then begin
         let key = (r lsl 16) lor (g lsl 8) lor b in
-        let ci = match Hashtbl.find_opt palette_tbl key with
+        let ci =
+          match Hashtbl.find_opt palette_tbl key with
           | Some i -> i
           | None ->
-            if !n_colors >= 256 then begin
-              let best_i = ref 0 and best_d = ref max_int in
-              for i = 0 to !n_colors - 1 do
-                let pr, pg, pb = palette_rgb.(i) in
-                let d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb) in
-                if d < !best_d then (best_d := d ; best_i := i)
-              done ;
-              !best_i
-            end else begin
-              let i = !n_colors in
-              Hashtbl.add palette_tbl key i ;
-              palette_rgb.(i) <- (r, g, b) ;
-              incr n_colors ; i
-            end
+              if !n_colors >= 256 then begin
+                let best_i = ref 0 and best_d = ref max_int in
+                for i = 0 to !n_colors - 1 do
+                  let pr, pg, pb = palette_rgb.(i) in
+                  let d =
+                    ((r - pr) * (r - pr))
+                    + ((g - pg) * (g - pg))
+                    + ((b - pb) * (b - pb))
+                  in
+                  if d < !best_d then (
+                    best_d := d ;
+                    best_i := i)
+                done ;
+                !best_i
+              end
+              else begin
+                let i = !n_colors in
+                Hashtbl.add palette_tbl key i ;
+                palette_rgb.(i) <- (r, g, b) ;
+                incr n_colors ;
+                i
+              end
         in
         idx_map.(row_off + px) <- ci
       end
@@ -426,8 +458,14 @@ let render_sixel t cols rows =
   (* Emit palette. *)
   for i = 0 to nc - 1 do
     let r, g, b = palette_rgb.(i) in
-    Buffer.add_string buf
-      (Printf.sprintf "#%d;2;%d;%d;%d" i (r*100/255) (g*100/255) (b*100/255))
+    Buffer.add_string
+      buf
+      (Printf.sprintf
+         "#%d;2;%d;%d;%d"
+         i
+         (r * 100 / 255)
+         (g * 100 / 255)
+         (b * 100 / 255))
   done ;
   (* Pass 2: single-pass per band — build all color patterns simultaneously,
      then emit only colors that appeared.  O(w × 6 × bands) instead of
@@ -439,7 +477,9 @@ let render_sixel t cols rows =
   let emit_rle pat count =
     let c = Char.chr (pat + 63) in
     if count <= 3 then
-      for _ = 1 to count do Buffer.add_char buf c done
+      for _ = 1 to count do
+        Buffer.add_char buf c
+      done
     else begin
       Buffer.add_char buf '!' ;
       Buffer.add_string buf (string_of_int count) ;
