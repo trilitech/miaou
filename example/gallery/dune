@@ -48,6 +48,7 @@
   canvas_demo
   miaou_invaders_demo
   geo_quiz_demo
+  solar_system_demo
   ; Core miaou
   miaou
   miaou-core.lib_miaou_internal))
