@@ -29,8 +29,7 @@ let wezterm () =
 let kitty () =
   match Sys.getenv_opt "KITTY_WINDOW_ID" with Some _ -> true | _ -> false
 
-let konsole () =
-  Sys.getenv_opt "KONSOLE_VERSION" <> None
+let konsole () = Sys.getenv_opt "KONSOLE_VERSION" <> None
 
 (* Sixel: foot, WezTerm, kitty, iTerm2, Konsole (>=22.04) have reliable
    Sixel support. VTE-based terminals (GNOME Terminal, Terminator) technically
@@ -39,7 +38,8 @@ let konsole () =
 let detect_sixel () =
   let iterm =
     match Sys.getenv_opt "TERM_PROGRAM" with
-    | Some "iTerm.app" -> true | _ -> false
+    | Some "iTerm.app" -> true
+    | _ -> false
   in
   foot_terminal () || wezterm () || kitty () || konsole () || iterm
 
