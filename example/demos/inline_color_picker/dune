@@ -12,4 +12,8 @@
  (public_name miaou.inline_color_picker-demo)
  (package miaou)
  (modules main)
- (libraries inline_color_picker_demo miaou-runner.tui miaou-core.helpers eio_main))
+ (libraries
+  inline_color_picker_demo
+  miaou-runner.tui
+  miaou-core.helpers
+  eio_main))

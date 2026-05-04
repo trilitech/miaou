@@ -510,11 +510,11 @@ let demo_tree =
     List_widget.group
       "Widgets"
       [
-        demo_group
-          "Input"
-          [0; 1; 3; 13; 17; 18; 19; 20; 21; 22; 23; 40; 41; 44];
+        demo_group "Input" [0; 1; 3; 13; 17; 18; 19; 20; 21; 22; 23; 40; 41; 44];
         demo_group "Layout" [11; 12; 14; 15; 16; 24; 25; 27; 38; 42];
-        demo_group "Display" [2; 4; 8; 9; 10; 26; 28; 29; 30; 31; 33; 34; 35; 36];
+        demo_group
+          "Display"
+          [2; 4; 8; 9; 10; 26; 28; 29; 30; 31; 33; 34; 35; 36];
       ];
     demo_group "Core" [6; 7; 37; 45; 46];
     demo_group "Styling" [5; 39];

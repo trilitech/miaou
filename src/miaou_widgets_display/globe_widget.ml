@@ -129,15 +129,19 @@ let render t ~cols ~rows =
       let d2 = (dx *. dx) +. (dy *. dy) in
       if d2 <= r2 then begin
         let nx = dx /. radius in
-        let ny = -. dy /. radius in
+        let ny = -.dy /. radius in
         let nz = sqrt (Float.max 0.0 (1.0 -. (nx *. nx) -. (ny *. ny))) in
         let diffuse = Float.max 0.0 nx in
         let is_land =
           match t.is_land with
           | None -> false
           | Some f ->
-              let xm, ym, zm = inv_rotate ~yaw:t.yaw ~pitch:t.pitch (nx, ny, nz) in
-              let lat = asin (Float.max (-1.0) (Float.min 1.0 ym)) *. 180.0 /. pi in
+              let xm, ym, zm =
+                inv_rotate ~yaw:t.yaw ~pitch:t.pitch (nx, ny, nz)
+              in
+              let lat =
+                asin (Float.max (-1.0) (Float.min 1.0 ym)) *. 180.0 /. pi
+              in
               let lon = atan2 zm xm *. 180.0 /. pi in
               f ~lat ~lon
         in

@@ -74,7 +74,9 @@ let stroke_circle bytes ~px_w ~px_h ~cx ~cy ~radius ~r ~g ~b =
     let y = ref 0 in
     let err = ref (1 - radius) in
     while !x >= !y do
-      let put dx dy = put_px bytes ~px_w ~px_h ~x:(cx + dx) ~y:(cy + dy) ~r ~g ~b in
+      let put dx dy =
+        put_px bytes ~px_w ~px_h ~x:(cx + dx) ~y:(cy + dy) ~r ~g ~b
+      in
       put !x !y ;
       put !y !x ;
       put (- !x) !y ;
@@ -112,15 +114,25 @@ let stroke_ellipse bytes ~px_w ~px_h ~cx ~cy ~a ~b ~r ~g ~bl =
    stripes. *)
 let fill_disc bytes ~px_w ~px_h ~cx ~cy ~radius ~base ~sun_dx ~sun_dy
     ~spin_phase =
-  if radius <= 0 then put_px bytes ~px_w ~px_h ~x:cx ~y:cy
-       ~r:(let r, _, _ = base in r)
-       ~g:(let _, g, _ = base in g)
-       ~b:(let _, _, b = base in b)
+  if radius <= 0 then
+    put_px
+      bytes
+      ~px_w
+      ~px_h
+      ~x:cx
+      ~y:cy
+      ~r:
+        (let r, _, _ = base in
+         r)
+      ~g:
+        (let _, g, _ = base in
+         g)
+      ~b:
+        (let _, _, b = base in
+         b)
   else
     let r2 = radius * radius in
-    let len =
-      Float.max 1.0 (sqrt ((sun_dx *. sun_dx) +. (sun_dy *. sun_dy)))
-    in
+    let len = Float.max 1.0 (sqrt ((sun_dx *. sun_dx) +. (sun_dy *. sun_dy))) in
     let lx = sun_dx /. len in
     let ly = sun_dy /. len in
     let rf = float_of_int radius in
@@ -162,7 +174,7 @@ let fill_disc bytes ~px_w ~px_h ~cx ~cy ~radius ~base ~sun_dx ~sun_dy
       let rr = rf *. 0.78 in
       let mx = rr *. cos spin_phase in
       let my = rr *. sin spin_phase in
-      let cos_l = ((mx /. rr) *. lx) +. ((my /. rr) *. ly) in
+      let cos_l = (mx /. rr *. lx) +. (my /. rr *. ly) in
       if cos_l > 0.05 then begin
         let r, g, b = mix ~base:(255, 255, 255) 1.0 in
         put_px
@@ -191,7 +203,7 @@ let project_orbit_to_screen ~cx ~cy mx my =
    camera. With our tilt, depth grows with -y (positive y is "behind" in
    3-D top-down convention but rendered low on screen — so a planet at
    y > 0 is on the far side; flip sign so foreground has bigger depth). *)
-let depth_of my = -. my
+let depth_of my = -.my
 
 (* Sun: hot yellow-white core with a warm halo. Halo kept compact (4/3 ×
    core) so it doesn't swallow the inner planets. *)
@@ -214,7 +226,8 @@ let draw_sun bytes ~px_w ~px_h ~cx ~cy ~radius =
             Float.max 0.0 (1.0 -. t)
         in
         let r, g, b = mix ~base:(255, 220, 90) (Float.min 1.0 (f *. 1.1)) in
-        if f > 0.02 then put_px bytes ~px_w ~px_h ~x:(cx + dx) ~y:(cy + dy) ~r ~g ~b
+        if f > 0.02 then
+          put_px bytes ~px_w ~px_h ~x:(cx + dx) ~y:(cy + dy) ~r ~g ~b
       end
     done
   done
@@ -233,9 +246,7 @@ let stroke_ellipse_half bytes ~px_w ~px_h ~cx ~cy ~a ~b ~half ~r ~g ~bl =
     for i = 0 to n - 1 do
       let theta = 2.0 *. Float.pi *. float_of_int i /. float_of_int n in
       let take =
-        match half with
-        | `Back -> sin theta < 0.0
-        | `Front -> sin theta >= 0.0
+        match half with `Back -> sin theta < 0.0 | `Front -> sin theta >= 0.0
       in
       if take then begin
         let x = cx + int_of_float (float_of_int a *. cos theta) in
@@ -253,14 +264,41 @@ let draw_ring_half bytes ~px_w ~px_h ~cx ~cy ~radius ~half =
   let mid_b = max 1 (int_of_float (float_of_int mid_a *. cos_t)) in
   let inner_b = max 1 (int_of_float (float_of_int inner_a *. cos_t)) in
   stroke_ellipse_half
-    bytes ~px_w ~px_h ~cx ~cy ~a:outer_a ~b:outer_b ~half
-    ~r:235 ~g:215 ~bl:165 ;
+    bytes
+    ~px_w
+    ~px_h
+    ~cx
+    ~cy
+    ~a:outer_a
+    ~b:outer_b
+    ~half
+    ~r:235
+    ~g:215
+    ~bl:165 ;
   stroke_ellipse_half
-    bytes ~px_w ~px_h ~cx ~cy ~a:mid_a ~b:mid_b ~half
-    ~r:215 ~g:195 ~bl:150 ;
+    bytes
+    ~px_w
+    ~px_h
+    ~cx
+    ~cy
+    ~a:mid_a
+    ~b:mid_b
+    ~half
+    ~r:215
+    ~g:195
+    ~bl:150 ;
   stroke_ellipse_half
-    bytes ~px_w ~px_h ~cx ~cy ~a:inner_a ~b:inner_b ~half
-    ~r:200 ~g:185 ~bl:140
+    bytes
+    ~px_w
+    ~px_h
+    ~cx
+    ~cy
+    ~a:inner_a
+    ~b:inner_b
+    ~half
+    ~r:200
+    ~g:185
+    ~bl:140
 
 (* ---------- starfield (deterministic, sparse) ---------- *)
 
@@ -337,9 +375,7 @@ let build_frame (s : Model.state) ~px_w ~px_h =
   let h_limit = cx - 4 in
   let v_limit = int_of_float (float_of_int (cy - 4) /. cos_tilt) in
   let max_radius_px = max 24 (min h_limit v_limit) in
-  let scale =
-    Float.max 0.6 (float_of_int (min px_w px_h) /. 240.0)
-  in
+  let scale = Float.max 0.6 (float_of_int (min px_w px_h) /. 240.0) in
   if s.show_orbits then begin
     Array.iter
       (fun (p : Model.body) ->
@@ -365,15 +401,15 @@ let build_frame (s : Model.state) ~px_w ~px_h =
   let items =
     Array.to_list Model.planets
     |> List.map (fun (p : Model.body) ->
-           let mx, my = Model.body_xy p ~t_days:s.t_days in
-           let dpx = float_of_int (dist_to_px ~max_radius_px ~mkm:p.orbit_mkm) in
-           let phase = atan2 my mx in
-           let bx = dpx *. cos phase in
-           let by = dpx *. sin phase in
-           let px, py = project_orbit_to_screen ~cx ~cy bx by in
-           let pr = radius_for_body p ~scale in
-           let sp = Model.spin_phase p ~t_days:s.t_days in
-           (depth_of by, p, px, py, pr, sp))
+        let mx, my = Model.body_xy p ~t_days:s.t_days in
+        let dpx = float_of_int (dist_to_px ~max_radius_px ~mkm:p.orbit_mkm) in
+        let phase = atan2 my mx in
+        let bx = dpx *. cos phase in
+        let by = dpx *. sin phase in
+        let px, py = project_orbit_to_screen ~cx ~cy bx by in
+        let pr = radius_for_body p ~scale in
+        let sp = Model.spin_phase p ~t_days:s.t_days in
+        (depth_of by, p, px, py, pr, sp))
     |> List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b)
   in
   let draw_planet (_, (p : Model.body), px, py, pr, sp) =
@@ -409,7 +445,10 @@ let panel_width = 30
 
 let build_panel (s : Model.state) ~rows =
   let lines = Buffer.create 1024 in
-  let add l = Buffer.add_string lines (pad_right l ~width:panel_width) ; Buffer.add_char lines '\n' in
+  let add l =
+    Buffer.add_string lines (pad_right l ~width:panel_width) ;
+    Buffer.add_char lines '\n'
+  in
   add (W.themed_emphasis "Solar System") ;
   add (W.themed_muted "─────────────────────────────") ;
   let years = s.t_days /. 365.25 in
@@ -425,16 +464,17 @@ let build_panel (s : Model.state) ~rows =
     (fun (p : Model.body) ->
       let mx, my = Model.body_xy p ~t_days:s.t_days in
       let phase = atan2 my mx in
-      let deg = ((phase *. 180.0 /. Float.pi) +. 360.0) |> mod_float 360.0 in
-      add
-        (Printf.sprintf "  %-8s %3.0f°  %5.0fMkm" p.name deg p.orbit_mkm))
+      let deg = (phase *. 180.0 /. Float.pi) +. 360.0 |> mod_float 360.0 in
+      add (Printf.sprintf "  %-8s %3.0f°  %5.0fMkm" p.name deg p.orbit_mkm))
     Model.planets ;
   add "" ;
   add (W.themed_muted "Controls") ;
   add "  1-5  speed x1..x10k" ;
   add "  p    pause/resume" ;
-  add (Printf.sprintf "  o    orbits  %s" (if s.show_orbits then "on" else "off")) ;
-  add (Printf.sprintf "  l    labels  %s" (if s.show_labels then "on" else "off")) ;
+  add
+    (Printf.sprintf "  o    orbits  %s" (if s.show_orbits then "on" else "off")) ;
+  add
+    (Printf.sprintf "  l    labels  %s" (if s.show_labels then "on" else "off")) ;
   add "  r    reset time" ;
   add "  Tab  hide panel" ;
   add "  Esc  back" ;
@@ -462,7 +502,10 @@ let compose_left_right ~left ~right =
   let n = max (List.length l_lines) (List.length r_lines) in
   let rec pad lst k =
     if k = 0 then lst
-    else match lst with [] -> "" :: pad [] (k - 1) | x :: xs -> x :: pad xs (k - 1)
+    else
+      match lst with
+      | [] -> "" :: pad [] (k - 1)
+      | x :: xs -> x :: pad xs (k - 1)
   in
   let l_lines = pad l_lines n in
   let r_lines = pad r_lines n in
@@ -502,7 +545,8 @@ let render (s : Model.state) ~size =
     in
     let footer =
       W.themed_muted
-        "1-5 speed · p pause · o orbits · l labels · r reset · Tab panel · Esc back"
+        "1-5 speed · p pause · o orbits · l labels · r reset · Tab panel · Esc \
+         back"
     in
     String.concat "\n" [header; body; footer]
   end

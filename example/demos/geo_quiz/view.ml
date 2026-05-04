@@ -236,7 +236,9 @@ let build_map_background ~px_w ~px_h ~mode =
      navy (18,38,75); land is sand (210,180,120). The coastline overlay
      drawn below adds the boundary in a darker tone. *)
   for py = 0 to px_h - 1 do
-    let lat = 90.0 -. ((float_of_int py +. 0.5) /. float_of_int px_h *. 180.0) in
+    let lat =
+      90.0 -. ((float_of_int py +. 0.5) /. float_of_int px_h *. 180.0)
+    in
     let row_base = py * px_w * 3 in
     for px = 0 to px_w - 1 do
       let lon =

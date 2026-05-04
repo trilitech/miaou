@@ -21,10 +21,7 @@ module Inner = struct
   let view (s : state) ~focus:_ ~size = View.render s ~size
 
   let go_back (s : state) =
-    {
-      s with
-      Model.next_page = Some Demo_shared.Demo_config.launcher_page_name;
-    }
+    {s with Model.next_page = Some Demo_shared.Demo_config.launcher_page_name}
 
   let handle_key (s : state) key ~size:_ =
     match Model.speed_of_digit key with
