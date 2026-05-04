@@ -1,6 +1,7 @@
 (library
  (name demo_shared)
  (modules
+  arcade_kit
   demo_config
   demo_page
   mock_system
@@ -15,6 +16,7 @@
   miaou
   miaou-core.interfaces
   miaou-core.lib_miaou_internal
+  miaou-core.widgets.display
   miaou-widgets-display-sdl.widgets
   tsdl
   tsdl-ttf
