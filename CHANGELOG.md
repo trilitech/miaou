@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-05
+
+### Release Notes
+
+- **Runtime version information (`Miaou_core.Version`)**: the OCaml API now exposes the release version as `Version.version` plus `major`, `minor`, and `patch` components. The bundled `miaou-runner-tui` / `miaou-runner-native` CLI parser also accepts `--version`, so installed binaries can report the same version as `dune-project` and the opam packages.
+- **Clipboard demo (`example/demos/clipboard/`)**: a gallery entry demonstrating copy-to-clipboard flows with both direct actions and modal confirmation, backed by the shared clipboard capability path and tests.
+
+### Fixed
+
+- **Matrix full redraw invalidation**: forced redraws now invalidate previously-drawn cells so stale characters cannot survive a clear or scrub frame.
+- **Matrix wide Unicode rendering**: wide glyphs now reserve and clear their continuation cells, including at the right edge, preventing leftover fragments when content changes.
+- **UTF-8 input editing**: text input widgets preserve multibyte characters across insert, delete, cursor movement, and masked rendering paths.
+- **Terminal write serialization**: terminal writes are serialized so concurrent render/log paths cannot interleave escape sequences.
+- **OSC8 hyperlink sanitization**: generated terminal hyperlinks strip unsafe control characters before emitting OSC8 sequences.
+- **OSC52 clipboard fallback**: clipboard support restores the terminal OSC52 fallback when no application clipboard capability is installed.
+
 ### Added
 
 - **MIAOU Links demo (`example/demos/miaou_links/`)**: a top-down golf game registered in the gallery `Games` group, with an 18-hole classic tour plus a roguelite run mode with stamina, shop perks, persistent coins, and per-run score tracking. It demonstrates framebuffer golf rendering, continuous ball physics over terrain-specific friction, wind/gust effects, pre-shot previews, and persistent demo state via `Arcade_kit.Score_store` (`miaou_links` and `miaou_links_coins`). Existing simpler golf or physics demos can use it as the richer reference for tile-map courses, shot state machines, and Octant-first pixel output (`MIAOU_LINKS_PIXEL_MODE` override). No public library API is removed or changed.
