@@ -1,0 +1,25 @@
+(library
+ (name geo_quiz_demo)
+ (modules coastline cities landmask game view page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md)
+  (file data/coastline.bin)
+  (file data/cities.bin)
+  (file data/landmask.bin))
+ (libraries
+  demo_shared
+  miaou
+  miaou-core.lib_miaou_internal
+  miaou-core.widgets.display
+  miaou-core.widgets.layout
+  miaou-core.helpers
+  miaou-core.interfaces))
+
+(executable
+ (name main)
+ (public_name miaou.geo-quiz-demo)
+ (package miaou)
+ (modules main)
+ (libraries geo_quiz_demo miaou-runner.tui miaou-core.helpers eio_main))
