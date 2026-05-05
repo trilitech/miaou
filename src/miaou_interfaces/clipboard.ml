@@ -111,9 +111,9 @@ let copy_primary text =
 
 (** Copy to both clipboard and primary selection. *)
 let copy_both text =
-  let _native_ok = copy_native text in
-  let _primary_ok = copy_primary text in
-  true
+  let native_ok = copy_native text in
+  let primary_ok = copy_primary text in
+  native_ok || primary_ok
 
 let register ~write ?on_copy ?(enabled = true) () =
   let copy_fn =
