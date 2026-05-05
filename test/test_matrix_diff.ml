@@ -180,6 +180,23 @@ let test_unchanged_rows_skipped () =
   let changes = Diff.compute buf in
   check int "no changes for identical content" 0 (List.length changes)
 
+let test_mark_all_dirty_emits_clearing_spaces () =
+  let buf = Buffer.create ~rows:1 ~cols:5 in
+  Buffer.set_char buf ~row:0 ~col:0 ~char:"X" ~style:Cell.default_style ;
+  let _ = Diff.compute buf in
+  Buffer.swap buf ;
+
+  Buffer.clear_back buf ;
+  Buffer.mark_all_dirty buf ;
+  let changes = Diff.compute buf in
+  let writes_space =
+    List.exists
+      (function
+        | Diff.WriteChar " " | Diff.WriteRun (" ", _) -> true | _ -> false)
+      changes
+  in
+  check bool "full redraw emits clearing space" true writes_space
+
 (* Test with real ANSI file if it exists *)
 let test_real_ansi_file () =
   let file = "/tmp/miaou-modal-with-overlay.ansi" in
@@ -223,6 +240,10 @@ let () =
           test_case "write run optimization" `Quick test_write_run_optimization;
           test_case "diff positions" `Quick test_diff_positions;
           test_case "unchanged rows skipped" `Quick test_unchanged_rows_skipped;
+          test_case
+            "mark_all_dirty emits clearing spaces"
+            `Quick
+            test_mark_all_dirty_emits_clearing_spaces;
         ] );
       ( "modal",
         [

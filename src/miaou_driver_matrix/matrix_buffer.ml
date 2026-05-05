@@ -110,20 +110,22 @@ let cell_changed t ~row ~col =
 
 let mark_all_dirty t =
   with_lock t (fun () ->
-      (* Clear front buffer so all cells appear changed *)
+      (* Invalidate front buffer so all cells appear changed.
+         Resetting to spaces would suppress blank writes and leave stale
+         terminal content behind. *)
       for r = 0 to t.rows - 1 do
         for c = 0 to t.cols - 1 do
-          Matrix_cell.reset t.front.(r).(c)
+          Matrix_cell.invalidate t.front.(r).(c)
         done
       done ;
       Atomic.set t.dirty true)
 
 let mark_region_dirty t ~row_start ~row_end ~col_start ~col_end =
   with_lock t (fun () ->
-      (* Clear front buffer region so those cells appear changed *)
+      (* Invalidate front buffer region so those cells appear changed. *)
       for r = max 0 row_start to min (t.rows - 1) row_end do
         for c = max 0 col_start to min (t.cols - 1) col_end do
-          Matrix_cell.reset t.front.(r).(c)
+          Matrix_cell.invalidate t.front.(r).(c)
         done
       done ;
       Atomic.set t.dirty true)
