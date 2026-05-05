@@ -9,6 +9,7 @@
 (** Multiline text input widget with cursor and scroll support. *)
 
 open Miaou_widgets_display.Widgets
+module H = Miaou_helpers.Helpers
 
 type edit_op = No_edit | Char_insert | Other_edit
 
@@ -92,6 +93,36 @@ let can_undo t = t.undo_stack <> []
 
 let can_redo t = t.redo_stack <> []
 
+let clamp_col line col = H.utf8_clamp_boundary line col
+
+let line_len t row = String.length t.lines.(row)
+
+let clamp_to_line t row col = clamp_col t.lines.(row) (min col (line_len t row))
+
+let is_named_non_text_key = function
+  | "Tab" | "S-Tab" | "Shift-Tab" | "BackTab" | "Enter" | "A-Enter"
+  | "Alt-Enter" | "Backspace" | "Delete" | "Left" | "Right" | "Up" | "Down"
+  | "Home" | "End" | "Esc" | "Escape" | "PageUp" | "PageDown" | "WheelUp"
+  | "WheelDown" ->
+      true
+  | key when String.length key >= 2 && String.sub key 0 2 = "C-" -> true
+  | key when String.length key >= 2 && key.[0] = 'F' -> (
+      match int_of_string_opt (String.sub key 1 (String.length key - 1)) with
+      | Some _ -> true
+      | None -> false)
+  | key when Miaou_helpers.Mouse.is_click key || Miaou_helpers.Mouse.is_drag key
+    ->
+      true
+  | _ -> false
+
+let is_text_key key =
+  key <> ""
+  && (not (is_named_non_text_key key))
+  && not
+       (String.exists
+          (fun c -> c = '\027' || c = '\000' || c = '\n' || c = '\r')
+          key)
+
 let create ?title ?(width = 60) ?(height = 10) ?(initial = "") ?placeholder () =
   let lines =
     if String.length initial = 0 then [|""|]
@@ -130,10 +161,9 @@ let set_current_line t content =
 (** Insert a new line at cursor position *)
 let insert_newline t =
   let line = current_line t in
-  let left = String.sub line 0 t.cursor_col in
-  let right =
-    String.sub line t.cursor_col (String.length line - t.cursor_col)
-  in
+  let cursor_col = clamp_col line t.cursor_col in
+  let left = String.sub line 0 cursor_col in
+  let right = String.sub line cursor_col (String.length line - cursor_col) in
   let before = Array.sub t.lines 0 t.cursor_row in
   let after =
     Array.sub
@@ -160,11 +190,11 @@ let insert_newline t =
 let backspace t =
   if t.cursor_col > 0 then
     let line = current_line t in
-    let left = String.sub line 0 (t.cursor_col - 1) in
-    let right =
-      String.sub line t.cursor_col (String.length line - t.cursor_col)
-    in
-    set_current_line {t with cursor_col = t.cursor_col - 1} (left ^ right)
+    let cursor_col = clamp_col line t.cursor_col in
+    let prev = H.utf8_prev_boundary line cursor_col in
+    let left = String.sub line 0 prev in
+    let right = String.sub line cursor_col (String.length line - cursor_col) in
+    set_current_line {t with cursor_col = prev} (left ^ right)
   else if t.cursor_row > 0 then
     (* Join with previous line *)
     let prev_line = t.lines.(t.cursor_row - 1) in
@@ -195,11 +225,11 @@ let backspace t =
 (** Delete character at cursor (delete key) *)
 let delete t =
   let line = current_line t in
-  if t.cursor_col < String.length line then
-    let left = String.sub line 0 t.cursor_col in
-    let right =
-      String.sub line (t.cursor_col + 1) (String.length line - t.cursor_col - 1)
-    in
+  let cursor_col = clamp_col line t.cursor_col in
+  if cursor_col < String.length line then
+    let next = H.utf8_next_boundary line cursor_col in
+    let left = String.sub line 0 cursor_col in
+    let right = String.sub line next (String.length line - next) in
     set_current_line t (left ^ right)
   else if t.cursor_row < Array.length t.lines - 1 then
     (* Join with next line *)
@@ -218,15 +248,17 @@ let delete t =
 (** Insert character at cursor *)
 let insert_char t ch =
   let line = current_line t in
-  let left = String.sub line 0 t.cursor_col in
-  let right =
-    String.sub line t.cursor_col (String.length line - t.cursor_col)
-  in
-  set_current_line {t with cursor_col = t.cursor_col + 1} (left ^ ch ^ right)
+  let cursor_col = clamp_col line t.cursor_col in
+  let left = String.sub line 0 cursor_col in
+  let right = String.sub line cursor_col (String.length line - cursor_col) in
+  set_current_line
+    {t with cursor_col = cursor_col + String.length ch}
+    (left ^ ch ^ right)
 
 (** Move cursor left *)
 let move_left t =
-  if t.cursor_col > 0 then {t with cursor_col = t.cursor_col - 1}
+  if t.cursor_col > 0 then
+    {t with cursor_col = H.utf8_prev_boundary (current_line t) t.cursor_col}
   else if t.cursor_row > 0 then
     let new_row = t.cursor_row - 1 in
     let scroll_offset =
@@ -245,7 +277,7 @@ let move_left t =
 let move_right t =
   let line = current_line t in
   if t.cursor_col < String.length line then
-    {t with cursor_col = t.cursor_col + 1}
+    {t with cursor_col = H.utf8_next_boundary line t.cursor_col}
   else if t.cursor_row < Array.length t.lines - 1 then
     let new_row = t.cursor_row + 1 in
     let scroll_offset =
@@ -259,7 +291,7 @@ let move_right t =
 let move_up t =
   if t.cursor_row > 0 then
     let new_row = t.cursor_row - 1 in
-    let new_col = min t.cursor_col (String.length t.lines.(new_row)) in
+    let new_col = clamp_to_line t new_row t.cursor_col in
     let scroll_offset =
       if new_row < t.scroll_offset then max 0 (t.scroll_offset - 1)
       else t.scroll_offset
@@ -271,7 +303,7 @@ let move_up t =
 let move_down t =
   if t.cursor_row < Array.length t.lines - 1 then
     let new_row = t.cursor_row + 1 in
-    let new_col = min t.cursor_col (String.length t.lines.(new_row)) in
+    let new_col = clamp_to_line t new_row t.cursor_col in
     let scroll_offset =
       if new_row >= t.scroll_offset + t.height then t.scroll_offset + 1
       else t.scroll_offset
@@ -312,12 +344,11 @@ let render t ~focus:(_ : bool) =
         let line = t.lines.(line_idx) in
         if line_idx = t.cursor_row then
           (* Show cursor *)
-          let left =
-            String.sub line 0 (min t.cursor_col (String.length line))
-          in
+          let cursor_col = clamp_col line t.cursor_col in
+          let left = String.sub line 0 cursor_col in
           let right =
-            if t.cursor_col < String.length line then
-              String.sub line t.cursor_col (String.length line - t.cursor_col)
+            if cursor_col < String.length line then
+              String.sub line cursor_col (String.length line - cursor_col)
             else ""
           in
           left ^ "_" ^ right
@@ -382,7 +413,7 @@ let on_key t ~key =
         min max_scroll (t.scroll_offset + Miaou_helpers.Mouse.wheel_scroll_lines)
       in
       ({t with scroll_offset = new_scroll}, Handled)
-  | k when String.length k = 1 ->
+  | k when is_text_key k ->
       (edit ~op:Char_insert (fun t -> insert_char t k), Handled)
   | key -> (
       (* Check for mouse click to position cursor *)
@@ -394,8 +425,9 @@ let on_key t ~key =
           (* 1 for left border *)
           let max_row = Array.length t.lines - 1 in
           let new_row = max 0 (min max_row text_row) in
-          let max_col = String.length t.lines.(new_row) in
-          let new_col = max 0 (min max_col text_col) in
+          let new_col =
+            H.visible_byte_index_of_pos t.lines.(new_row) (max 0 text_col)
+          in
           ({t with cursor_row = new_row; cursor_col = new_col}, Handled)
       | None -> (t, Bubble))
 
@@ -415,7 +447,7 @@ let set_text t s =
     else Array.of_list (String.split_on_char '\n' s)
   in
   let cursor_row = min t.cursor_row (Array.length lines - 1) in
-  let cursor_col = min t.cursor_col (String.length lines.(cursor_row)) in
+  let cursor_col = clamp_col lines.(cursor_row) t.cursor_col in
   {t with lines; cursor_row; cursor_col}
 
 let is_cancelled t = t.cancelled

@@ -7,6 +7,12 @@
 
 val is_utf8_lead : char -> bool
 
+val utf8_prev_boundary : string -> int -> int
+
+val utf8_next_boundary : string -> int -> int
+
+val utf8_clamp_boundary : string -> int -> int
+
 val is_esc_start : string -> int -> bool
 
 val is_osc_start : string -> int -> bool

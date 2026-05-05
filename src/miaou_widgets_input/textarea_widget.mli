@@ -133,7 +133,8 @@ val is_cancelled : t -> bool
 (** Clear the cancelled flag. *)
 val reset_cancelled : t -> t
 
-(** Get cursor position as [(row, col)] (0-indexed). *)
+(** Get cursor position as [(row, col)] (0-indexed), where [col] is a UTF-8
+    boundary byte offset in the current line. *)
 val cursor_position : t -> int * int
 
 (** Get total number of lines. *)

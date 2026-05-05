@@ -132,7 +132,8 @@ val value : t -> string
 val set_text : t -> string -> t
 
 (** Set both text and cursor position explicitly.
-    The cursor position is clamped to the valid range [0, String.length text]. *)
+    The cursor position is clamped to the valid range [0, String.length text]
+    and to a valid UTF-8 character boundary. *)
 val set_text_with_cursor : t -> text:string -> cursor:int -> t
 
 (** {1 State Queries} *)
@@ -145,7 +146,7 @@ val is_cancelled : t -> bool
 (** Clear the cancelled flag. *)
 val reset_cancelled : t -> t
 
-(** Get the current cursor position (character index). *)
+(** Get the current cursor position as a UTF-8 boundary byte offset. *)
 val cursor : t -> int
 
 (** Get the display width of the textbox. *)
