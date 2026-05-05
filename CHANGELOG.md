@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-05-05
+
+### Fixed
+
+- **Opam publication metadata**: generated package files no longer include
+  development `pin-depends` for `ppx_forbid` or `ppx_enforce`, so the release
+  archive can be submitted to opam-repository as normal packages.
+
 ## [0.5.1] - 2026-05-05
 
 ### Fixed
