@@ -69,10 +69,12 @@ val swap : t -> unit
 val cell_changed : t -> row:int -> col:int -> bool
 
 (** Mark all cells as needing redraw (for full refresh after resize).
+    Invalidates the front buffer so even blank cells are re-emitted.
     Thread-safe. *)
 val mark_all_dirty : t -> unit
 
 (** Mark a region of cells as needing redraw.
+    Invalidates the front buffer region so even blank cells are re-emitted.
     Thread-safe. Used for partial refresh and modal regions. *)
 val mark_region_dirty :
   t -> row_start:int -> row_end:int -> col_start:int -> col_end:int -> unit
