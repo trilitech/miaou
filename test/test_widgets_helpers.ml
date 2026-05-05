@@ -2,6 +2,17 @@ open Alcotest
 module W = Miaou_widgets_display.Widgets
 module Palette_sdl = Miaou_widgets_display.Palette_sdl
 
+let contains_sub haystack needle =
+  let hlen = String.length haystack in
+  let nlen = String.length needle in
+  let rec loop i =
+    if nlen = 0 then true
+    else if i + nlen > hlen then false
+    else if String.sub haystack i nlen = needle then true
+    else loop (i + 1)
+  in
+  loop 0
+
 let test_ascii_preference () =
   Unix.putenv "MIAOU_TUI_UNICODE_BORDERS" "off" ;
   Unix.putenv "MIAOU_TUI_UNICODE_BORDERS" "on" ;
@@ -145,6 +156,22 @@ let test_osc8_hyperlink () =
   let remaining_visible = H.visible_chars_count remaining in
   check int "remaining visible" 3 remaining_visible
 
+let test_osc8_hyperlink_sanitizes_url () =
+  Unix.putenv "MIAOU_TUI_HYPERLINKS" "on" ;
+  let link = W.hyperlink ~url:"https://x/\007\027[2J\x9c\nok" "click" in
+  check bool "no BEL in hyperlink" false (String.contains link '\007') ;
+  check bool "no injected clear screen" false (contains_sub link "\027[2J") ;
+  check
+    string
+    "shared sanitizer strips controls"
+    "https://x/[2Jok"
+    (Miaou_helpers.Helpers.sanitize_osc_payload "https://x/\007\027[2J\x9c\nok") ;
+  check
+    string
+    "shared sanitizer strips del"
+    "https://x/ok"
+    (Miaou_helpers.Helpers.sanitize_osc_payload "https://x/\x7fok")
+
 let test_osc_sequence_skipping () =
   let module H = Miaou_helpers.Helpers in
   (* is_osc_start detects ESC ] *)
@@ -174,6 +201,10 @@ let () =
           test_case "misc helpers" `Quick test_misc_helpers;
           test_case "wrap+pad helpers" `Quick test_wrap_and_pad;
           test_case "osc8 hyperlink" `Quick test_osc8_hyperlink;
+          test_case
+            "osc8 hyperlink sanitizes url"
+            `Quick
+            test_osc8_hyperlink_sanitizes_url;
           test_case "osc sequence skipping" `Quick test_osc_sequence_skipping;
         ] );
     ]

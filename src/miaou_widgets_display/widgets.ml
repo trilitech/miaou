@@ -29,6 +29,7 @@ let osc8_supported =
     [display] is returned as-is.  Override with MIAOU_TUI_HYPERLINKS=on. *)
 let hyperlink ~url display =
   if Lazy.force osc8_supported then
+    let url = Miaou_helpers.Helpers.sanitize_osc_payload url in
     "\027]8;;" ^ url ^ "\027\\" ^ display ^ "\027]8;;\027\\"
   else display
 

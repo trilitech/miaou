@@ -38,6 +38,8 @@ let count_substring str sub =
     done ;
     !count
 
+let contains_sub str sub = count_substring str sub > 0
+
 (* Test that diff always starts with cursor positioning *)
 let test_diff_starts_with_moveto () =
   let buf = Buffer.create ~rows:5 ~cols:20 in
@@ -197,6 +199,14 @@ let test_mark_all_dirty_emits_clearing_spaces () =
   in
   check bool "full redraw emits clearing space" true writes_space
 
+let test_writer_sanitizes_osc8_url () =
+  let writer = Writer.create () in
+  let style = {Cell.default_style with url = "https://x/\007\027[2J\x9c\nok"} in
+  let out = Writer.render writer [Diff.SetStyle style; Diff.WriteChar "x"] in
+  check bool "no BEL in writer output" false (String.contains out '\007') ;
+  check bool "no injected clear screen" false (contains_sub out "\027[2J") ;
+  check bool "sanitized URL remains" true (contains_sub out "https://x/[2Jok")
+
 (* Test with real ANSI file if it exists *)
 let test_real_ansi_file () =
   let file = "/tmp/miaou-modal-with-overlay.ansi" in
@@ -244,6 +254,10 @@ let () =
             "mark_all_dirty emits clearing spaces"
             `Quick
             test_mark_all_dirty_emits_clearing_spaces;
+          test_case
+            "writer sanitizes osc8 url"
+            `Quick
+            test_writer_sanitizes_osc8_url;
         ] );
       ( "modal",
         [
