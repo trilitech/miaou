@@ -48,6 +48,8 @@
   canvas_demo
   miaou_invaders_demo
   miaou_force_demo
+  miaou_crypt_demo
+  miaou_links_demo
   geo_quiz_demo
   solar_system_demo
   ; Core miaou

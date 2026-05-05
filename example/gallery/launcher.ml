@@ -479,6 +479,20 @@ let demos =
           "demo_miaou_force"
           (module Miaou_force_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "MIAOU Crypt (Game)";
+      open_demo =
+        goto
+          "demo_miaou_crypt"
+          (module Miaou_crypt_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
+    {
+      title = "MIAOU Links (Game)";
+      open_demo =
+        goto
+          "demo_miaou_links"
+          (module Miaou_links_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let demo_at idx = List.nth_opt demos idx
@@ -505,7 +519,7 @@ let demo_tree =
     demo_group "Core" [6; 7; 37; 45; 46];
     demo_group "Styling" [5; 39];
     demo_group "Showcases" [32; 48];
-    demo_group "Games" [43; 47; 49];
+    demo_group "Games" [43; 47; 49; 50; 51];
   ]
 
 let init () =

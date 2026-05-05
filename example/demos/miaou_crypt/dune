@@ -1,0 +1,22 @@
+(library
+ (name miaou_crypt_demo)
+ (modules model floors raycast view page)
+ (preprocess
+  (pps ppx_blob))
+ (preprocessor_deps
+  (file README.md))
+ (libraries
+  demo_shared
+  miaou
+  miaou-core.lib_miaou_internal
+  miaou-core.widgets.display
+  miaou-core.widgets.layout
+  miaou-core.helpers
+  miaou-core.interfaces))
+
+(executable
+ (name main)
+ (public_name miaou.miaou-crypt-demo)
+ (package miaou)
+ (modules main)
+ (libraries miaou_crypt_demo miaou-runner.tui miaou-core.helpers eio_main))
