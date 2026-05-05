@@ -9,22 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-05-05
 
-### Release Notes
+### Added
 
 - **Runtime version information (`Miaou_core.Version`)**: the OCaml API now exposes the release version as `Version.version` plus `major`, `minor`, and `patch` components. The bundled `miaou-runner-tui` / `miaou-runner-native` CLI parser also accepts `--version`, so installed binaries can report the same version as `dune-project` and the opam packages.
 - **Clipboard demo (`example/demos/clipboard/`)**: a gallery entry demonstrating copy-to-clipboard flows with both direct actions and modal confirmation, backed by the shared clipboard capability path and tests.
-
-### Fixed
-
-- **Matrix full redraw invalidation**: forced redraws now invalidate previously-drawn cells so stale characters cannot survive a clear or scrub frame.
-- **Matrix wide Unicode rendering**: wide glyphs now reserve and clear their continuation cells, including at the right edge, preventing leftover fragments when content changes.
-- **UTF-8 input editing**: text input widgets preserve multibyte characters across insert, delete, cursor movement, and masked rendering paths.
-- **Terminal write serialization**: terminal writes are serialized so concurrent render/log paths cannot interleave escape sequences.
-- **OSC8 hyperlink sanitization**: generated terminal hyperlinks strip unsafe control characters before emitting OSC8 sequences.
-- **OSC52 clipboard fallback**: clipboard support restores the terminal OSC52 fallback when no application clipboard capability is installed.
-
-### Added
-
 - **MIAOU Links demo (`example/demos/miaou_links/`)**: a top-down golf game registered in the gallery `Games` group, with an 18-hole classic tour plus a roguelite run mode with stamina, shop perks, persistent coins, and per-run score tracking. It demonstrates framebuffer golf rendering, continuous ball physics over terrain-specific friction, wind/gust effects, pre-shot previews, and persistent demo state via `Arcade_kit.Score_store` (`miaou_links` and `miaou_links_coins`). Existing simpler golf or physics demos can use it as the richer reference for tile-map courses, shot state machines, and Octant-first pixel output (`MIAOU_LINKS_PIXEL_MODE` override). No public library API is removed or changed.
 - **MIAOU Crypt demo (`example/demos/miaou_crypt/`)**: a pseudo-3-D dungeon crawler registered in the gallery `Games` group, with seven hand-authored floors, raycast walls, billboarded enemies, boss encounters, pickups, minimap support, and deterministic debug stepping via `MIAOU_CRYPT_DEBUG=1`. It demonstrates how to build a first-person game on top of `Framebuffer_widget`, `Arcade_kit.Particles`, and `Arcade_kit.Score_store` while bounding framebuffer size and raycast work for terminal performance (`MIAOU_CRYPT_PIXEL_MODE` override). Existing raycast or dungeon experiments can use it as the maintained reference implementation. No public library API is removed or changed.
 - **Shared `Arcade_kit` (`example/shared/arcade_kit.{ml,mli}`)**: small toolkit used by the gallery's arcade-style demos. `Arcade_kit.Particles` is a pre-allocated ring-buffer particle pool with `spawn` / `spawn_burst` / `tick ~dt ~ax ~ay` / `iter` and zero per-frame allocation in the hot path. `Arcade_kit.Hue` ships seven hand-snapped 12-stop xterm-256 ramps (cyan / magenta / amber / sand / lava / ice / grass) plus matching `(r,g,b)` approximations for pixel-buffer rendering, dodging the smooth-gradient banding that hits Octant render mode. `Arcade_kit.Screen_fx` exposes `flash` and `shake` overlays decaying over a duration. `Arcade_kit.Score_store` reads/writes per-demo high scores under `$XDG_STATE_HOME/miaou/<demo>.score` (best-effort, silent on IO error). `Arcade_kit.Pixel_mode.resolve` returns `Caps.Octant` by default with env-var override — never auto-detects, since auto-Sixel produces fragmented output on Konsole.
@@ -45,22 +33,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`on_frame` callback in headless runner**: `Headless_json_runner.run` and `Runner_tui.run` accept an optional `?on_frame:(rows:int -> cols:int -> string -> unit)` callback invoked with the raw ANSI frame and terminal dimensions on every frame emit. This enables external consumers (like `Web_viewer`) to observe frames without modifying the headless protocol.
 - **Viewer auto-reconnect**: the xterm.js client (`client.js`) now automatically reconnects with a 2-second retry when a viewer WebSocket disconnects, surviving server restarts without requiring a manual browser refresh.
 - **Viewer dimension sync**: when the headless driver's terminal size changes, a `{"type":"dimensions","rows":R,"cols":C}` JSON message is sent to all viewers. The client resizes xterm.js to match; FitAddon auto-fit is disabled for viewers so the terminal size is controlled by the server.
-
-### Added
-
 - **Octant rendering mode** (`Octant_canvas`): high-resolution chart rendering using Unicode 16 octant block characters (2×4 sub-cell pixels per character cell). Gives 8× resolution compared to ASCII mode with per-cell color support. Octant mode is available on `Sparkline_widget`, `Line_chart_widget`, and `Bar_chart_widget` via a new `~mode:Octant` parameter.
 - **Framebuffer widget** (`Framebuffer_widget`): direct pixel/cell-based drawing surface embeddable in any layout slot. Supports both character-cell and sub-cell (Octant) pixel addressing, making it easy to build custom visualisations, games, or image renderers.
 - **Terminal capabilities detection** (`Terminal_caps`): detects whether the connected terminal supports Unicode 16 octant characters. Used internally by the Octant rendering mode to fall back gracefully on older terminals.
 - **Periodic viewer refresh daemon** (headless runner): when an `on_frame` callback is registered (e.g. by `Web_viewer`), a background Eio daemon fiber re-renders the screen every 200 ms and broadcasts the updated frame. This keeps live viewers up-to-date during agent idle periods (timers, async I/O, spinners) without requiring a key press or tick.
 - **"Framebuffer & Octant Charts" demo** added to the gallery, showcasing both the `Framebuffer_widget` and Octant chart modes side-by-side.
 
+### Changed
+
+- **Framebuffer rendering**: Sixel rendering, transparent backgrounds, truecolor handling, adaptive Braille thresholding, and per-cell color averaging improve image/chart fidelity across capable terminals.
+- **Sixel performance**: band encoding is now single-pass with an index map and run-length compression, reducing encoder work substantially for large framebuffer scenes.
+
 ### Fixed
 
 - **`Input_parser`: recognise PageUp / PageDown / Home / End CSI sequences**: `parse_key` and `peek_key` now handle `ESC[5~`, `ESC[6~`, `ESC[H` / `ESCOH` / `ESC[1~` / `ESC[7~`, and `ESC[F` / `ESCOF` / `ESC[4~` / `ESC[8~` instead of returning `Unknown`; `key_to_string` and `is_nav_key` are updated accordingly. This documents the already-merged #132 navigation-key fix for users relying on paging or home/end movement in widgets.
+- **Matrix full redraw invalidation**: forced redraws now invalidate previously-drawn cells so stale characters cannot survive a clear or scrub frame.
+- **Matrix wide Unicode rendering**: wide glyphs now reserve and clear their continuation cells, including at the right edge, preventing leftover fragments when content changes.
+- **UTF-8 input editing**: text input widgets preserve multibyte characters across insert, delete, cursor movement, and masked rendering paths.
+- **Terminal write serialization**: terminal writes are serialized so concurrent render/log paths cannot interleave escape sequences.
+- **OSC8 hyperlink sanitization**: generated terminal hyperlinks strip unsafe control characters before emitting OSC8 sequences.
+- **OSC52 clipboard fallback**: clipboard support restores the terminal OSC52 fallback when no application clipboard capability is installed.
 - **Viewer daemon race condition**: the periodic viewer-refresh fiber previously called `idle_wait` each iteration, which allowed it to interleave with the command handler's own `idle_wait` and concurrently mutate shared page-state (double-ticking clocks/timers). The daemon now reads the cached screen content directly via `HD.Screen.get` without advancing any state.
 - **Web driver Tab key**: `ev.preventDefault()` is now called for all recognized keys in the web client's keyboard handler. Previously, Tab (and other browser-reserved keys like F5) were forwarded to the server but also processed by the browser for focus navigation / page reload. Tab now reaches the Miaou application correctly.
+- **Headless/Web viewer reliability**: stdin reads now run in a system thread, idle waits yield to the Eio scheduler, LF is converted to CRLF for xterm.js, and new viewers receive dimensions plus the last frame on connect.
+- **Framebuffer/widget rendering edge cases**: pixel protocol escape sequences are skipped by themed foreground handling, DCS/APC sequences are skipped by background fill/theme application, and truecolor SGR parsing is preserved when applying themed foregrounds.
 
-## [0.4.2] - Unreleased
+## [0.4.2] - 2026-02-26
 
 ### Fixed
 
@@ -70,13 +68,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Miaou Invaders background**: All `draw_text` calls in the Invaders demo now carry an explicit `bg` matching the current game or HUD background. Previously, entities drawn with `bg=-1` clobbered the `fill_rect`-painted background, producing black horizontal bars wherever sprites appeared.
 - **Periodic scrub interval**: Default `scrub_interval_frames` reduced from 30 frames (0.5 s at 60 fps) to 300 frames (5 s), making the occasional full-refresh nearly imperceptible.
 
-## [0.4.1] - Unreleased
+## [0.4.1] - 2026-02-23
 
 ### Fixed
 
 - **Table row selection highlighting**: Full row background now displays correctly when `selection_mode = Row`. Previously, only border characters (vertical separators) showed the selection color due to ANSI reset codes from `themed_border` clearing the selection background. Now, border styling is skipped for selected rows, allowing the full row to inherit the selection background color.
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-02-18
 
 ### Breaking Changes
 
@@ -103,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Theme JSON parsing**: tolerant parsing for partial style objects, multiple color formats, and string border styles.
 
-## [0.3.2] - Unreleased
+## [0.3.2] - 2026-02-17
 
 ### Added
 
@@ -138,7 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mouse interactions**: consistent enable sequence via `/dev/tty`, improved click handling, and double-click support.
 - **Pager**: add ANSI reset and wrap-aware scrolling.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-02-11
 
 ### Breaking Changes
 
