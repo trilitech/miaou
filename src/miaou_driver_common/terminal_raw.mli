@@ -25,6 +25,12 @@
 (** Terminal state handle. *)
 type t
 
+(** Write the full byte buffer to a file descriptor, retrying short writes and
+    interrupted writes until all bytes are written.
+    @raise End_of_file if the descriptor reports a zero-byte write before the
+    payload is complete. *)
+val write_all_fd : Unix.file_descr -> Bytes.t -> unit
+
 (** Setup terminal for TUI use. Opens /dev/tty for reliable output.
     @raise Failure if stdin is not a terminal. *)
 val setup : unit -> t
