@@ -21,6 +21,8 @@ val skip_ansi_until_m : string -> int -> int
 
 val skip_osc_until_st : string -> int -> int
 
+val sanitize_osc_payload : string -> string
+
 val visible_chars_count : string -> int
 
 val visible_byte_index_of_pos : string -> int -> int

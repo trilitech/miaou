@@ -30,6 +30,17 @@ let rec skip_osc_until_st s i =
   else if s.[i] = '\027' && i + 1 < len && s.[i + 1] = '\\' then i + 2
   else skip_osc_until_st s (i + 1)
 
+let sanitize_osc_payload s =
+  let buf = Buffer.create (String.length s) in
+  String.iter
+    (fun c ->
+      match c with
+      | '\027' | '\007' | '\x9c' -> ()
+      | c when Char.code c < 0x20 || Char.code c = 0x7F -> ()
+      | c -> Buffer.add_char buf c)
+    s ;
+  Buffer.contents buf
+
 let utf8_decode s i =
   let len = String.length s in
   if i >= len then (0, i + 1)

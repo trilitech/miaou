@@ -79,15 +79,18 @@ let render t changes =
       | Matrix_diff.SetStyle style ->
           if not (Matrix_cell.style_equal style t.current_style) then begin
             (* Handle OSC 8 hyperlink changes *)
-            if not (String.equal style.url t.current_url) then begin
+            let sanitized_url =
+              Miaou_helpers.Helpers.sanitize_osc_payload style.url
+            in
+            if not (String.equal sanitized_url t.current_url) then begin
               (* Close current hyperlink if active *)
               if t.current_url <> "" then Buffer.add_string buf "\027]8;;\027\\" ;
               (* Open new hyperlink if needed *)
-              if style.url <> "" then (
+              if sanitized_url <> "" then (
                 Buffer.add_string buf "\027]8;;" ;
-                Buffer.add_string buf style.url ;
+                Buffer.add_string buf sanitized_url ;
                 Buffer.add_string buf "\027\\") ;
-              t.current_url <- style.url
+              t.current_url <- sanitized_url
             end ;
             (* Handle SGR style changes (fg, bg, bold, dim, underline, reverse) *)
             let sgr_differs =
