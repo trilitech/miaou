@@ -144,6 +144,28 @@ let test_resize_pending_atomic () =
   Atomic.set flag false ;
   check bool "after set false" false (Atomic.get flag)
 
+let test_write_all_fd_writes_full_payload () =
+  let r, w = Unix.pipe () in
+  Fun.protect
+    ~finally:(fun () ->
+      (try Unix.close r with _ -> ()) ;
+      try Unix.close w with _ -> ())
+    (fun () ->
+      let payload = String.init 4096 (fun i -> Char.chr (65 + (i mod 26))) in
+      Terminal.write_all_fd w (Bytes.of_string payload) ;
+      Unix.close w ;
+      let buf = Buffer.create (String.length payload) in
+      let tmp = Bytes.create 512 in
+      let rec read_loop () =
+        match Unix.read r tmp 0 (Bytes.length tmp) with
+        | 0 -> ()
+        | n ->
+            Buffer.add_subbytes buf tmp 0 n ;
+            read_loop ()
+      in
+      read_loop () ;
+      check string "payload roundtrips" payload (Buffer.contents buf))
+
 let () =
   run
     "terminal_raw"
@@ -157,6 +179,10 @@ let () =
         [
           test_case "raw mode settings" `Quick test_raw_mode_settings;
           test_case "resize atomic" `Quick test_resize_pending_atomic;
+          test_case
+            "write_all_fd writes full payload"
+            `Quick
+            test_write_all_fd_writes_full_payload;
         ] );
       ( "size",
         [

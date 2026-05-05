@@ -15,6 +15,7 @@ type t = {
   mutable cached_size : (int * int) option;
   mutable cleanup_done : bool;
   resize_pending : bool Atomic.t;
+  write_mutex : Mutex.t;
   (* Screen content to dump on exit for debugging *)
   mutable exit_screen_dump : string option;
   (* When false, enter_raw / cleanup skip the alternate-screen
@@ -22,6 +23,23 @@ type t = {
      and its final frame stays in the terminal scrollback. *)
   mutable use_alt_screen : bool;
 }
+
+let write_all_fd fd bytes =
+  let len = Bytes.length bytes in
+  let rec loop off =
+    if off < len then
+      match Unix.write fd bytes off (len - off) with
+      | 0 -> raise End_of_file
+      | n -> loop (off + n)
+      | exception Unix.Unix_error (Unix.EINTR, _, _) -> loop off
+  in
+  loop 0
+
+let write_all_string fd s = write_all_fd fd (Bytes.of_string s)
+
+let with_write_lock t f =
+  Mutex.lock t.write_mutex ;
+  Fun.protect ~finally:(fun () -> Mutex.unlock t.write_mutex) f
 
 let setup () =
   let fd = Unix.descr_of_in_channel stdin in
@@ -41,6 +59,7 @@ let setup () =
     cached_size = None;
     cleanup_done = false;
     resize_pending = Atomic.make false;
+    write_mutex = Mutex.create ();
     exit_screen_dump = None;
     use_alt_screen = true;
   }
@@ -73,12 +92,7 @@ let enter_raw t =
       if t.use_alt_screen then
         try
           let alt_seq = "\027[?1049h" in
-          ignore
-            (Unix.write
-               t.tty_out_fd
-               (Bytes.of_string alt_seq)
-               0
-               (String.length alt_seq))
+          with_write_lock t (fun () -> write_all_string t.tty_out_fd alt_seq)
         with _ -> ())
 
 let leave_raw t =
@@ -95,26 +109,23 @@ let disable_mouse t =
   in
   (* Method 1: Write to /dev/tty *)
   (try
-     for _ = 1 to 2 do
-       let _ =
-         Unix.write
-           t.tty_out_fd
-           (Bytes.of_string disable_seq)
-           0
-           (String.length disable_seq)
-       in
-       ()
-     done ;
-     Unix.tcdrain t.tty_out_fd
+     with_write_lock t (fun () ->
+         for _ = 1 to 2 do
+           write_all_string t.tty_out_fd disable_seq
+         done ;
+         Unix.tcdrain t.tty_out_fd)
    with _ -> ()) ;
   (* Method 2: Write to stdout *)
   (try
-     (print_string [@allow_forbidden "terminal driver writes escape sequences"])
-       disable_seq ;
-     Stdlib.flush stdout
+     with_write_lock t (fun () ->
+         (print_string
+         [@allow_forbidden "terminal driver writes escape sequences"])
+           disable_seq ;
+         Stdlib.flush stdout)
    with _ -> ()) ;
   (* Method 3: Write to stderr as last resort *)
-  (try Printf.eprintf "%s%!" disable_seq with _ -> ()) ;
+  (try with_write_lock t (fun () -> Printf.eprintf "%s%!" disable_seq)
+   with _ -> ()) ;
   (* Give terminal time to process escape sequences *)
   (Unix.sleepf [@allow_forbidden "terminal cleanup needs blocking wait"]) 0.05
 
@@ -124,19 +135,17 @@ let enable_mouse t =
      Write to tty_out_fd for consistency with other terminal operations. *)
   let enable_seq = "\027[?1002h\027[?1006h" in
   (try
-     ignore
-       (Unix.write
-          t.tty_out_fd
-          (Bytes.of_string enable_seq)
-          0
-          (String.length enable_seq)) ;
-     Unix.tcdrain t.tty_out_fd
+     with_write_lock t (fun () ->
+         write_all_string t.tty_out_fd enable_seq ;
+         Unix.tcdrain t.tty_out_fd)
    with _ -> ()) ;
   (* Also write to stdout as fallback *)
   try
-    (print_string [@allow_forbidden "terminal driver writes escape sequences"])
-      enable_seq ;
-    Stdlib.flush stdout
+    with_write_lock t (fun () ->
+        (print_string
+        [@allow_forbidden "terminal driver writes escape sequences"])
+          enable_seq ;
+        Stdlib.flush stdout)
   with _ -> ()
 
 let cleanup t =
@@ -149,18 +158,15 @@ let cleanup t =
     (if t.use_alt_screen then
        let exit_alt_seq = "\027[?1049l" in
        try
-         ignore
-           (Unix.write
-              t.tty_out_fd
-              (Bytes.of_string exit_alt_seq)
-              0
-              (String.length exit_alt_seq)) ;
-         Unix.tcdrain t.tty_out_fd
+         with_write_lock t (fun () ->
+             write_all_string t.tty_out_fd exit_alt_seq ;
+             Unix.tcdrain t.tty_out_fd)
        with _ -> ()
      else
        try
-         ignore (Unix.write t.tty_out_fd (Bytes.of_string "\n") 0 1) ;
-         Unix.tcdrain t.tty_out_fd
+         with_write_lock t (fun () ->
+             write_all_string t.tty_out_fd "\n" ;
+             Unix.tcdrain t.tty_out_fd)
        with _ -> ()) ;
     (* Step 2: Restore terminal settings *)
     leave_raw t ;
@@ -171,46 +177,37 @@ let cleanup t =
        match t.exit_screen_dump with
        | Some dump -> (
            try
-             let clear_seq = "\027[2J\027[H" in
-             ignore
-               (Unix.write
-                  t.tty_out_fd
-                  (Bytes.of_string clear_seq)
-                  0
-                  (String.length clear_seq)) ;
-             ignore
-               (Unix.write
-                  t.tty_out_fd
-                  (Bytes.of_string dump)
-                  0
-                  (String.length dump)) ;
-             ignore (Unix.write t.tty_out_fd (Bytes.of_string "\n") 0 1) ;
-             Unix.tcdrain t.tty_out_fd
+             with_write_lock t (fun () ->
+                 let clear_seq = "\027[2J\027[H" in
+                 write_all_string t.tty_out_fd clear_seq ;
+                 write_all_string t.tty_out_fd dump ;
+                 write_all_string t.tty_out_fd "\n" ;
+                 Unix.tcdrain t.tty_out_fd)
            with _ -> ())
        | None -> ()) ;
     (* Step 4: Show cursor, reset style *)
     let final_seq = "\027[?25h\027[0m" in
     try
-      (print_string
-      [@allow_forbidden "terminal driver writes escape sequences"])
-        final_seq ;
-      Stdlib.flush stdout
+      with_write_lock t (fun () ->
+          (print_string
+          [@allow_forbidden "terminal driver writes escape sequences"])
+            final_seq ;
+          Stdlib.flush stdout)
     with _ -> ()
   end ;
   (* THEN disable mouse tracking - terminal is now in normal mode *)
   disable_mouse t
 
 let write t s =
-  try
-    let _ = Unix.write t.tty_out_fd (Bytes.of_string s) 0 (String.length s) in
-    ()
-  with _ -> (
-    try
-      (print_string
-      [@allow_forbidden "terminal driver writes escape sequences"])
-        s ;
-      Stdlib.flush stdout
-    with _ -> ())
+  with_write_lock t (fun () ->
+      try write_all_string t.tty_out_fd s
+      with _ -> (
+        try
+          (print_string
+          [@allow_forbidden "terminal driver writes escape sequences"])
+            s ;
+          Stdlib.flush stdout
+        with _ -> ()))
 
 (* Size detection using stty - direct method without System capability *)
 let detect_size_direct () =
