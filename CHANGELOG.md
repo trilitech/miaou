@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-05
+
+### Fixed
+
+- **Opam publication metadata**: release metadata no longer requires local pins for `ppx_forbid` or `ppx_enforce`. Miaou now depends on the normal opam packages for those GPL build-time PPX tools, allowing the package set to be submitted cleanly to opam-repository.
+
 ## [0.5.0] - 2026-05-05
 
 ### Added
