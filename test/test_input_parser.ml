@@ -250,6 +250,26 @@ let test_parse_sequence () =
   | _ -> fail "Expected None after buffer empty") ;
   cleanup (p, r)
 
+let test_parse_utf8_characters () =
+  let cases = ["é"; "界"; "🐱"] in
+  List.iter
+    (fun input ->
+      let p, r = parser_with_input input in
+      (match Parser.parse_key p with
+      | Some (Parser.Char s) when s = input -> ()
+      | Some (Parser.Char s) ->
+          fail
+            (Printf.sprintf "Expected one UTF-8 character %S, got %S" input s)
+      | Some k ->
+          fail
+            (Printf.sprintf
+               "Expected UTF-8 Char, got %s"
+               (Parser.key_to_string k))
+      | None -> fail "Expected UTF-8 Char") ;
+      check int "buffer empty after utf8 char" 0 (Parser.pending_length p) ;
+      cleanup (p, r))
+    cases
+
 (* Test SGR mouse parsing *)
 let test_parse_mouse_sgr () =
   (* SGR mouse release: ESC [ < 0;10;5m *)
@@ -497,6 +517,7 @@ let () =
           test_case "escape" `Quick test_parse_escape;
           test_case "escape unknown pair" `Quick test_parse_escape_unknown_pair;
           test_case "sequence" `Quick test_parse_sequence;
+          test_case "utf8 characters" `Quick test_parse_utf8_characters;
           test_case "mouse sgr" `Quick test_parse_mouse_sgr;
           test_case "mouse wheel" `Quick test_parse_mouse_wheel;
           test_case "mouse drag" `Quick test_parse_mouse_drag;

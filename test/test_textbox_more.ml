@@ -1,6 +1,16 @@
 open Alcotest
 module TB = Miaou_widgets_input.Textbox_widget
 
+let contains_substring s sub =
+  let len = String.length s in
+  let sub_len = String.length sub in
+  let rec loop i =
+    if i + sub_len > len then false
+    else if String.sub s i sub_len = sub then true
+    else loop (i + 1)
+  in
+  sub_len = 0 || loop 0
+
 let test_editing () =
   let tb = TB.create ~initial:"abc" ~width:10 () in
   let tb = TB.handle_key tb ~key:"Left" in
@@ -23,7 +33,39 @@ let test_editing () =
   let tb = TB.with_width tb 3 in
   check int "width clamp" 4 (TB.width tb)
 
+let test_utf8_editing () =
+  let tb = TB.create ~initial:"é界🐱" ~width:20 () in
+  let tb = TB.handle_key tb ~key:"Backspace" in
+  check string "backspace removes emoji" "é界" (TB.value tb) ;
+  let tb = TB.handle_key tb ~key:"Left" in
+  let tb = TB.handle_key tb ~key:"Delete" in
+  check string "delete removes CJK char" "é" (TB.value tb) ;
+  let tb = TB.handle_key tb ~key:"Home" in
+  let tb = TB.handle_key tb ~key:"🐱" in
+  check string "insert emoji at start" "🐱é" (TB.value tb)
+
+let test_masked_utf8_rendering () =
+  let tb = TB.create ~initial:"é界🐱" ~mask:true ~width:20 () in
+  let rendered = TB.render tb ~focus:true in
+  check
+    bool
+    "one mask per utf8 character"
+    true
+    (contains_substring rendered "***_") ;
+  check
+    bool
+    "not one mask per byte"
+    false
+    (contains_substring rendered "*********_")
+
 let () =
   run
     "textbox_more"
-    [("textbox_more", [test_case "editing" `Quick test_editing])]
+    [
+      ( "textbox_more",
+        [
+          test_case "editing" `Quick test_editing;
+          test_case "utf8 editing" `Quick test_utf8_editing;
+          test_case "masked utf8 rendering" `Quick test_masked_utf8_rendering;
+        ] );
+    ]

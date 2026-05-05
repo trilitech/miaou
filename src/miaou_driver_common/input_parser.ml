@@ -47,6 +47,22 @@ let tab_code = 9
 
 let backspace_code = 127
 
+let utf8_char_length c =
+  let code = Char.code c in
+  if code land 0x80 = 0 then 1
+  else if code land 0xE0 = 0xC0 then 2
+  else if code land 0xF0 = 0xE0 then 3
+  else if code land 0xF8 = 0xF0 then 4
+  else 1
+
+let utf8_complete_char pending =
+  if String.length pending = 0 then None
+  else
+    let first = pending.[0] in
+    let needed = utf8_char_length first in
+    if String.length pending < needed then None
+    else Some (String.sub pending 0 needed)
+
 (** Read bytes into buffer with timeout. Returns bytes read. *)
 let refill t ~timeout_s =
   try
@@ -122,7 +138,10 @@ let peek_key t =
       else if code >= 1 && code <= 26 then
         let letter = Char.chr (code + 96) in
         Some (Ctrl letter)
-      else Some (Char (String.make 1 first))
+      else
+        match utf8_complete_char t.pending with
+        | Some s -> Some (Char s)
+        | None -> None
     else
       (* ESC sequence - need at least 3 chars for complete arrow keys *)
       let len = String.length t.pending in
@@ -201,16 +220,40 @@ let parse_key t =
     let first = String.get t.pending 0 in
     let code = Char.code first in
     if code <> esc_code then begin
-      (* Simple non-ESC key - consume 1 byte *)
-      consume t 1 ;
-      if first = '\000' then Some Refresh
-      else if first = '\n' || first = '\r' then Some Enter
-      else if code = tab_code then Some Tab
-      else if code = backspace_code then Some Backspace
-      else if code >= 1 && code <= 26 then
+      (* Simple non-ESC key. ASCII controls consume one byte; printable UTF-8
+         input consumes the full encoded character. *)
+      if first = '\000' then (
+        consume t 1 ;
+        Some Refresh)
+      else if first = '\n' || first = '\r' then (
+        consume t 1 ;
+        Some Enter)
+      else if code = tab_code then (
+        consume t 1 ;
+        Some Tab)
+      else if code = backspace_code then (
+        consume t 1 ;
+        Some Backspace)
+      else if code >= 1 && code <= 26 then (
+        consume t 1 ;
         let letter = Char.chr (code + 96) in
-        Some (Ctrl letter)
-      else Some (Char (String.make 1 first))
+        Some (Ctrl letter))
+      else
+        let needed = utf8_char_length first in
+        let rec wait n =
+          if n <= 0 || String.length t.pending >= needed then ()
+          else (
+            ignore (refill t ~timeout_s:0.02) ;
+            wait (n - 1))
+        in
+        wait 5 ;
+        let char =
+          match utf8_complete_char t.pending with
+          | Some s -> s
+          | None -> String.make 1 first
+        in
+        consume t (String.length char) ;
+        Some (Char char)
     end
     else begin
       (* ESC sequence - gather more bytes if needed *)

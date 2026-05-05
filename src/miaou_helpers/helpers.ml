@@ -50,6 +50,35 @@ let utf8_decode s i =
       (((byte land 0x07) lsl 18) lor (b1 lsl 12) lor (b2 lsl 6) lor b3, i + 4)
     else (byte, i + 1)
 
+let utf8_prev_boundary s i =
+  let len = String.length s in
+  let j = ref (max 0 (min len i) - 1) in
+  while !j > 0 && not (is_utf8_lead s.[!j]) do
+    decr j
+  done ;
+  max 0 !j
+
+let utf8_next_boundary s i =
+  let len = String.length s in
+  let i = max 0 (min len i) in
+  if i >= len then len
+  else
+    let rec find_lead j =
+      if j >= len then len
+      else if is_utf8_lead s.[j] then j
+      else find_lead (j + 1)
+    in
+    let start = if is_utf8_lead s.[i] then i else find_lead (i + 1) in
+    if start >= len then len
+    else
+      let _, next = utf8_decode s start in
+      min len next
+
+let utf8_clamp_boundary s i =
+  let len = String.length s in
+  let i = max 0 (min len i) in
+  if i = len || i = 0 || is_utf8_lead s.[i] then i else utf8_prev_boundary s i
+
 let is_wide cp =
   (cp >= 0x1100 && cp <= 0x115F)
   || (cp >= 0x2329 && cp <= 0x232A)

@@ -51,6 +51,17 @@ let test_backspace_separate_step () =
   let t = key t "C-z" in
   check string "undo restores backspace" "ab" (TA.get_text t)
 
+let test_utf8_editing () =
+  let t = TA.create ~initial:"é界🐱" () in
+  let t = key t "Backspace" in
+  check string "backspace removes emoji" "é界" (TA.get_text t) ;
+  let t = key t "Left" in
+  let t = key t "Delete" in
+  check string "delete removes CJK char" "é" (TA.get_text t) ;
+  let t = key t "Home" in
+  let t = key t "🐱" in
+  check string "insert emoji at start" "🐱é" (TA.get_text t)
+
 let test_new_edit_clears_redo () =
   let t = TA.create () in
   let t = type_chars t "abc" in
@@ -82,6 +93,7 @@ let () =
             "backspace is its own step"
             `Quick
             test_backspace_separate_step;
+          test_case "utf8 editing" `Quick test_utf8_editing;
           test_case "new edit clears redo" `Quick test_new_edit_clears_redo;
           test_case
             "undo no-op when stack empty"
