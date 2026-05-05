@@ -71,6 +71,25 @@ let test_clipboard_disabled () =
   clip.copy "test" ;
   check bool "write not called" false !write_called
 
+let test_clipboard_falls_back_to_osc52 () =
+  let old_path = Sys.getenv_opt "PATH" in
+  Fun.protect
+    ~finally:(fun () ->
+      match old_path with
+      | Some path -> Unix.putenv "PATH" path
+      | None -> Unix.putenv "PATH" "")
+    (fun () ->
+      Unix.putenv "PATH" "/nonexistent" ;
+      let written = ref "" in
+      Clipboard.register ~write:(fun s -> written := s) () ;
+      let clip = Clipboard.require () in
+      clip.copy "fallback" ;
+      check
+        string
+        "osc52 fallback is written"
+        (Clipboard.osc52_encode "fallback")
+        !written)
+
 (* Test on_copy callback *)
 let test_clipboard_on_copy () =
   let callback_text = ref "" in
@@ -91,6 +110,7 @@ let () =
         [
           test_case "copy" `Quick test_clipboard_copy;
           test_case "disabled" `Quick test_clipboard_disabled;
+          test_case "osc52 fallback" `Quick test_clipboard_falls_back_to_osc52;
           test_case "on_copy callback" `Quick test_clipboard_on_copy;
         ] );
     ]
