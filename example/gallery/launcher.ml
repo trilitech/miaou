@@ -493,6 +493,13 @@ let demos =
           "demo_miaou_links"
           (module Miaou_links_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
     };
+    {
+      title = "Clipboard";
+      open_demo =
+        goto
+          "demo_clipboard"
+          (module Clipboard_demo.Page : Miaou.Core.Tui_page.PAGE_SIG);
+    };
   ]
 
 let demo_at idx = List.nth_opt demos idx
@@ -516,7 +523,7 @@ let demo_tree =
           "Display"
           [2; 4; 8; 9; 10; 26; 28; 29; 30; 31; 33; 34; 35; 36];
       ];
-    demo_group "Core" [6; 7; 37; 45; 46];
+    demo_group "Core" [6; 7; 37; 45; 46; 52];
     demo_group "Styling" [5; 39];
     demo_group "Showcases" [32; 48];
     demo_group "Games" [43; 47; 49; 50; 51];

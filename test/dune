@@ -366,6 +366,15 @@
  (libraries alcotest miaou-core.interfaces))
 
 (test
+ (name test_clipboard_demo)
+ (modules test_clipboard_demo)
+ (libraries
+  alcotest
+  clipboard_demo
+  miaou-core.interfaces
+  miaou-core.widgets.layout))
+
+(test
  (name test_canvas)
  (modules test_canvas)
  (libraries alcotest miaou-core.canvas))
