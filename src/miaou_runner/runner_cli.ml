@@ -84,7 +84,7 @@ let find_page name =
       Registry.find "miaou.runner.placeholder"
       |> Option.value ~default:(module Placeholder_page : Tui_page.PAGE_SIG)
 
-let parse ~argv:_ =
+let parse ~argv =
   let page = ref None in
   let cli_output = ref false in
   let cols = ref 80 in
@@ -107,9 +107,17 @@ let parse ~argv:_ =
       ( "--ticks",
         Arg.Int (fun n -> ticks := max 0 n),
         "Number of refresh ticks before rendering in --cli-output mode" );
+      ( "--version",
+        Arg.Unit
+          (fun () ->
+            (print_endline [@allow_forbidden "CLI version output"])
+              Version.version ;
+            exit 0),
+        "Print Miaou version and exit" );
     ]
   in
-  Arg.parse specs (fun _ -> ()) "Miaou runner options:" ;
+  let current = ref 0 in
+  Arg.parse_argv ~current argv specs (fun _ -> ()) "Miaou runner options:" ;
   let page_name =
     match !page with
     | Some p -> p

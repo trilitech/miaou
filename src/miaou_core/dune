@@ -6,6 +6,7 @@
  (modules
   keys
   keymap_config
+  version
   logger_alias
   logger
   navigation
