@@ -115,6 +115,8 @@ let extract_utf8_char s pos =
     let len = min len (String.length s - pos) in
     (String.sub s pos len, len)
 
+let cell_width char = max 0 (Miaou_helpers.Helpers.visible_chars_count char)
+
 (* Process a completed OSC sequence payload.
    For OSC 8 (hyperlinks): "8;params;uri" — extract the URI and update style.
    Empty URI closes the current hyperlink. *)
@@ -248,9 +250,31 @@ let parse_core t ~emit_char input =
 (* Parse a single line into a buffer at given row/col *)
 let parse_line t buf ~row ~col input =
   let col = ref col in
+  let cols = Matrix_buffer.cols buf in
   let emit_char char style =
-    Matrix_buffer.set_char buf ~row ~col:!col ~char ~style ;
-    incr col
+    let width = cell_width char in
+    if width > 0 then begin
+      let remaining = cols - !col in
+      if width <= remaining then begin
+        Matrix_buffer.set_char buf ~row ~col:!col ~char ~style ;
+        for offset = 1 to width - 1 do
+          Matrix_buffer.set_char buf ~row ~col:(!col + offset) ~char:" " ~style
+        done ;
+        col := !col + width
+      end
+      else begin
+        if remaining > 0 then
+          for offset = 0 to remaining - 1 do
+            Matrix_buffer.set_char
+              buf
+              ~row
+              ~col:(!col + offset)
+              ~char:" "
+              ~style
+          done ;
+        col := cols
+      end
+    end
   in
   let _ = parse_core t ~emit_char input in
   !col
@@ -274,8 +298,24 @@ let parse_into t buf ~row ~col input =
 let parse_line_batch t (ops : Matrix_buffer.batch_ops) ~row ~col input =
   let col = ref col in
   let emit_char char style =
-    ops.set_char ~row ~col:!col ~char ~style ;
-    incr col
+    let width = cell_width char in
+    if width > 0 then begin
+      let remaining = ops.cols - !col in
+      if width <= remaining then begin
+        ops.set_char ~row ~col:!col ~char ~style ;
+        for offset = 1 to width - 1 do
+          ops.set_char ~row ~col:(!col + offset) ~char:" " ~style
+        done ;
+        col := !col + width
+      end
+      else begin
+        if remaining > 0 then
+          for offset = 0 to remaining - 1 do
+            ops.set_char ~row ~col:(!col + offset) ~char:" " ~style
+          done ;
+        col := ops.cols
+      end
+    end
   in
   let _ = parse_core t ~emit_char input in
   !col
@@ -350,7 +390,9 @@ let visible_length input =
     else if c = '\n' || c = '\r' then incr pos
     else begin
       let char_len = utf8_char_length c in
-      incr count ;
+      let char_len = min char_len (len - !pos) in
+      let char = String.sub input !pos char_len in
+      count := !count + cell_width char ;
       pos := !pos + char_len
     end
   done ;
