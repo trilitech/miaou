@@ -65,11 +65,28 @@ let test_utf8_mixed () =
   check string "cell 1" "★" (get_char buf 0 1) ;
   check string "cell 2" "B" (get_char buf 0 2)
 
+let test_utf8_wide_char_advances_two_cells () =
+  let buf, parser = make_test_env ~rows:1 ~cols:20 in
+  let col = Parser.parse_line parser buf ~row:0 ~col:0 "界X" in
+  check int "wide char plus ascii advances 3 cols" 3 col ;
+  check string "wide char at col 0" "界" (get_char buf 0 0) ;
+  check string "placeholder at col 1" " " (get_char buf 0 1) ;
+  check string "ascii after wide char at col 2" "X" (get_char buf 0 2)
+
+let test_utf8_wide_char_clipped_at_right_edge () =
+  let buf, parser = make_test_env ~rows:1 ~cols:2 in
+  Buffer.set_char buf ~row:0 ~col:1 ~char:"X" ~style:Cell.default_style ;
+  let col = Parser.parse_line parser buf ~row:0 ~col:1 "界" in
+  check int "clipped wide char advances to edge" 2 col ;
+  check string "edge cell is cleared" " " (get_char buf 0 1)
+
 let test_utf8_emoji () =
   let buf, parser = make_test_env ~rows:1 ~cols:20 in
-  let col = Parser.parse_line parser buf ~row:0 ~col:0 "🐱" in
-  check int "advances 1" 1 col ;
-  check string "cat emoji" "🐱" (get_char buf 0 0)
+  let col = Parser.parse_line parser buf ~row:0 ~col:0 "🐱X" in
+  check int "emoji plus ascii advances 3 cols" 3 col ;
+  check string "cat emoji" "🐱" (get_char buf 0 0) ;
+  check string "emoji placeholder" " " (get_char buf 0 1) ;
+  check string "ascii after emoji" "X" (get_char buf 0 2)
 
 let test_utf8_accents () =
   let buf, parser = make_test_env ~rows:1 ~cols:20 in
@@ -235,6 +252,10 @@ let test_visible_length_utf8 () =
   let len = Parser.visible_length "★ Star" in
   check int "utf8 6" 6 len
 
+let test_visible_length_wide_utf8 () =
+  let len = Parser.visible_length "界X" in
+  check int "wide utf8 3" 3 len
+
 (* ============== OSC Sequence Tests ============== *)
 
 let test_osc8_hyperlink_skipped () =
@@ -354,6 +375,14 @@ let utf8_tests =
   [
     test_case "utf8 simple" `Quick test_utf8_simple;
     test_case "utf8 mixed" `Quick test_utf8_mixed;
+    test_case
+      "utf8 wide char advances two cells"
+      `Quick
+      test_utf8_wide_char_advances_two_cells;
+    test_case
+      "utf8 wide char clipped at right edge"
+      `Quick
+      test_utf8_wide_char_clipped_at_right_edge;
     test_case "utf8 emoji" `Quick test_utf8_emoji;
     test_case "utf8 accents" `Quick test_utf8_accents;
   ]
@@ -399,6 +428,7 @@ let visible_length_tests =
     test_case "visible length with ansi" `Quick test_visible_length_with_ansi;
     test_case "visible length complex" `Quick test_visible_length_complex;
     test_case "visible length utf8" `Quick test_visible_length_utf8;
+    test_case "visible length wide utf8" `Quick test_visible_length_wide_utf8;
   ]
 
 let osc_tests =
