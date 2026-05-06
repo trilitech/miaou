@@ -1,69 +1,97 @@
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_vsection)
  (modules test_vsection)
  (libraries alcotest lambda-term miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_modal_overlay)
  (modules test_modal_overlay)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_tree_widget)
  (modules test_tree_widget)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_textarea_undo)
  (modules test_textarea_undo)
  (libraries alcotest miaou-core.widgets.input))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_wizard_widget)
  (modules test_wizard_widget)
  (libraries alcotest miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_responsive)
  (modules test_responsive)
  (libraries alcotest miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_file_icons)
  (modules test_file_icons)
  (libraries alcotest astring miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_keymap_config)
  (modules test_keymap_config)
  (libraries alcotest astring miaou-core.core))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_globe_widget)
  (modules test_globe_widget)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_prompt)
  (modules test_prompt)
  (libraries alcotest miaou-core.core))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_miaou_force_model)
  (modules test_miaou_force_model)
  (libraries alcotest miaou_force_demo))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_miaou_links_model)
  (modules test_miaou_links_model)
  (libraries alcotest miaou_links_demo))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_modal_wrap)
  (modules test_modal_wrap)
  (libraries alcotest miaou-core.widgets.display miaou-core.internals))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_widgets)
  (modules test_widgets)
  (libraries
@@ -73,26 +101,36 @@
   miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name textbox_widget_test)
  (modules textbox_widget_test)
  (libraries miaou-core.widgets.input))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_pager_streaming)
  (modules test_pager_streaming)
  (libraries miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_file_pager_cleanup)
  (modules test_file_pager_cleanup)
  (libraries alcotest eio_main miaou-core.helpers miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_file_pager_double_close)
  (modules test_file_pager_double_close)
  (libraries alcotest eio_main miaou-core.helpers miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_adaptive_layout)
  (modules test_adaptive_layout)
  (libraries
@@ -102,26 +140,36 @@
   miaou-core.lib_miaou_internal))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_capture)
  (modules test_capture)
  (libraries alcotest miaou-core.core miaou-core.lib_miaou_internal))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_modal_utils)
  (modules test_modal_utils)
  (libraries alcotest miaou-core.internals miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_layout_utils)
  (modules test_layout_utils)
  (libraries alcotest miaou-core.widgets.layout miaou-core.helpers))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_layout_widgets_new)
  (modules test_layout_widgets_new)
  (libraries alcotest miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_flash_headless)
  (modules test_flash_headless)
  (libraries
@@ -131,21 +179,29 @@
   miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_palette)
  (modules test_palette)
  (libraries alcotest miaou-core.interfaces miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_modal_manager)
  (modules test_modal_manager)
  (libraries alcotest miaou-core.core))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_modal_renderer)
  (modules test_modal_renderer)
  (libraries alcotest miaou-core.internals))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_drivers_smoke)
  (modules test_drivers_smoke)
  (libraries
@@ -155,16 +211,22 @@
   miaou-core.runner-common))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_core_utils)
  (modules test_core_utils)
  (libraries alcotest miaou-core.core miaou-core.internals))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_pager_extra)
  (modules test_pager_extra)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_file_browser)
  (modules test_file_browser)
  (libraries
@@ -174,6 +236,8 @@
   miaou-core.widgets.input))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_integration_tui)
  (modules test_integration_tui)
  (libraries
@@ -184,26 +248,36 @@
   miaou-core.lib_miaou_internal))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_widgets_helpers)
  (modules test_widgets_helpers)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_feedback_widgets)
  (modules test_feedback_widgets)
  (libraries alcotest miaou-core.widgets.layout))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_textbox_more)
  (modules test_textbox_more)
  (libraries alcotest miaou-core.widgets.input))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_headless_more)
  (modules test_headless_more)
  (libraries alcotest miaou-core.lib_miaou_internal))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_file_browser_extra)
  (modules test_file_browser_extra)
  (libraries
@@ -214,26 +288,36 @@
   str))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_table_sdl)
  (modules test_table_sdl)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_headless_run)
  (modules test_headless_run)
  (libraries alcotest miaou-core.lib_miaou_internal))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_driver_modal_navigation)
  (modules test_driver_modal_navigation)
  (libraries alcotest miaou-core.core miaou-driver-term.driver))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_core_driver_modal_navigation)
  (modules test_core_driver_modal_navigation)
  (libraries alcotest miaou-core.core miaou-driver-term.driver))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_navigation_widgets)
  (modules test_navigation_widgets)
  (libraries
@@ -242,16 +326,22 @@
   miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_flex_layout)
  (modules test_flex_layout)
  (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_grid_layout)
  (modules test_grid_layout)
  (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_input_widgets)
  (modules test_input_widgets)
  (libraries
@@ -262,120 +352,169 @@
   checkbox_demo))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_description_list)
  (modules test_description_list)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_table_wrap)
  (modules test_table_wrap)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_focus_chain)
  (modules test_focus_chain)
  (libraries alcotest miaou-core.internals))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_box_widget)
  (modules test_box_widget)
  (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_focus_container)
  (modules test_focus_container)
  (libraries alcotest miaou-core.internals))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_focus_ring)
  (modules test_focus_ring)
  (libraries alcotest miaou-core.internals))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_sparkline)
  (modules test_sparkline)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_line_chart)
  (modules test_line_chart)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_bar_chart)
  (modules test_bar_chart)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_braille_canvas)
  (modules test_braille_canvas)
  (libraries alcotest miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_registry_validation)
+ (modules test_registry_validation)
  (libraries miaou alcotest str))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_input_draining)
  (modules test_input_draining)
  (libraries alcotest))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_validated_textbox)
  (modules test_validated_textbox)
  (libraries alcotest miaou-core.widgets.input unix))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_matrix_ansi_parser)
  (modules test_matrix_ansi_parser)
  (libraries alcotest miaou-driver-matrix.driver miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_matrix_diff)
  (modules test_matrix_diff)
  (libraries alcotest miaou-driver-matrix.driver miaou-core.widgets.display))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_terminal_raw)
  (modules test_terminal_raw)
  (libraries alcotest miaou-core.driver-common unix))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_input_parser)
  (modules test_input_parser)
  (libraries alcotest miaou-core.driver-common unix))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_direct_page)
  (modules test_direct_page)
  (libraries alcotest miaou-core.core))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_timer)
  (modules test_timer)
  (libraries alcotest miaou-core.interfaces unix))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_animation)
  (modules test_animation)
  (libraries alcotest miaou-core.helpers))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_clipboard)
  (modules test_clipboard)
  (libraries alcotest miaou-core.interfaces))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_canvas)
  (modules test_canvas)
  (libraries alcotest miaou-core.canvas))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_canvas_widget)
  (modules test_canvas_widget)
  (libraries alcotest miaou-core.widgets.layout miaou-core.canvas lambda-term))
 
 (test
+ (enabled_if
+  (= %{profile} dev))
  (name test_style)
  (modules test_style)
  (libraries alcotest miaou-core.style))

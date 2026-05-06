@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-05-06
+
 ### Added
 
 - **MIAOU Links demo (`example/demos/miaou_links/`)**: a top-down golf game registered in the gallery `Games` group, with an 18-hole classic tour plus a roguelite run mode with stamina, shop perks, persistent coins, and per-run score tracking. It demonstrates framebuffer golf rendering, continuous ball physics over terrain-specific friction, wind/gust effects, pre-shot previews, and persistent demo state via `Arcade_kit.Score_store` (`miaou_links` and `miaou_links_coins`). Existing simpler golf or physics demos can use it as the richer reference for tile-map courses, shot state machines, and Octant-first pixel output (`MIAOU_LINKS_PIXEL_MODE` override). No public library API is removed or changed.
@@ -40,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Opam release metadata**: removed the temporary `pin-depends` entry and local pin setup instructions for `ppx_forbid` / `ppx_enforce`, now that both PPXs are available from opam as normal build-time dependencies.
 - **`Input_parser`: recognise PageUp / PageDown / Home / End CSI sequences**: `parse_key` and `peek_key` now handle `ESC[5~`, `ESC[6~`, `ESC[H` / `ESCOH` / `ESC[1~` / `ESC[7~`, and `ESC[F` / `ESCOF` / `ESC[4~` / `ESC[8~` instead of returning `Unknown`; `key_to_string` and `is_nav_key` are updated accordingly. This documents the already-merged #132 navigation-key fix for users relying on paging or home/end movement in widgets.
 - **Viewer daemon race condition**: the periodic viewer-refresh fiber previously called `idle_wait` each iteration, which allowed it to interleave with the command handler's own `idle_wait` and concurrently mutate shared page-state (double-ticking clocks/timers). The daemon now reads the cached screen content directly via `HD.Screen.get` without advancing any state.
 - **Web driver Tab key**: `ev.preventDefault()` is now called for all recognized keys in the web client's keyboard handler. Previously, Tab (and other browser-reserved keys like F5) were forwarded to the server but also processed by the browser for focus navigation / page reload. Tab now reaches the Miaou application correctly.

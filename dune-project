@@ -1,6 +1,6 @@
 (lang dune 3.15)
 (name miaou)
-(version 0.4.2)
+(version 0.5.2)
 (generate_opam_files true)
 (license MIT)
 (source (github trilitech/miaou))
@@ -25,9 +25,9 @@
    (ocaml (>= 5.2))
    miaou-registry
    cohttp
-   cohttp-eio
-   eio
-   eio_main
+   (cohttp-eio (>= 6.2.1))
+   (eio (>= 1.0))
+   (eio_main (>= 1.0))
    lambda-term
    rresult
    uri
@@ -35,7 +35,7 @@
    ppx_deriving_yojson
    imagelib
    qrc
-   ppx_blob
+   (ppx_blob (>= 0.9.0))
    (ppx_forbid :build)
    (ppx_enforce :build)
    (alcotest :with-test)
@@ -59,8 +59,8 @@
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
   miaou-core
-  eio
-  eio_main))
+  (eio (>= 1.0))
+  (eio_main (>= 1.0))))
 
 (package
  (name miaou-widgets-display-sdl)
@@ -98,13 +98,14 @@
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
   miaou-core
+  miaou-driver-term
   miaou-driver-matrix
   digestif
   base64
   yojson
-  ppx_blob
-  eio
-  eio_main))
+  (ppx_blob (>= 0.9.0))
+  (eio (>= 1.0))
+  (eio_main (>= 1.0))))
 
 (package
  (name miaou-runner)
@@ -139,5 +140,7 @@
  (depends
   miaou-core
   miaou-driver-term
+  miaou-driver-web
   miaou-driver-sdl
-  miaou-runner))
+  miaou-runner
+  (ppx_blob (>= 0.9.0))))

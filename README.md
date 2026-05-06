@@ -90,26 +90,22 @@ brew install sdl2 sdl2_ttf sdl2_image
 Build from source (step by step):
 
 ```sh
-# 1. Pin the external PPX packages (not yet in the opam repository)
-opam pin add ppx_forbid  git+https://github.com/atacama-dev/ppx_forbid.git --no-action
-opam pin add ppx_enforce git+https://github.com/atacama-dev/ppx_forbid.git --no-action
-
-# 2. Install all opam dependencies
+# 1. Install all opam dependencies
 opam install --deps-only --with-test -y .
 
-# 3. Build and test
+# 2. Build and test
 eval $(opam env)
 dune build @all
 dune runtest
 
-# 4. Run the demo gallery
+# 3. Run the demo gallery
 dune exec -- miaou.demo
 ```
 
-Or using the Makefile shortcuts (steps 1–3 above in one go):
+Or using the Makefile shortcuts:
 
 ```sh
-make deps    # pin PPX packages + opam install --deps-only
+make deps    # opam install --deps-only
 make build   # dune build @all
 make test    # dune runtest
 ```
@@ -218,9 +214,7 @@ opam install miaou-tui
 # Full install with SDL
 opam install miaou
 
-# Development (install from source) — pin external PPX first
-opam pin add ppx_forbid  git+https://github.com/atacama-dev/ppx_forbid.git --no-action
-opam pin add ppx_enforce git+https://github.com/atacama-dev/ppx_forbid.git --no-action
+# Development (install from source)
 opam install --deps-only -y .
 ```
 
