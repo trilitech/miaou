@@ -1,0 +1,16 @@
+(executable
+ (name capture)
+ (modules capture)
+ (libraries
+  unix
+  demo_shared
+  miaou
+  responsive_demo
+  style_system_demo
+  table_demo
+  sparkline_demo
+  validated_textbox_demo
+  miaou_force_demo
+  miaou_crypt_demo
+  miaou_links_demo
+  geo_quiz_demo))

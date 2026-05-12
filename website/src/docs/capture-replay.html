@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Capture and Replay</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Course 5</p>
+      <h1>Capture real terminal sessions.</h1>
+      <p>Miaou includes capture and replay helpers for debugging, sharing demos, and creating documentation media from real terminal sessions.</p>
+      <figure class="lesson-visual">
+        <div class="terminal-chrome"><span></span><span></span><span></span><strong>capture-helper</strong></div>
+        <pre class="course-terminal"><code>$ tools/capture_helper.sh --dir recordings -- dune exec -- demo
+recording keys:   recordings/demo.keys.jsonl
+recording frames: recordings/demo.frames.jsonl
+recording cast:   recordings/demo.cast
+
+$ tools/replay_tui.py recordings/demo.keys.jsonl</code></pre>
+      </figure>
+      <h2>Recording</h2>
+      <p>Use <code>tools/capture_helper.sh</code> with <code>--dir recordings</code> around a Miaou command to record keystroke and frame JSONL artifacts. The helper prints the generated paths before launching the application.</p>
+      <h2>Replay</h2>
+      <p>Use <code>tools/replay_tui.py</code> to replay keystroke captures through a pseudo-TTY. Use <code>tools/replay_screencast.sh</code> to replay frame captures directly in a terminal.</p>
+      <h2>Publishing</h2>
+      <p>Use <code>tools/convert_cast_to_gif.sh</code> when an asciinema cast should become a GIF for documentation or release notes. Keep recordings short, focused, and easy to inspect.</p>
+      <h2>Website media targets</h2>
+      <p>Good showcase targets include gallery navigation, responsive resizing, theme switching, chart rendering modes, web viewer sessions, Miaou Force, Miaou Crypt, Miaou Links, and Geo Quiz.</p>
+      <h2>Capture quality</h2>
+      <p>Prefer recordings that show a complete interaction: navigation, a state change, visual feedback, and a clean ending. Link to source code beside media so readers can inspect the same flow.</p>
+      <nav class="course-nav"><a href="styling.html">Previous: styling</a><a href="../showcase/">Next: showcase</a></nav>
+    </main>
+  </body>
+</html>

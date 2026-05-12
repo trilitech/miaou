@@ -16,10 +16,11 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: 5.3.0
-      - name: Pin external dependencies
-        run: |
-          opam pin add ppx_forbid git+https://github.com/atacama-dev/ppx_forbid.git --no-action
-          opam pin add ppx_enforce git+https://github.com/atacama-dev/ppx_forbid.git --no-action
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
       - name: Install dependencies
         run: opam install --deps-only --with-test -y .
       - name: Build & test
@@ -27,3 +28,9 @@ jobs:
           opam exec -- dune build @all
           opam exec -- dune runtest
           opam exec -- dune build @install
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run check
+          npm run build

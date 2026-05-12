@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">Sparkline demo</title>
+  <desc id="desc">Real render from example/demos/sparkline/page.ml</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b0b2b" />
+      <stop offset="0.48" stop-color="#081724" />
+      <stop offset="1" stop-color="#100812" />
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="760" rx="38" fill="url(#bg)" />
+  <rect x="28" y="28" width="1224" height="704" rx="28" fill="#050813" opacity="0.94" stroke="#5f7191" stroke-opacity="0.38" />
+  <circle cx="68" cy="62" r="8" fill="#ff7ac8" />
+  <circle cx="94" cy="62" r="8" fill="#ffd36e" />
+  <circle cx="120" cy="62" r="8" fill="#82ffbd" />
+  <text x="154" y="68" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#ffd36e">Sparkline demo</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#e7f8ff" xml:space="preserve">
+<text x="54" y="112"> ★ Sparkline Charts Demo</text>
+<text x="54" y="130">------------------------------------------------------------</text>
+<text x="54" y="148">Real-time Metrics:</text>
+<text x="54" y="166">Real system metrics</text>
+<text x="54" y="184">CPU Usage: [                                                  ] 0.0</text>
+<text x="54" y="202">Memory   : [                                                  ] 0.0</text>
+<text x="54" y="220">Network  : [                                                  ] 0.0</text>
+<text x="54" y="238">------------------------------------------------------------</text>
+<text x="54" y="256">Data points: 0 • Auto-updating (~150ms) • t tutorial • Esc returns</text>
+  </g>
+</svg>

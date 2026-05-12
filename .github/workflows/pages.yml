@@ -1,0 +1,79 @@
+name: Website
+
+on:
+  push:
+    branches: ["main", "master"]
+    paths:
+      - ".github/workflows/pages.yml"
+      - "website/**"
+      - "doc_examples/**"
+      - "src/**"
+      - "**/dune"
+      - "dune-project"
+      - "*.opam"
+  pull_request:
+    branches: ["main", "master"]
+    paths:
+      - ".github/workflows/pages.yml"
+      - "website/**"
+      - "doc_examples/**"
+      - "src/**"
+      - "**/dune"
+      - "dune-project"
+      - "*.opam"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update apt cache
+        run: sudo apt-get update
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+          dune-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install OCaml dependencies
+        run: opam install --deps-only --with-test --with-doc -y .
+      - name: Verify documentation examples
+        run: opam exec -- dune runtest doc_examples
+      - name: Build API documentation
+        run: opam exec -- dune build @doc
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run check
+          npm run build
+      - uses: actions/configure-pages@v5
+        if: github.event_name == 'push'
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push'
+        with:
+          path: website/dist
+
+  deploy:
+    if: github.event_name == 'push'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

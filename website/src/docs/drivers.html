@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Drivers</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Drivers</p>
+      <h1>One UI, multiple surfaces.</h1>
+      <h2>Matrix</h2>
+      <p>The default terminal backend uses cell-based double buffering and diff rendering. It is designed for responsive TUIs with frequent updates.</p>
+      <h2>Lambda-Term</h2>
+      <p>The compatibility backend builds on Lambda-Term and remains useful where terminal behavior is conservative or existing integrations depend on it.</p>
+      <h2>SDL</h2>
+      <p>The SDL backend unlocks pixel-perfect charts, images, and graphical rendering while keeping the same page/widget architecture.</p>
+      <h2>Web</h2>
+      <p>The web driver serves xterm.js over HTTP/WebSocket. The first connection controls the TUI; viewer connections can observe the same frames in real time.</p>
+      <h2>Selection</h2>
+      <p>Use <code>MIAOU_DRIVER=matrix</code>, <code>term</code>, <code>sdl</code>, or <code>web</code> to force a backend during development and demos.</p>
+    </main>
+  </body>
+</html>

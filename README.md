@@ -102,10 +102,10 @@ dune runtest
 dune exec -- miaou.demo
 ```
 
-Or using the Makefile shortcuts (steps 1–3 above in one go):
+Or using the Makefile shortcuts:
 
 ```sh
-make deps    # pin PPX packages + opam install --deps-only
+make deps    # opam install --deps-only
 make build   # dune build @all
 make test    # dune runtest
 ```

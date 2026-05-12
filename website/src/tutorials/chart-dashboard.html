@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chart Dashboard Tutorial</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../docs/api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Course 3</p>
+      <h1>Render compact metrics.</h1>
+      <p>Sparklines are useful for dashboards, status panes, and service monitors. This lesson extends the responsive dashboard with compact telemetry.</p>
+      <div class="lesson-box"><strong>You will learn:</strong> sparkline creation, bounded sample history, Braille rendering, and threshold-based color payloads.</div>
+      <figure class="lesson-visual">
+        <div class="terminal-chrome"><span></span><span></span><span></span><strong>latency_sparkline samples</strong></div>
+        <pre class="course-terminal"><code>Latency  ⣀⣠⣴⣾⣶⣄⣀
+min 0ms            max 200ms
+threshold 120ms    color: alert red</code></pre>
+      </figure>
+      <div data-snippet="sparkline-dashboard"></div>
+      <h2>Color payloads</h2>
+      <p>The snippet builds the sparkline shown above by pushing bounded latency samples, rendering them with the label <code>Latency</code>, and applying a red threshold once values cross 120ms.</p>
+      <p>Chart color fields expect ANSI SGR foreground payloads, such as <code>38;5;81</code>, not raw palette indices. Threshold colors override the default render color for matching values.</p>
+      <h2>Rendering modes</h2>
+      <p>Use ASCII mode for maximum compatibility, Braille mode for smoother curves, and Octant mode when the terminal supports Unicode 16 octant characters.</p>
+      <nav class="course-nav"><a href="responsive-dashboard.html">Previous: responsive dashboard</a><a href="../docs/styling.html">Next: styling</a></nav>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Docs</title>
+    <meta name="description" content="Miaou documentation for architecture, drivers, widgets, styling, testing, and tutorials." />
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="../docs/">Docs</a>
+        <a href="../widgets/">Widgets</a>
+        <a href="../tutorials/">Course</a>
+        <a href="../showcase/">Showcase</a>
+        <a href="api.html">API</a>
+        <a href="https://github.com/trilitech/miaou">GitHub</a>
+      </nav>
+    </header>
+    <main id="main" class="page-shell prose">
+      <p class="eyebrow">Documentation</p>
+      <h1>Build with Miaou confidently.</h1>
+      <p>
+        These docs are organized around the way Miaou applications are built:
+        pages own state, widgets render reusable UI, capabilities isolate side effects,
+        and drivers decide where frames are displayed.
+      </p>
+      <div class="callout">
+        Start with the course when you want a guided path, or jump into architecture, drivers, styling, and capture tooling when you need a specific topic.
+      </div>
+      <section class="lesson-box">
+        <h2>Fastest path</h2>
+        <p>Install the library, run a demo, then open the first lesson when you are ready to wire your own page.</p>
+        <div class="command-stack">
+          <code>opam install miaou</code>
+          <code>dune exec -- miaou.demo</code>
+          <code>MIAOU_DRIVER=web dune exec -- miaou.demo</code>
+        </div>
+      </section>
+      <div class="doc-grid">
+        <a class="doc-card" href="../tutorials/"><h2>Miaou Course</h2><p>Follow a linked sequence from first page to responsive dashboard, charts, themes, and captures.</p></a>
+        <a class="doc-card" href="architecture.html"><h2>Architecture</h2><p>Understand pages, widgets, modals, capabilities, and drivers.</p></a>
+        <a class="doc-card" href="capabilities.html"><h2>Capabilities</h2><p>Inject filesystem, subprocesses, logging, clock, timers, networking, clipboard, services, and palettes.</p></a>
+        <a class="doc-card" href="runtime.html"><h2>Runtime</h2><p>Page registry, keymap overrides, prompts, file browser modals, event propagation, and workflows.</p></a>
+        <a class="doc-card" href="widgets.html"><h2>Widgets</h2><p>Input, display, navigation, feedback, focus, file browsing, and component-level docs.</p></a>
+        <a class="doc-card" href="graphics.html"><h2>Graphics</h2><p>Framebuffer, canvas, globe, pixel modes, Braille, Octant, Sixel, and terminal capability detection.</p></a>
+        <a class="doc-card" href="testing.html"><h2>Testing</h2><p>Headless runs, workflow DSL, capture/replay JSONL, terminal runners, and web verification.</p></a>
+        <a class="doc-card" href="drivers.html"><h2>Drivers</h2><p>Choose Matrix, Lambda-Term, SDL, or Web depending on deployment needs.</p></a>
+        <a class="doc-card" href="styling.html"><h2>Styling</h2><p>Use semantic styles and theme rules instead of hardcoded colors.</p></a>
+        <a class="doc-card" href="capture-replay.html"><h2>Capture and Replay</h2><p>Record real sessions, replay key streams, and generate screencast media from frames.</p></a>
+        <a class="doc-card" href="api.html"><h2>API Reference</h2><p>Browse generated odoc pages for packages and public modules.</p></a>
+        <a class="doc-card" href="../tutorials/responsive-dashboard.html"><h2>Responsive Dashboard</h2><p>Pick layouts by terminal width for compact and wide terminal sessions.</p></a>
+        <a class="doc-card" href="../tutorials/chart-dashboard.html"><h2>Chart Dashboard</h2><p>Render compact metrics with Sparkline widgets and documented color payloads.</p></a>
+      </div>
+    </main>
+  </body>
+</html>

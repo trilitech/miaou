@@ -3,8 +3,6 @@
 all: build
 
 deps:
-	opam pin add ppx_forbid  git+https://github.com/atacama-dev/ppx_forbid.git --no-action
-	opam pin add ppx_enforce git+https://github.com/atacama-dev/ppx_forbid.git --no-action
 	opam install --deps-only --with-test -y .
 
 build:

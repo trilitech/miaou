@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Course</title>
+    <meta name="description" content="Learn Miaou through a guided OCaml TUI course: first page, responsive dashboard, terminal charts, semantic styling, and capture workflows." />
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../docs/api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main id="main" class="page-shell prose">
+      <p class="eyebrow">Miaou course</p>
+      <h1>Learn Miaou step by step.</h1>
+      <p>Move through the lessons in order: start with a page, make it responsive, add charts, theme the interface, and record the finished flow.</p>
+      <section class="course-demo" aria-label="Course demo preview">
+        <div>
+          <p class="eyebrow">Course demo</p>
+          <h2>Every lesson pairs code with matching output.</h2>
+          <p>The course examples are deliberately small: the terminal preview shows what the snippet below it is meant to render or explain, not an unrelated gallery demo.</p>
+          <div class="media-actions"><a href="first-app.html">Start Course 1</a><a href="responsive-dashboard.html">Open responsive lesson</a></div>
+        </div>
+        <div class="course-terminal-preview" aria-hidden="true">
+          <pre><code>+----------------+----------------+
+| Users     1.2k | Orders     342 |
++----------------+----------------+
+| Revenue    $9k | Errors       4 |
++----------------+----------------+</code></pre>
+        </div>
+      </section>
+      <div class="course-map">
+        <a class="course-card" href="first-app.html"><span>Course 1</span><h2>Your first page</h2><p>Learn state, view, and key handling with <code>Direct_page</code>.</p></a>
+        <a class="course-card" href="responsive-dashboard.html"><span>Course 2</span><h2>Responsive dashboard</h2><p>Pick terminal layouts from width breakpoints.</p></a>
+        <a class="course-card" href="chart-dashboard.html"><span>Course 3</span><h2>Chart dashboard</h2><p>Render metrics with Sparkline widgets and color thresholds.</p></a>
+        <a class="course-card" href="../docs/styling.html"><span>Course 4</span><h2>Theme the UI</h2><p>Use semantic styles so themes control the look.</p></a>
+        <a class="course-card" href="../docs/capture-replay.html"><span>Course 5</span><h2>Record the result</h2><p>Capture real TUI frames and turn them into website media.</p></a>
+      </div>
+    </main>
+  </body>
+</html>

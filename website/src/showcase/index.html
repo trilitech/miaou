@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Showcase</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/asciinema-player@3.8.0/dist/bundle/asciinema-player.css" />
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../docs/api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Showcase</p>
+      <h1>Real apps, widgets, and tiny terminal worlds.</h1>
+      <p>Explore the parts of Miaou you can combine in production tools: forms, navigation, responsive layout, styling, charts, browser viewing, recording workflows, and animated framebuffer demos.</p>
+      <h2>Real apps</h2>
+      <div class="doc-grid">
+        <a class="doc-card feature-showcase" href="https://octez-manager.tezos.com/"><span>Production TUI</span><h2>Octez Manager</h2><p>Manage Tezos node infrastructure with a terminal interface built for operational workflows.</p></a>
+      </div>
+      <h2>Feature showcases</h2>
+      <p>These captures highlight the reusable pieces most applications reach for first: inputs, data views, charts, layouts, styling, and runtime drivers.</p>
+      <div class="doc-grid media-grid">
+        <article class="doc-card media-card feature-showcase"><span>Widgets</span><a href="../media/captures/validated-textbox.svg" target="_blank"><img src="../media/captures/validated-textbox.svg" alt="Validated textbox demo rendered by Miaou" /></a><h2>Input and forms</h2><p>Button, checkbox, radio, switch, textbox, textarea, validated textbox, select, prompt helpers, and modal forms.</p><div class="media-actions"><a href="../widgets/">Open widget gallery</a><a href="../media/captures/validated-textbox.svg" target="_blank">Open full size</a></div></article>
+        <article class="doc-card media-card feature-showcase"><span>Data display</span><a href="../media/captures/table.svg" target="_blank"><img src="../media/captures/table.svg" alt="Table demo captured from a live tmux Miaou session" /></a><h2>Tables, trees, and pagers</h2><p>Scrollable tables, collapsible trees, paginated text, description lists, and cursor navigation patterns.</p><div class="media-actions"><a href="https://github.com/trilitech/miaou/tree/main/example/demos/table">View table demo source</a><a href="../media/captures/table.svg" target="_blank">Open full size</a></div></article>
+        <article class="doc-card media-card feature-showcase"><span>Charts</span><a href="../media/captures/sparkline.svg" target="_blank"><img src="../media/captures/sparkline.svg" alt="Sparkline demo rendered by Miaou" /></a><h2>Terminal charts</h2><p>Sparklines, line charts, bar charts, Braille mode, Octant mode, thresholds, and dashboard metrics.</p><div class="media-actions"><a href="../tutorials/chart-dashboard.html">Open chart course</a><a href="../media/captures/sparkline.svg" target="_blank">Open full size</a></div></article>
+        <article class="doc-card media-card feature-showcase"><span>Layouts</span><a href="../media/captures/responsive.gif" target="_blank"><img src="../media/captures/responsive.gif" alt="Animated responsive layout demo captured from tmux" /></a><h2>Responsive layouts</h2><p>Flex, grid, box containers, card/sidebar composition, and breakpoint-based rendering for narrow terminals.</p><div class="media-actions"><a href="../tutorials/responsive-dashboard.html">Open responsive course</a><a href="../media/captures/responsive.gif" target="_blank">Open full size</a></div></article>
+        <article class="doc-card media-card feature-showcase"><span>Styling</span><a href="../media/captures/style-system.gif" target="_blank"><img src="../media/captures/style-system.gif" alt="Style system demo switching themes" /></a><h2>Themes and contextual styling</h2><p>Runtime theme switching keeps semantic status colors, focused elements, selected rows, and contextual areas consistent.</p><div class="media-actions"><a href="../docs/styling.html">Open styling docs</a><a href="../media/captures/style-system.gif" target="_blank">Open full size</a></div></article>
+        <a class="doc-card media-card feature-showcase" href="../docs/drivers.html"><span>Drivers</span><h2>Web and headless viewing</h2><p>xterm.js controller/viewer sessions, headless frame observation, capture/replay, and browser demos.</p><small>Open driver docs</small></a>
+      </div>
+      <h2>Game and framebuffer showcases</h2>
+      <p>Games push Miaou’s rendering paths with motion, animation, collision, and dense terminal graphics while staying inside ordinary terminal cells.</p>
+      <div class="doc-grid media-grid">
+        <article class="doc-card media-card"><div id="miaou-force-player" class="cast-player"></div><h2>Miaou Force</h2><p>Horizontal shooter with parallax, particles, power-ups, and boss phases.</p><div class="media-actions"><a href="https://github.com/trilitech/miaou/tree/main/example/demos/miaou_force">View source on GitHub</a><a href="../media/captures/miaou-force.cast" target="_blank">Open recording</a></div></article>
+        <article class="doc-card media-card"><div id="miaou-crypt-player" class="cast-player"></div><h2>Miaou Crypt</h2><p>Raycast dungeon crawler with enemies, pickups, minimap, bosses, and first-person movement through terminal-rendered corridors.</p><div class="media-actions"><a href="https://github.com/trilitech/miaou/tree/main/example/demos/miaou_crypt">View source on GitHub</a><a href="../media/captures/miaou-crypt.cast" target="_blank">Open recording</a></div></article>
+        <article class="doc-card media-card"><div id="miaou-links-player" class="cast-player"></div><h2>Miaou Links</h2><p>Golf roguelite with wind, terrain friction, perks, and persistent scores.</p><div class="media-actions"><a href="https://github.com/trilitech/miaou/tree/main/example/demos/miaou_links">View source on GitHub</a><a href="../media/captures/miaou-links.cast" target="_blank">Open recording</a></div></article>
+        <article class="doc-card media-card"><div id="geo-quiz-player" class="cast-player"></div><h2>Geo Quiz</h2><p>City-location game using globe and map rendering with real data sources.</p><div class="media-actions"><a href="https://github.com/trilitech/miaou/tree/main/example/demos/geo_quiz">View source on GitHub</a><a href="../media/captures/geo-quiz.cast" target="_blank">Open recording</a></div></article>
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/asciinema-player@3.8.0/dist/bundle/asciinema-player.min.js"></script>
+    <script>
+      const playerOptions = {
+        autoPlay: true,
+        loop: true,
+        preload: true,
+        fit: 'width',
+        terminalFontSize: '10px',
+        controls: true,
+      };
+
+      AsciinemaPlayer.create('../media/captures/miaou-force.cast', document.getElementById('miaou-force-player'), playerOptions);
+      AsciinemaPlayer.create('../media/captures/miaou-crypt.cast', document.getElementById('miaou-crypt-player'), playerOptions);
+      AsciinemaPlayer.create('../media/captures/miaou-links.cast', document.getElementById('miaou-links-player'), playerOptions);
+      AsciinemaPlayer.create('../media/captures/geo-quiz.cast', document.getElementById('geo-quiz-player'), playerOptions);
+    </script>
+  </body>
+</html>
