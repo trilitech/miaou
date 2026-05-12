@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Architecture</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Concepts</p>
+      <h1>State, view, handlers.</h1>
+      <p>Miaou applications are built from pages. A page owns immutable state, renders a view from that state, and handles keys by returning a new state.</p>
+      <h2>Pages</h2>
+      <p>For most new code, start with <code>Direct_page</code>: provide <code>init</code>, <code>view</code>, and <code>on_key</code>. Advanced pages can implement the full page signature when they need service cycles, custom modal handling, or explicit navigation state.</p>
+      <h2>Widgets</h2>
+      <p>Widgets are pure building blocks for input, display, layout, navigation, and feedback. They usually expose creation, rendering, key handling, and accessor functions.</p>
+      <h2>Modals and prompts</h2>
+      <p>The modal manager maintains a stack of overlays. Prompt helpers cover common confirm, input, and select flows without duplicating modal boilerplate.</p>
+      <h2>Capabilities</h2>
+      <p>Capabilities isolate side effects such as filesystem access, logging, services, networking, and clocks. This keeps application logic testable and replaceable.</p>
+      <h2>Drivers</h2>
+      <p>Drivers render ANSI frames or graphical output. Matrix is the default high-performance terminal driver; Lambda-Term is compatibility-oriented; SDL enables native graphics; Web exposes xterm.js sessions in a browser.</p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Styling</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Course 4</p>
+      <h1>Theme by meaning.</h1>
+      <p>Widgets should use semantic style helpers such as <code>themed_success</code>, <code>themed_warning</code>, <code>themed_error</code>, <code>themed_muted</code>, and <code>themed_emphasis</code>. Themes decide the actual colors.</p>
+      <figure class="lesson-visual">
+        <div class="terminal-chrome"><span></span><span></span><span></span><strong>render_panel</strong></div>
+        <pre class="course-terminal"><code>Deployment status
+Node is running
+Use semantic styles so themes can control colors.</code></pre>
+      </figure>
+      <div data-snippet="semantic-styles"></div>
+      <h2>Contextual styles</h2>
+      <p>The snippet renders the status line shown above by choosing <code>themed_success</code>, <code>themed_warning</code>, or <code>themed_error</code> from a typed status value. Container widgets can provide contextual selectors so themes can style rows, focused children, selected items, and alternating layouts without changing widget code.</p>
+      <h2>Raw colors</h2>
+      <p>Use raw ANSI colors only for charts, gradients, and pixel graphics where precise color ramps are part of the visual output.</p>
+      <nav class="course-nav"><a href="../tutorials/chart-dashboard.html">Previous: chart dashboard</a><a href="capture-replay.html">Next: capture and replay</a></nav>
+    </main>
+  </body>
+</html>

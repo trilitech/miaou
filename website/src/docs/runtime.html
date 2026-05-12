@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Runtime</title>
+    <meta name="description" content="Miaou runtime documentation for page registry, keymaps, prompts, file browser modals, key propagation, and workflows." />
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../api/">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Runtime</p>
+      <h1>Pages, keys, prompts, workflows.</h1>
+      <p>The runtime layer connects page modules to navigation, key dispatch, modal prompts, user keymap overrides, and deterministic test workflows.</p>
+      <h2>Registry</h2>
+      <p>Register pages eagerly or lazily, override entries for integration points, and inspect key conflict reports before shipping a composed application.</p>
+      <h2>User keymaps</h2>
+      <p>Apps can support user overrides through <code>MIAOU_KEYMAP_FILE</code> or <code>~/.config/miaou/keymap.conf</code>, keeping bindings configurable without editing page code.</p>
+      <h2>Prompts and modals</h2>
+      <p>Prompt helpers cover confirm, input, and select flows. The file browser modal provides a ready-to-use path picker for filesystem workflows.</p>
+      <h2>Propagation</h2>
+      <p>Handlers can consume an event or let it bubble, which keeps nested widgets, modals, and page-level shortcuts predictable.</p>
+      <h2>Workflows</h2>
+      <p>The typed workflow DSL lets tests drive deterministic headless UI flows and assert state transitions without requiring a live terminal.</p>
+    </main>
+  </body>
+</html>

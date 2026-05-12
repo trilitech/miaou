@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Responsive Dashboard Tutorial</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../docs/api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Course 2</p>
+      <h1>Adapt to terminal width.</h1>
+      <p>Terminal applications need responsive layouts too. This lesson builds on Course 1: your page already receives <code>size</code>, so it can choose a layout for the current terminal width.</p>
+      <div class="lesson-box"><strong>You will learn:</strong> breakpoint ordering, cheap layout selection, and how to keep width decisions inside render-time data flow.</div>
+      <figure class="lesson-visual">
+        <div class="terminal-chrome"><span></span><span></span><span></span><strong>responsive.render width=80</strong></div>
+        <pre class="course-terminal"><code>+----------------+----------------+
+| Users       1.2k | Orders       342 |
++----------------+----------------+
+| Revenue      $9k | Errors         4 |
++----------------+----------------+</code></pre>
+      </figure>
+      <div data-snippet="responsive-pick"></div>
+      <h2>How it works</h2>
+      <p><code>Responsive.pick</code> walks breakpoints in order and returns the first layout whose <code>max_width</code> is greater than or equal to the current width. In the example above, width 80 selects the medium two-by-two grid rendered by <code>render_dashboard</code>.</p>
+      <h2>Recommended pattern</h2>
+      <p>Define layout variants as data first, then render the selected variant. Keep the breakpoint decision cheap because it normally runs from <code>view</code>.</p>
+      <nav class="course-nav"><a href="first-app.html">Previous: first page</a><a href="chart-dashboard.html">Next: chart dashboard</a></nav>
+    </main>
+  </body>
+</html>

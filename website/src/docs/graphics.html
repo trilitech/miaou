@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Graphics</title>
+    <meta name="description" content="Miaou graphics documentation for framebuffer, canvas, pixel modes, Braille, Octant, Sixel, globe rendering, and terminal capability detection." />
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../api/">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Graphics</p>
+      <h1>Terminal pixels and dense rendering.</h1>
+      <p>Miaou includes terminal graphics paths for dashboards, games, maps, charts, and image-like output without leaving terminal cells.</p>
+      <h2>Pixel modes</h2>
+      <p><code>MIAOU_PIXEL_MODE</code> can force or tune terminal pixel rendering. The framebuffer path can choose Sixel, Octant, Sextant, Half-block, or Braille depending on capability and desired fidelity.</p>
+      <h2>Canvas</h2>
+      <p>Octant and Braille canvas helpers provide high-density drawing for charts, maps, and framebuffer demos.</p>
+      <h2>Globe</h2>
+      <p>The globe widget supports coastline projection and haversine helpers for location-oriented terminal interfaces.</p>
+      <h2>Detection</h2>
+      <p>Terminal capability detection decides what can be drawn safely and lets applications degrade to simpler output when required.</p>
+    </main>
+  </body>
+</html>

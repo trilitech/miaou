@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou Capabilities</title>
+    <meta name="description" content="Miaou capability interfaces for filesystem, subprocesses, logging, clock, timers, networking, clipboard, services, and palettes." />
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../api/">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Capabilities</p>
+      <h1>Side effects stay injectable.</h1>
+      <p>Miaou applications can keep page and widget logic testable by routing system behavior through capability interfaces instead of direct global calls.</p>
+      <div class="doc-grid">
+        <article class="doc-card"><h2>Registry</h2><p><code>Capability.create</code>, registration, lookup, requirement checks, and missing-capability reporting.</p></article>
+        <article class="doc-card"><h2>System</h2><p>Filesystem access, environment variables, subprocess execution, disk usage, and writable-path probes.</p></article>
+        <article class="doc-card"><h2>Network</h2><p>An injectable HTTP fetch capability for code that should remain replaceable in tests and headless runs.</p></article>
+        <article class="doc-card"><h2>Logger</h2><p>Application-provided logging with enable/disable controls and logfile routing.</p></article>
+        <article class="doc-card"><h2>Clock and Timer</h2><p>Cached driver-tick time, elapsed time, page-scoped intervals, and timeouts that are cleared on navigation.</p></article>
+        <article class="doc-card"><h2>Clipboard and Services</h2><p>OSC 52 clipboard behavior, availability checks, and service lifecycle operations such as start, stop, restart, enable, and disable.</p></article>
+        <article class="doc-card"><h2>Palette</h2><p>Injectable semantic colors and gradients for apps that need a central color policy.</p></article>
+        <a class="doc-card" href="api.html"><h2>API Reference</h2><p>Open generated module documentation for exact signatures and types.</p></a>
+      </div>
+    </main>
+  </body>
+</html>

@@ -9,6 +9,8 @@
 *.tmp
 *.swp
 node_modules/
+website/dist/
+website/src/media/captures/_frames/
 .DS_Store
 # Capture artifacts
 /miaou_capture_keystrokes_*.jsonl

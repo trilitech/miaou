@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Miaou - OCaml Terminal UI Framework</title>
+    <meta
+      name="description"
+      content="Miaou is an OCaml terminal UI library with reusable widgets, responsive layouts, semantic theming, multiple rendering drivers, and capture tooling."
+    />
+    <link rel="icon" type="image/png" href="media/miaou-logo.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Miaou home">
+        <img class="brand-mark" src="media/miaou-logo.png" alt="" />
+        <span>Miaou</span>
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="docs/">Docs</a>
+        <a href="widgets/">Widgets</a>
+        <a href="tutorials/">Course</a>
+        <a href="showcase/">Showcase</a>
+        <a href="docs/api.html">API</a>
+        <a href="https://github.com/trilitech/miaou">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">OCaml terminal UI library</p>
+          <h1>Build fast terminal apps in OCaml.</h1>
+          <p class="lede">
+            Miaou gives OCaml applications a state-driven page model, reusable
+            widgets, responsive layouts, semantic theming, multiple rendering
+            backends, and capture tooling for tests and documentation.
+          </p>
+          <div class="cta-row">
+            <a class="button primary" href="tutorials/">Start building</a>
+            <a class="button secondary" href="widgets/">Browse widgets</a>
+            <a class="button tertiary" href="https://github.com/trilitech/miaou">View source</a>
+          </div>
+        </div>
+        <figure class="terminal-card app-preview-card" aria-label="Miaou terminal application preview">
+          <div class="terminal-chrome">
+            <span></span><span></span><span></span>
+            <strong>miaou.demo</strong>
+          </div>
+          <pre class="terminal-preview" aria-hidden="true"><code><span class="term-muted">MIAOU Gallery</span>  <span class="term-amber">matrix</span>  <span class="term-cyan">60fps</span>
++----------------------+---------------------------+
+| widgets              | metrics                   |
+| <span class="term-active">&gt; Table</span>              | cpu  [#######--] 72%      |
+|   Textbox            | mem  [#####----] 48%      |
+|   Select             | net  [###------] 31%      |
+|   Tree               | io   [######---] 64%      |
++----------------------+---------------------------+
+| data                 | theme                     |
+| Name       State     | <span class="term-cyan">semantic</span>   <span class="term-green">success</span>        |
+| alpha      Active    | <span class="term-muted">muted</span>      <span class="term-pink">error</span>          |
+| beta       Pending   | border     selected       |
+| gamma      Idle      |                           |
++----------------------+---------------------------+
+<span class="term-amber">&gt;</span> Enter open   Tab focus   ? help   Esc back</code></pre>
+        </figure>
+      </section>
+
+      <section class="install-panel" aria-label="Install Miaou">
+        <div>
+          <p class="eyebrow">Quick start</p>
+          <h2>Install once, choose the driver at runtime.</h2>
+        </div>
+        <div class="command-stack">
+          <code>opam install miaou</code>
+          <code>dune exec -- miaou.demo</code>
+          <code>MIAOU_DRIVER=web dune exec -- miaou.demo</code>
+        </div>
+      </section>
+
+      <section class="proof-strip" aria-label="Miaou capabilities">
+        <article><strong>Page architecture</strong><span>Immutable state, views, handlers, navigation, and modal lifecycle.</span></article>
+        <article><strong>Reusable widgets</strong><span>Inputs, tables, trees, charts, layouts, images, and feedback controls.</span></article>
+        <article><strong>Render anywhere</strong><span>Matrix, Lambda-Term, SDL, web, and headless test/capture workflows.</span></article>
+      </section>
+
+      <section id="features" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Framework</p>
+          <h2>A small architecture for real terminal products.</h2>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span class="card-kicker" aria-hidden="true">SVH</span>
+            <h3>State-view-handlers</h3>
+            <p>Pages keep immutable state, render from state, and return updated state from key handlers.</p>
+          </article>
+          <article>
+            <span class="card-kicker" aria-hidden="true">DP</span>
+            <h3>Direct_page</h3>
+            <p>Start with only init, view, and on_key, then opt into advanced page lifecycle hooks.</p>
+          </article>
+          <article>
+            <span class="card-kicker" aria-hidden="true">UI</span>
+            <h3><a href="widgets/">Rich widgets</a></h3>
+            <p>Tables, forms, text editors, charts, file browsers, QR codes, images, trees, layouts, and more.</p>
+          </article>
+          <article>
+            <span class="card-kicker" aria-hidden="true">DRV</span>
+            <h3>Multiple drivers</h3>
+            <p>Matrix, Lambda-Term, SDL, and web/xterm.js backends cover terminal, graphical, and browser use.</p>
+          </article>
+          <article>
+            <span class="card-kicker" aria-hidden="true">CSS</span>
+            <h3>Themeable by design</h3>
+            <p>Semantic styles and contextual selectors let applications adapt across dark, light, and high-contrast themes.</p>
+          </article>
+          <article>
+            <span class="card-kicker" aria-hidden="true">REC</span>
+            <h3>Test and record</h3>
+            <p>Headless runs, frame captures, replay scripts, asciicasts, and GIF conversion help you test and share terminal flows.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="tutorials" class="section split">
+        <div>
+          <p class="eyebrow">Course path</p>
+          <h2>From first page to recorded dashboard.</h2>
+          <p>
+            Follow the course in order to build a page, adapt it to terminal size,
+            add charts, apply theme-safe styling, and record the result.
+          </p>
+        </div>
+        <ol class="tutorial-list course-list">
+          <li><a href="tutorials/first-app.html">Course 1: Build your first counter app with <code>Direct_page</code>.</a></li>
+          <li><a href="tutorials/responsive-dashboard.html">Course 2: Create responsive dashboards for narrow and wide terminals.</a></li>
+          <li><a href="tutorials/chart-dashboard.html">Course 3: Render charts with Braille and threshold colors.</a></li>
+          <li><a href="docs/styling.html">Course 4: Add semantic styling and theme-safe status messages.</a></li>
+          <li><a href="docs/capture-replay.html">Course 5: Capture, replay, and publish screencasts from real runs.</a></li>
+        </ol>
+      </section>
+
+      <section class="section docs-preview">
+        <div class="section-heading">
+          <p class="eyebrow">Code tour</p>
+          <h2>Small examples for the core ideas.</h2>
+          <p>
+            These snippets show the page loop, responsive layout choice, semantic styles,
+            and compact chart rendering used throughout Miaou applications.
+          </p>
+        </div>
+        <div class="snippet-grid">
+          <div data-snippet="first-app-page"></div>
+          <div data-snippet="responsive-pick"></div>
+          <div data-snippet="semantic-styles"></div>
+          <div data-snippet="sparkline-dashboard"></div>
+        </div>
+      </section>
+
+      <section id="showcase" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Showcase</p>
+          <h2>Real application flows, captured from real terminal sessions.</h2>
+        </div>
+        <div class="showcase-grid">
+          <article><h3><a href="https://octez-manager.tezos.com/">Octez Manager</a></h3><p>A production infrastructure TUI for managing Tezos node deployments.</p></article>
+          <article><h3><a href="widgets/">Widget gallery</a></h3><p>Forms, tables, trees, text editors, charts, navigation, and feedback components.</p></article>
+          <article><h3><a href="tutorials/responsive-dashboard.html">Responsive layouts</a></h3><p>Dashboards that adapt from wide terminal panes to narrow stacked views.</p></article>
+          <article><h3><a href="docs/styling.html">Style system</a></h3><p>Runtime theme switching with semantic and contextual styles.</p></article>
+          <article><h3><a href="docs/drivers.html">Web viewer</a></h3><p>Browser-based xterm.js controller/viewer sessions over WebSocket.</p></article>
+          <article><h3><a href="showcase/">Games</a></h3><p>Animated terminal worlds like Force, Crypt, Links, and Geo Quiz.</p></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Miaou is maintained by Nomadic Labs and licensed under MIT.</p>
+      <a href="https://github.com/trilitech/miaou">GitHub repository</a>
+    </footer>
+  </body>
+</html>

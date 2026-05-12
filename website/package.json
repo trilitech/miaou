@@ -1,0 +1,12 @@
+{
+  "name": "miaou-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs",
+    "captures": "node scripts/generate-tmux-captures.mjs",
+    "game-captures": "node scripts/generate-game-captures.mjs"
+  }
+}

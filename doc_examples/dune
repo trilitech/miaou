@@ -1,0 +1,17 @@
+(library
+ (name miaou_doc_examples)
+ (modules
+  first_app
+  responsive_dashboard
+  themed_app
+  chart_dashboard
+  modal_form)
+ (libraries
+  miaou-core.core
+  miaou-core.widgets.display
+  miaou-core.widgets.layout))
+
+(test
+ (name smoke)
+ (modules smoke)
+ (libraries alcotest miaou_doc_examples miaou-core.core))

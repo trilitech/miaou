@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>First Miaou App</title>
+    <link rel="icon" type="image/png" href="../media/miaou-logo.png" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header"><a class="brand" href="../"><img class="brand-mark" src="../media/miaou-logo.png" alt="" /><span>Miaou</span></a><nav class="nav" aria-label="Main navigation"><a href="../docs/">Docs</a><a href="../widgets/">Widgets</a><a href="../tutorials/">Course</a><a href="../showcase/">Showcase</a><a href="../docs/api.html">API</a><a href="https://github.com/trilitech/miaou">GitHub</a></nav></header>
+    <main class="page-shell prose">
+      <p class="eyebrow">Course 1</p>
+      <h1>Your first Miaou page.</h1>
+      <p>This lesson introduces the core Miaou loop: initialize state, render from state, react to keys, and request navigation.</p>
+      <div class="lesson-box"><strong>You will learn:</strong> page state, pure rendering, key handling, and the <code>Direct_page.quit</code> navigation effect.</div>
+      <figure class="lesson-visual">
+        <div class="terminal-chrome"><span></span><span></span><span></span><strong>counter.demo</strong></div>
+        <pre class="course-terminal"><code>+------------------------+
+| Miaou counter          |
++------------------------+
+| Count: 0               |
+|                        |
+| Up: increment          |
+| Down: decrement        |
+| q: quit                |
++------------------------+
+&gt; press Up to update state</code></pre>
+      </figure>
+      <div data-snippet="first-app-page"></div>
+      <h2>What the page does</h2>
+      <p><code>init</code> creates the initial count, <code>view</code> renders the same boxed counter shown above, and <code>on_key</code> returns updated state for <code>Up</code> and <code>Down</code>. Calling <code>Direct_page.quit ()</code> raises a navigation effect that the page wrapper translates into a quit request.</p>
+      <h2>Run pattern</h2>
+      <p>In a real executable, initialize the Eio runtime, register capabilities your app needs, wrap the module as a Miaou page, and pass it to the runner. The full demo gallery contains many examples of that wiring.</p>
+      <h2>Next steps</h2>
+      <p>Add widgets, split larger views into helper functions, and keep expensive computation outside <code>view</code> so rendering stays fast. Then continue to Course 2 to make layouts react to terminal width.</p>
+      <nav class="course-nav"><a href="index.html">All courses</a><a href="responsive-dashboard.html">Next: responsive dashboard</a></nav>
+    </main>
+  </body>
+</html>

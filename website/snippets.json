@@ -1,0 +1,22 @@
+{
+  "first-app-page": {
+    "source": "../doc_examples/first_app.ml",
+    "language": "ocaml",
+    "caption": "doc_examples/first_app.ml"
+  },
+  "responsive-pick": {
+    "source": "../doc_examples/responsive_dashboard.ml",
+    "language": "ocaml",
+    "caption": "doc_examples/responsive_dashboard.ml"
+  },
+  "semantic-styles": {
+    "source": "../doc_examples/themed_app.ml",
+    "language": "ocaml",
+    "caption": "doc_examples/themed_app.ml"
+  },
+  "sparkline-dashboard": {
+    "source": "../doc_examples/chart_dashboard.ml",
+    "language": "ocaml",
+    "caption": "doc_examples/chart_dashboard.ml"
+  }
+}
