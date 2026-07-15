@@ -1,7 +1,14 @@
 (library
  (name miaou_driver_common)
  (public_name miaou-core.driver-common)
- (libraries miaou_core miaou_internals unix)
+ (libraries
+  miaou_core
+  miaou_internals
+  miaou_helpers
+  miaou_interfaces
+  miaou_widgets_display
+  eio
+  unix)
  (preprocess
   (pps ppx_forbid))
  (flags

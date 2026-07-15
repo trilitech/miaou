@@ -6,10 +6,7 @@
   term_events
   term_test_runner
   term_size_detection
-  term_terminal_setup
-  term_renderer
-  term_render
-  term_event_reader)
+  term_terminal_setup)
  (instrumentation
   (backend bisect_ppx))
  (preprocess

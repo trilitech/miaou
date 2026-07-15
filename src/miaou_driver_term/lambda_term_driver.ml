@@ -17,7 +17,6 @@ module Navigation = Miaou_core.Navigation
 module Capture = Miaou_core.Tui_capture
 module Khs = Miaou_internals.Key_handler_stack
 module Modal_manager = Miaou_core.Modal_manager
-module Narrow_modal = Miaou_core.Narrow_modal
 module Quit_flag = Miaou_core.Quit_flag
 module Help_hint = Miaou_core.Help_hint
 module Driver_common = Miaou_driver_common.Driver_common
@@ -25,9 +24,7 @@ module Fibers = Miaou_helpers.Fiber_runtime
 module Helpers = Miaou_helpers.Helpers
 module Style_context = Miaou_style.Style_context
 module Theme_loader = Miaou_style.Theme_loader
-
-(* Persistent session flags *)
-let narrow_warned = ref false
+module Narrow_warning = Miaou_driver_common.Narrow_warning
 
 (* Debug overlay - shows TPS when MIAOU_OVERLAY is set *)
 let overlay_enabled =
@@ -144,23 +141,31 @@ let run (initial_page : (module PAGE_SIG)) :
     Fibers.with_page_switch (fun _env _page_sw ->
         (* Ensure widgets render with terminal-friendly glyphs when using the lambda-term backend. *)
         Miaou_widgets_display.Widgets.set_backend `Terminal ;
-        let fd, enter_raw, cleanup, install_signal_handlers, signal_exit_flag =
-          Term_terminal_setup.setup_and_cleanup ()
+        (* Track terminal resizes via SIGWINCH to force immediate refresh.
+           Installed as part of [Term_terminal_setup.setup_and_cleanup]'s
+           single signal installer below (via [~on_resize]) so it composes
+           with — rather than silently overwriting — the session's own
+           size-cache invalidation on SIGWINCH. *)
+        let resize_pending = Atomic.make false in
+        let ( terminal,
+              fd,
+              enter_raw,
+              cleanup,
+              install_signal_handlers,
+              signal_exit_flag ) =
+          Term_terminal_setup.setup_and_cleanup
+            ~on_resize:(fun () -> Atomic.set resize_pending true)
+            ()
         in
         let () = at_exit cleanup in
         install_signal_handlers () ;
-        (* Track terminal resizes via SIGWINCH to force immediate refresh. *)
-        let resize_pending = Atomic.make false in
-        (try
-           (* Linux SIGWINCH is 28; Sys doesn't expose a constant on all versions. *)
-           let sigwinch = 28 in
-           Sys.set_signal
-             sigwinch
-             (Sys.Signal_handle
-                (fun _ ->
-                  Term_size_detection.invalidate_cache () ;
-                  Atomic.set resize_pending true))
-         with _ -> ()) ;
+        (* Read end of the self-pipe woken by Terminal_raw's async-signal-safe
+           exit-signal handler; watched (non-blockingly, alongside [fd]) by
+           [refill]'s poll loop below so an exit signal short-circuits the
+           remaining ~50ms poll interval instead of waiting it out. *)
+        let signal_fd =
+          Miaou_driver_common.Terminal_raw.signal_read_fd terminal
+        in
 
         (* Cache the last rendered frame to avoid unnecessary redraws (reduces flicker). *)
         let last_out_ref = ref "" in
@@ -169,6 +174,8 @@ let run (initial_page : (module PAGE_SIG)) :
     render tick. This avoids depending on SIGWINCH being available at
     compile-time across different platforms. *)
         let last_size = ref {LTerm_geom.rows = 24; cols = 80} in
+        (* Per-session narrow-terminal warning state (banner + one-time modal). *)
+        let narrow_warning = Narrow_warning.create () in
         (* Cache the last base view seen when a modal is active so we don't keep
            re-rendering the background on every modal keystroke (reduces flicker). *)
         let modal_base_ref : string option ref = ref None in
@@ -178,7 +185,7 @@ let run (initial_page : (module PAGE_SIG)) :
        First, try lambda-term directly (in-process, no subprocess TTY issues).
        Then fall back to external tools. Avoid touching stdin to not interfere
        with input handling. *)
-        let detect_size = Term_size_detection.detect_size in
+        let detect_size () = Term_size_detection.detect_size terminal in
         let footer_ref : string option ref = ref None in
         let clear_and_render ps key_stack =
           (* Log driver render tick using the Miaou TUI logger if available. *)
@@ -189,60 +196,9 @@ let run (initial_page : (module PAGE_SIG)) :
           (* Build footer from key handler stack top frame bindings if available. *)
           let size = detect_size () in
           (* Persistent narrow banner: show a small header warning on every render while cols < 80. *)
-          let header_lines =
-            if size.cols < 80 then
-              [
-                Miaou_widgets_display.Widgets.warning_banner
-                  ~cols:size.cols
-                  (Printf.sprintf
-                     "Narrow terminal: %d cols (< 80). Some UI may be \
-                      truncated."
-                     size.cols);
-              ]
-            else []
-          in
+          let header_lines = Narrow_warning.header_lines ~cols:size.cols in
           (* One-time narrow terminal warning (only once per session). *)
-          (* Trigger warning when starting narrow or when crossing from >=80 to <80. *)
-          let prev_cols = !last_size.LTerm_geom.cols in
-          if
-            (size.cols < 80 && not !narrow_warned)
-            || (size.cols < 80 && prev_cols >= 80 && not !narrow_warned)
-          then (
-            (* Structured log for width crossing / initial narrow state *)
-            (match Logger_capability.get () with
-            | Some logger ->
-                logger.logf
-                  Warning
-                  (Printf.sprintf
-                     "WIDTH_CROSSING: prev=%d new=%d (showing narrow modal)"
-                     prev_cols
-                     size.cols)
-            | None -> ()) ;
-            narrow_warned := true ;
-            Modal_manager.push
-              (module Narrow_modal.Page)
-              ~init:(Narrow_modal.Page.init ())
-              ~ui:
-                {
-                  title = "Narrow terminal";
-                  left = Some 2;
-                  max_width = None;
-                  dim_background = true;
-                }
-              ~commit_on:[]
-              ~cancel_on:[]
-              ~on_close:(fun
-                  (_ : Narrow_modal.Page.state Miaou_core.Navigation.t) _ -> ()) ;
-            (* Mark the next key as consumed so Enter/Esc won't propagate. *)
-            Modal_manager.set_consume_next_key () ;
-            (* Auto-dismiss after 5s. We only close the modal if it's still the
-           same top modal title to avoid racing with other modals. *)
-            let my_title = "Narrow terminal" in
-            Fibers.spawn (fun env ->
-                Eio.Time.sleep env#clock 5.0 ;
-                match Modal_manager.top_title_opt () with
-                | Some t when t = my_title -> Modal_manager.close_top `Cancel
-                | _ -> ())) ;
+          Narrow_warning.maybe_warn narrow_warning ~cols:size.cols ;
           (* If terminal geometry changed since last render, force a redraw and
       update the modal snapshot size so overlays render correctly. *)
           (* Log size changes for diagnostics and force a redraw when geometry changes. *)
@@ -447,9 +403,13 @@ let run (initial_page : (module PAGE_SIG)) :
               let remaining = deadline -. Unix.gettimeofday () in
               if remaining <= 0.0 then 0
               else
-                (* Non-blocking check for input *)
-                let r, _, _ = Unix.select [fd] [] [] 0.0 in
-                if r <> [] then
+                (* Non-blocking check for input, plus the exit-signal
+                   self-pipe: a wake there means [signal_exit_flag] was
+                   just set, so loop back immediately (no sleep) to pick
+                   it up on the next iteration's check above, rather than
+                   waiting out the rest of the poll interval. *)
+                let r, _, _ = Unix.select [fd; signal_fd] [] [] 0.0 in
+                if List.mem fd r then
                   (* Data available, read it *)
                   let b = Bytes.create 256 in
                   try
@@ -459,6 +419,7 @@ let run (initial_page : (module PAGE_SIG)) :
                       pending := !pending ^ Bytes.sub_string b 0 n ;
                       n)
                   with Unix.Unix_error (Unix.EINTR, _, _) -> poll_loop ()
+                else if List.mem signal_fd r then poll_loop ()
                 else (
                   (* No data, sleep briefly and retry *)
                   Eio.Time.sleep env#clock (min poll_interval remaining) ;
@@ -1396,7 +1357,16 @@ let run (initial_page : (module PAGE_SIG)) :
         | None -> ()) ;
         (* Unified cleanup on exit. *)
         cleanup () ;
-        outcome)
+        (* Preserve the conventional 130 exit code for a signal-triggered
+           quit, mirroring the Matrix driver's boundary check (see
+           matrix_driver.ml): the exit-signal handler installed via
+           [Term_terminal_setup.setup_and_cleanup] only sets
+           [signal_exit_flag] and wakes the self-pipe, it never calls
+           [exit] itself, so this fiber-context check is what actually
+           terminates the process with the expected code. The terminal is
+           already fully restored by [cleanup] above, so it's safe to exit
+           immediately. *)
+        if Atomic.get signal_exit_flag then exit 130 else outcome)
   in
 
   match initial_page with
