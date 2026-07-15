@@ -26,8 +26,7 @@ module Counter = Direct_page.Make (Direct_page.With_defaults (struct
 +------------------------+|}
       count
 
-  let view state ~focus:_ ~size:_ =
-    render_count state.count
+  let view state ~focus:_ ~size:_ = render_count state.count
 
   let on_key state key ~size:_ =
     match key with

@@ -55,6 +55,28 @@ dune fmt            # Format code (MUST pass before commit)
 
 **Critical:** Every commit must be properly formatted. The pre-commit hook enforces this.
 
+### Building — switch discipline
+
+This project pins its dependencies to a project-local opam switch. Always
+build through `make build` / `make test` / `make fmt` / `make check`, or
+prefix raw `dune` invocations with `opam exec --switch . --` (or the absolute
+project path when running from a nested working directory, e.g. a worktree).
+A bare `dune build` run against an unrelated, wrong-version switch (e.g. one
+built for a different project) will fail to compile with errors that look
+like source bugs but are not — the code is correct under the project-local
+switch. If you see any of the following, suspect the active opam switch
+before touching `src/`:
+
+| Symptom (wrong-switch signature)                          | Likely cause                          |
+|-------------------------------------------------------------|----------------------------------------|
+| `Unbound value Cohttp_eio.Client.make`                       | switch has an incompatible `cohttp-eio` |
+| `Unbound module Eio.Resource` (reported twice)               | switch has a pre-1.0 `eio`             |
+| `~label` mismatch on `run_in_systhread`                      | switch has a mismatched `eio` version   |
+
+These are environment-contamination symptoms, not code defects. Run `make
+check` (or `dune clean && opam exec --switch . -- dune build`) to confirm
+before filing or fixing anything in `src/`.
+
 ## OCaml Coding Standards
 
 ### General Rules

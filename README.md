@@ -108,7 +108,16 @@ Or using the Makefile shortcuts:
 make deps    # opam install --deps-only
 make build   # dune build @all
 make test    # dune runtest
+make fmt     # dune fmt
+make check   # build + test + fmt
 ```
+
+The `make` targets always run `dune` through `opam exec --switch . --`
+against this project's own opam switch, so they build correctly even if a
+different (and incompatible) opam switch happens to be active in your shell.
+If you invoke `dune` directly instead of through `make`, prefix it the same
+way (`opam exec --switch . -- dune build`) — a stray, unrelated switch can
+otherwise produce confusing compile errors that look like source bugs.
 
 Using from another project
 --------------------------
