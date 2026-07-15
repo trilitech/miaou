@@ -10,8 +10,6 @@
     to stdout.  The app binary becomes a subprocess that an AI agent or CI
     script can drive without a real terminal. *)
 
-[@@@warning "-32-34-37-69"]
-
 module HD = Lib_miaou_internal.Headless_driver
 module Tui_page = Miaou_core.Tui_page
 

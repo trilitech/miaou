@@ -4,7 +4,6 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-[@@@warning "-32-34-37-69"]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Style_context = Miaou_style.Style_context

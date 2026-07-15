@@ -1,8 +1,6 @@
 (* SPDX-License-Identifier: MIT *)
 (* Render flash bus snapshots as toast notifications. *)
 
-[@@@warning "-32-34-37-69"]
-
 module Toast = Miaou_widgets_layout.Toast_widget
 module Flash_bus = Flash_bus
 

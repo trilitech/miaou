@@ -4,7 +4,6 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-[@@@warning "-32-34-37-69"]
 
 [@@@coverage off]
 
@@ -118,20 +117,6 @@ module LT = LTerm
 let available = true
 
 module Events = Term_events
-
-type driver_key = Events.driver_key =
-  | Quit
-  | Refresh
-  | Enter
-  | NextPage
-  | PrevPage
-  | Up
-  | Down
-  | Left
-  | Right
-  | Other of string
-
-let clear = Events.clear
 
 let run_with_key_source_for_tests = Term_test_runner.run_with_key_source
 

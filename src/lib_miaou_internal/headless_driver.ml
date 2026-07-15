@@ -8,8 +8,6 @@
 
 (* Minimal headless TUI driver used for testing Miaou pages without a terminal. *)
 
-[@@@warning "-32-34-37-69"]
-
 module Tui_page = Miaou_core.Tui_page
 module Navigation = Miaou_core.Navigation
 module Modal_manager = Miaou_core.Modal_manager

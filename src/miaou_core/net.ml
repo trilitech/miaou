@@ -5,7 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 (* (c) 2025 Nomadic Labs <contact@nomadic-labs.com> *)
-[@@@warning "-32-34-37-69"]
 
 type t = {get_url : url:string -> (string, string) result}
 

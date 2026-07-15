@@ -1,8 +1,6 @@
 (* SPDX-License-Identifier: MIT *)
 (* Simple flash message store used by the headless test driver. *)
 
-[@@@warning "-32-34-37-69"]
-
 type level = Info | Success | Warn | Error
 
 let now () = Unix.gettimeofday ()

@@ -8,14 +8,25 @@
 
 (* Global SDL rendering context for chart widgets
    This allows chart widgets to detect SDL availability and render directly
-   without changing the PAGE_SIG interface or creating circular dependencies. 
-   
-   We store SDL types as abstract values to avoid hard tsdl dependency here.
-   The SDL driver and chart rendering code will cast appropriately. *)
+   without changing the PAGE_SIG interface or creating circular dependencies.
+
+   [renderer]/[font]/[texture] are opaque capability tokens, not the real
+   Tsdl.Sdl.renderer / Tsdl_ttf.Ttf.font / Tsdl.Sdl.texture types: this module
+   must stay tsdl-independent (no hard dependency on tsdl here). The SDL
+   driver (`sdl_driver.ml`), which does depend on tsdl, is the single narrow
+   boundary that reconciles these tokens with the real types (mirroring the
+   `Capability.key` coercion pattern already used by `service_lifecycle.ml`).
+   No `Obj.repr`/`Obj.obj` round-trip exists in this file. *)
+
+type renderer
+
+type font
+
+type texture
 
 type sdl_context = {
-  renderer_obj : Obj.t; (* Tsdl.Sdl.renderer *)
-  font_obj : Obj.t; (* Tsdl_ttf.Ttf.font *)
+  renderer : renderer;
+  font : font;
   char_w : int;
   char_h : int;
   mutable y_offset : int;
@@ -35,13 +46,8 @@ let set_context_obj ~renderer ~font ~char_w ~char_h ~y_offset ~cols
   current_context :=
     Some
       {
-        renderer_obj =
-          Obj.repr
-            renderer
-          [@allow_forbidden "SDL objects stored without tsdl dependency"];
-        font_obj =
-          Obj.repr
-            font [@allow_forbidden "SDL objects stored without tsdl dependency"];
+        renderer;
+        font;
         char_w;
         char_h;
         y_offset;
@@ -57,35 +63,34 @@ let get_context () =
   | Some ctx when ctx.enabled -> Some ctx
   | _ -> None
 
-(* Extract renderer from context - caller must cast *)
-let get_renderer ctx =
-  Obj.obj ctx.renderer_obj [@allow_forbidden "recover typed SDL renderer"]
+let get_renderer ctx = ctx.renderer
 
-let get_font ctx =
-  Obj.obj ctx.font_obj [@allow_forbidden "recover typed SDL font"]
+let get_font ctx = ctx.font
 
 let get_frame_id ctx = ctx.frame_id
 
 (* Abstract SDL operations - registered by SDL driver at runtime.
-   This allows widgets to perform SDL operations without compile-time tsdl dependency.
-   All types are abstract (using Obj.t) to avoid importing tsdl. *)
+   This allows widgets to perform SDL operations without compile-time tsdl
+   dependency: the function references below are typed over the opaque
+   [renderer]/[font]/[texture] tokens declared above, not [Obj.t]. *)
 module Sdl_ops = struct
   (* Function references - set by SDL driver when loaded *)
-  let create_texture_ref : (Obj.t -> int -> int -> Obj.t option) ref =
+  let create_texture_ref : (renderer -> int -> int -> texture option) ref =
     ref (fun _ _ _ -> None)
 
-  let set_render_target_ref : (Obj.t -> Obj.t option -> unit) ref =
+  let set_render_target_ref : (renderer -> texture option -> unit) ref =
     ref (fun _ _ -> ())
 
   let set_render_draw_color_ref :
-      (Obj.t -> int -> int -> int -> int -> unit) ref =
+      (renderer -> int -> int -> int -> int -> unit) ref =
     ref (fun _ _ _ _ _ -> ())
 
-  let render_fill_rect_ref : (Obj.t -> int -> int -> int -> int -> unit) ref =
-    ref (fun _ _ _ _ _ -> ())
-
-  let render_copy_ref : (Obj.t -> Obj.t -> int -> int -> int -> int -> unit) ref
+  let render_fill_rect_ref : (renderer -> int -> int -> int -> int -> unit) ref
       =
+    ref (fun _ _ _ _ _ -> ())
+
+  let render_copy_ref :
+      (renderer -> texture -> int -> int -> int -> int -> unit) ref =
     ref (fun _ _ _ _ _ _ -> ())
 
   (* Public accessors *)

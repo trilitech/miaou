@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 module Tui_logger = struct
   let set_enabled b =
     match Miaou_interfaces.Logger_capability.get () with

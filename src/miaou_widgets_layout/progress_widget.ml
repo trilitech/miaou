@@ -5,7 +5,6 @@
 (* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
-[@@@warning "-32-34-37-69"]
 
 (* A small, Bubble Tea–styled progress bar using the palette gradient. *)
 
@@ -122,8 +121,6 @@ let render w ~cols =
         ~title:w.title
         ~cols
   | `Terminal -> render_terminal w ~cols
-
-let handle_key w ~key:_ = w
 
 let () =
   Miaou_registry.register ~name:"progress" ~mli:[%blob "progress_widget.mli"] ()

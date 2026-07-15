@@ -11,8 +11,6 @@
     to all connected viewer WebSockets.  Designed to run alongside the headless
     driver so a human can observe an AI agent's TUI session in a browser. *)
 
-[@@@warning "-32-34-37-69"]
-
 type t = {
   mutex : Mutex.t;
   mutable viewers : Web_websocket.t list;

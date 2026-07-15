@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
@@ -218,14 +216,50 @@ let pick_font_path (cfg : config) =
 
 let sdl_fail prefix msg = failwith (Printf.sprintf "%s: %s" prefix msg)
 
+module Chart_ctx = Miaou_widgets_display.Sdl_chart_context
+
+(* Narrow adapter boundary: this driver owns the real Tsdl/Tsdl_ttf types;
+   [Chart_ctx] (the widget-layer side) only knows the opaque
+   [renderer]/[font]/[texture] capability tokens it declares itself, so that
+   `miaou_widgets_display` keeps no compile-time dependency on tsdl. These six
+   coercions are the *only* place in this driver that reconciles the two
+   representations (mirroring the `Capability.key` coercion pattern already
+   used by `service_lifecycle.ml`); no `Obj.repr`/`Obj.obj` round-trip
+   remains at any call site below. *)
+let renderer_to_token (r : Sdl.renderer) : Chart_ctx.renderer =
+  Obj.magic r [@allow_forbidden "coerce real SDL renderer to opaque token"]
+
+let renderer_of_token (t : Chart_ctx.renderer) : Sdl.renderer =
+  Obj.magic t [@allow_forbidden "recover real SDL renderer from opaque token"]
+
+let font_to_token (f : Ttf.font) : Chart_ctx.font =
+  Obj.magic f [@allow_forbidden "coerce real SDL font to opaque token"]
+
+let texture_to_token (t : Sdl.texture) : Chart_ctx.texture =
+  Obj.magic t [@allow_forbidden "coerce real SDL texture to opaque token"]
+
+let texture_of_token (t : Chart_ctx.texture) : Sdl.texture =
+  Obj.magic t [@allow_forbidden "recover real SDL texture from opaque token"]
+
+(* Thin wrapper applying the renderer/font coercion once per call, so call
+   sites below never touch [Obj] directly. *)
+let set_context ~renderer ~font ~char_w ~char_h ~y_offset ~cols ?enabled () =
+  Chart_ctx.set_context_obj
+    ~renderer:(renderer_to_token renderer)
+    ~font:(font_to_token font)
+    ~char_w
+    ~char_h
+    ~y_offset
+    ~cols
+    ?enabled
+    ()
+
 (* Register SDL operations with the abstract Sdl_ops module in widgets.display.
    This allows widgets to perform SDL operations without compile-time tsdl dependency. *)
 let register_sdl_ops () =
-  let module Ops = Miaou_widgets_display.Sdl_chart_context.Sdl_ops in
-  Ops.register_create_texture (fun renderer_obj w h ->
-      let renderer : Sdl.renderer =
-        (Obj.obj renderer_obj [@allow_forbidden "recover typed SDL renderer"])
-      in
+  let module Ops = Chart_ctx.Sdl_ops in
+  Ops.register_create_texture (fun renderer_tok w h ->
+      let renderer = renderer_of_token renderer_tok in
       match
         Sdl.create_texture
           renderer
@@ -235,43 +269,25 @@ let register_sdl_ops () =
           ~h
       with
       | Error _ -> None
-      | Ok tex ->
-          Some
-            (Obj.repr
-               tex
-             [@allow_forbidden "SDL texture stored without tsdl dependency"])) ;
+      | Ok tex -> Some (texture_to_token tex)) ;
 
-  Ops.register_set_render_target (fun renderer_obj target_opt ->
-      let renderer : Sdl.renderer =
-        (Obj.obj renderer_obj [@allow_forbidden "recover typed SDL renderer"])
-      in
-      let target =
-        Option.map
-          (fun t -> (Obj.obj t [@allow_forbidden "recover typed SDL texture"]))
-          target_opt
-      in
+  Ops.register_set_render_target (fun renderer_tok target_tok_opt ->
+      let renderer = renderer_of_token renderer_tok in
+      let target = Option.map texture_of_token target_tok_opt in
       ignore (Sdl.set_render_target renderer target)) ;
 
-  Ops.register_set_render_draw_color (fun renderer_obj r g b a ->
-      let renderer : Sdl.renderer =
-        (Obj.obj renderer_obj [@allow_forbidden "recover typed SDL renderer"])
-      in
+  Ops.register_set_render_draw_color (fun renderer_tok r g b a ->
+      let renderer = renderer_of_token renderer_tok in
       ignore (Sdl.set_render_draw_color renderer r g b a)) ;
 
-  Ops.register_render_fill_rect (fun renderer_obj x y w h ->
-      let renderer : Sdl.renderer =
-        (Obj.obj renderer_obj [@allow_forbidden "recover typed SDL renderer"])
-      in
+  Ops.register_render_fill_rect (fun renderer_tok x y w h ->
+      let renderer = renderer_of_token renderer_tok in
       let rect = Sdl.Rect.create ~x ~y ~w ~h in
       ignore (Sdl.render_fill_rect renderer (Some rect))) ;
 
-  Ops.register_render_copy (fun renderer_obj texture_obj x y w h ->
-      let renderer : Sdl.renderer =
-        (Obj.obj renderer_obj [@allow_forbidden "recover typed SDL renderer"])
-      in
-      let texture : Sdl.texture =
-        (Obj.obj texture_obj [@allow_forbidden "recover typed SDL texture"])
-      in
+  Ops.register_render_copy (fun renderer_tok texture_tok x y w h ->
+      let renderer = renderer_of_token renderer_tok in
+      let texture = texture_of_token texture_tok in
       let dst_rect = Sdl.Rect.create ~x ~y ~w ~h in
       ignore (Sdl.render_copy renderer texture ~dst:dst_rect))
 
@@ -644,7 +660,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
         draw_background renderer cfg char_w char_h ;
 
         (* Set up SDL rendering context for enhanced chart widgets *)
-        Miaou_widgets_display.Sdl_chart_context.set_context_obj
+        set_context
           ~renderer
           ~font
           ~char_w
@@ -746,7 +762,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                      ->
                     let size = !size_ref in
                     (* Disable SDL chart rendering during transition text capture *)
-                    Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                    set_context
                       ~renderer
                       ~font
                       ~char_w
@@ -788,7 +804,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                   let ps_to = Next.init () in
                   let size = !size_ref in
                   (* Disable SDL chart rendering during transition text capture *)
-                  Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                  set_context
                     ~renderer
                     ~font
                     ~char_w
@@ -861,7 +877,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                        ->
                       let size = !size_ref in
                       (* Disable SDL chart rendering during transition text capture *)
-                      Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                      set_context
                         ~renderer
                         ~font
                         ~char_w

@@ -5,8 +5,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 (** Display-only key hint for help footer. *)
 type key_hint = {key : string; help : string}
 

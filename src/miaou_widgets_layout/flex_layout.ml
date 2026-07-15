@@ -6,8 +6,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 module W = Miaou_widgets_display.Widgets
 module H = Miaou_helpers.Helpers
 module Helpers = Miaou_helpers.Helpers
@@ -57,8 +55,6 @@ let create ?(direction = Row) ?(align_items : align_items = Start)
     ?(justify : justify = Start) ?(gap = default_gap)
     ?(padding = default_padding) ?(constraints = []) children =
   {direction; align_items; justify; gap; padding; constraints; children}
-
-let clamp v ~min_v ~max_v = max min_v (min max_v v)
 
 let truncate_visible s width =
   let idx = H.visible_byte_index_of_pos s width in
