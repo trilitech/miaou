@@ -11,7 +11,7 @@ source test/tmux/lib.sh
 BIN="_build/default/test/modal_multiline_test.exe"
 if [ ! -x "$BIN" ]; then
   echo "SKIP: $BIN not built (run: dune build test/modal_multiline_test.exe)"
-  exit 0
+  exit 77
 fi
 
 SESSION="miaou_modal_multiline_$$"

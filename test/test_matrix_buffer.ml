@@ -7,7 +7,7 @@
 
 (* Single-domain coverage of the Matrix driver's double-buffered grid:
    roundtrip get/set, the documented out-of-bounds contract, the
-   swap/dirty lifecycle, resize content preservation, force_full_redraw,
+   swap/dirty lifecycle, resize's content-discarding behavior, force_full_redraw,
    and the debug dump. Cross-domain locking claims (this module documents
    itself as "thread-safe: uses internal mutex for cross-domain safety")
    are exercised here only from a single domain; concurrent-access
@@ -111,14 +111,9 @@ let test_swap_and_dirty_lifecycle () =
   check bool "not dirty after clear_dirty again" false (Buffer.is_dirty buf)
 
 let test_resize_replaces_content_and_marks_dirty () =
-  (* NB (found while writing this test, not fixed here per test-debt scope):
-     [matrix_buffer.mli]'s [resize] docstring says "preserving content where
-     possible", but the implementation's own comment says the opposite —
-     "create fresh empty buffers - don't copy old content" — and that is
-     what it actually does below. This test documents and locks in the
-     real (doc-contradicting) behavior; the doc/impl mismatch itself is
-     flagged in the handoff as a pre-existing documentation bug, not a test
-     seam this slice is scoped to fix. *)
+  (* [matrix_buffer.mli]'s [resize] docstring documents this: resize
+     discards existing content and replaces both grids with fresh empty
+     cells, forcing a full redraw. This test locks in that behavior. *)
   let buf = Buffer.create ~rows:2 ~cols:2 in
   Buffer.set buf ~row:0 ~col:0 (cell "a") ;
   Buffer.set buf ~row:1 ~col:1 (cell "b") ;

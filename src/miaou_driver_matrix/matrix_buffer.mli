@@ -20,8 +20,10 @@ type t
     Both front and back are initialized to empty cells. *)
 val create : rows:int -> cols:int -> t
 
-(** Resize the buffer in-place, preserving content where possible.
-    New cells are initialized to empty. Marks buffer as dirty. *)
+(** Resize the buffer in-place, discarding existing content. Both front
+    and back grids are replaced with fresh empty cells and the buffer is
+    marked dirty, forcing a full redraw on the next render (the UI layout
+    changes completely on resize, so there is nothing worth preserving). *)
 val resize : t -> rows:int -> cols:int -> unit
 
 (** Get number of rows. *)

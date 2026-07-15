@@ -147,6 +147,24 @@ let pp_error e =
     | Some i -> Printf.sprintf "(attempt=%d)" i)
     e.message
 
+(* Shared retry loop backing Await_modal/Await_no_modal/Loop_until: poll
+   [ready] every [sleep] seconds, up to [max_iters] times; once exhausted,
+   log and raise a [Workflow_error] tagged [step] with a best-effort screen
+   snapshot from [capture_screen]. *)
+let poll drv ~step ~max_iters ~sleep ~ready ~capture_screen =
+  let rec loop i =
+    if ready () then ()
+    else if i >= max_iters then (
+      let scr = capture_screen () in
+      let err = {step; message = "timeout"; attempt = Some i; screen = scr} in
+      drv.log (pp_error err) ;
+      raise (Workflow_error err))
+    else (
+      drv.sleep sleep ;
+      loop (i + 1))
+  in
+  loop 0
+
 (* NOTE: For now we do not thread the phantom context dynamically; the interpreter
    treats all continuations as valid in the current runtime context. The type
    system already restricts illegal compositions statically. *)
@@ -163,51 +181,34 @@ let rec interpret : type a c. driver -> (a, c) t -> a =
       (try drv.feed_keys keys with _ -> List.iter drv.feed_key keys) ;
       interpret drv k
   | Await_modal {max_iters; sleep; screen_pred; k} ->
-      let rec loop i =
+      let ready () =
+        (* Evaluate both eagerly: the original polled [drv.screen ()] every
+           iteration when a predicate was supplied; keep that call count. *)
         let modal_active = drv.has_modal () in
         let screen_ok =
           match screen_pred with
           | None -> true
           | Some p -> ( try p (drv.screen ()) with _ -> false)
         in
-        if modal_active && screen_ok then interpret drv k
-        else if i >= max_iters then (
-          let scr = try Some (drv.screen ()) with _ -> None in
-          let err =
-            {
-              step = "await_modal";
-              message = "timeout";
-              attempt = Some i;
-              screen = scr;
-            }
-          in
-          drv.log (pp_error err) ;
-          raise (Workflow_error err))
-        else (
-          drv.sleep sleep ;
-          loop (i + 1))
+        modal_active && screen_ok
       in
-      loop 0
+      poll
+        drv
+        ~step:"await_modal"
+        ~max_iters
+        ~sleep
+        ~ready
+        ~capture_screen:(fun () -> try Some (drv.screen ()) with _ -> None) ;
+      interpret drv k
   | Await_no_modal {max_iters; sleep; k} ->
-      let rec loop i =
-        if not (drv.has_modal ()) then interpret drv k
-        else if i >= max_iters then (
-          let scr = try Some (drv.screen ()) with _ -> None in
-          let err =
-            {
-              step = "await_no_modal";
-              message = "timeout";
-              attempt = Some i;
-              screen = scr;
-            }
-          in
-          drv.log (pp_error err) ;
-          raise (Workflow_error err))
-        else (
-          drv.sleep sleep ;
-          loop (i + 1))
-      in
-      loop 0
+      poll
+        drv
+        ~step:"await_no_modal"
+        ~max_iters
+        ~sleep
+        ~ready:(fun () -> not (drv.has_modal ()))
+        ~capture_screen:(fun () -> try Some (drv.screen ()) with _ -> None) ;
+      interpret drv k
   | Seq_modal_to_page (m_modal, m_page) ->
       let _ = interpret drv m_modal in
       interpret drv m_page
@@ -234,25 +235,20 @@ let rec interpret : type a c. driver -> (a, c) t -> a =
       let s = drv.screen () in
       interpret drv (if pred s then th else el)
   | Loop_until {max_iters; sleep; pred; k} ->
-      let rec loop i =
+      let last_screen = ref "" in
+      let ready () =
         let s = drv.screen () in
-        if pred s then interpret drv k
-        else if i >= max_iters then (
-          let err =
-            {
-              step = "loop_until";
-              message = "timeout";
-              attempt = Some i;
-              screen = Some s;
-            }
-          in
-          drv.log (pp_error err) ;
-          raise (Workflow_error err))
-        else (
-          drv.sleep sleep ;
-          loop (i + 1))
+        last_screen := s ;
+        pred s
       in
-      loop 0
+      poll
+        drv
+        ~step:"loop_until"
+        ~max_iters
+        ~sleep
+        ~ready
+        ~capture_screen:(fun () -> Some !last_screen) ;
+      interpret drv k
 
 let run_with drv w = interpret drv w
 

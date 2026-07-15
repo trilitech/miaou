@@ -281,341 +281,321 @@ let rec handle_key w ~key =
   in
   let total = List.length entries in
   match w.mode with
-  | Browsing -> (
-      match key with
-      | "h" ->
-          (* Toggle hidden files *)
-          invalidate_cache () ;
-          {w with show_hidden = not w.show_hidden; cursor = 0}
-      | "Up" ->
-          {
-            w with
-            cursor = List_nav.move_cursor ~total ~cursor:w.cursor ~delta:(-1);
-          }
-      | "Down" ->
-          {
-            w with
-            cursor = List_nav.move_cursor ~total ~cursor:w.cursor ~delta:1;
-            pending_selection = None;
-          }
-      | "PageUp" ->
-          {
-            w with
-            cursor =
-              List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up;
-            pending_selection = None;
-          }
-      | "PageDown" ->
-          {
-            w with
-            cursor =
-              List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
-            pending_selection = None;
-          }
-      | " " ->
-          (* Explicitly select current entry without navigating. *)
-          let pending =
-            match List.nth_opt entries w.cursor with
-            | None -> None
-            | Some e -> selection_for_entry w e
+  | Browsing -> handle_key_browsing w ~key ~entries ~total ~selection_for_entry
+  | EditingPath -> handle_key_editing w ~key
+
+and handle_key_browsing w ~key ~entries ~total ~selection_for_entry =
+  match key with
+  | "h" ->
+      (* Toggle hidden files *)
+      invalidate_cache () ;
+      {w with show_hidden = not w.show_hidden; cursor = 0}
+  | "Up" ->
+      {w with cursor = List_nav.move_cursor ~total ~cursor:w.cursor ~delta:(-1)}
+  | "Down" ->
+      {
+        w with
+        cursor = List_nav.move_cursor ~total ~cursor:w.cursor ~delta:1;
+        pending_selection = None;
+      }
+  | "PageUp" ->
+      {
+        w with
+        cursor =
+          List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up;
+        pending_selection = None;
+      }
+  | "PageDown" ->
+      {
+        w with
+        cursor =
+          List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
+        pending_selection = None;
+      }
+  | " " ->
+      (* Explicitly select current entry without navigating. *)
+      let pending =
+        match List.nth_opt entries w.cursor with
+        | None -> None
+        | Some e -> selection_for_entry w e
+      in
+      {w with pending_selection = pending}
+  | "n" ->
+      if not (is_writable w.current_path) then
+        {w with path_error = Some "Not writable"}
+      else
+        let entries =
+          list_entries_safe w.current_path ~dirs_only:false ~show_hidden:true
+        in
+        let suggested =
+          next_available_name ~existing:entries ~prefix:"new_directory" 0
+        in
+        let tb = textbox_create ~initial:suggested () in
+        {
+          w with
+          mode = EditingPath;
+          textbox = Some tb;
+          create_dir_on_enter = true;
+          path_error = None;
+          pending_selection = None;
+          history_idx = None;
+        }
+  | "Shift-Space" ->
+      {
+        w with
+        cursor =
+          List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up;
+      }
+  | "Esc" -> {w with cancelled = true}
+  | "Enter" -> (
+      (* Navigate into subdirectories, select current dir or files *)
+      match List.nth_opt entries w.cursor with
+      | Some entry when entry.name = ".." ->
+          let parent = Filename.dirname w.current_path in
+          {w with current_path = parent; cursor = 0; pending_selection = None}
+      | Some entry when entry.name = "." ->
+          (* Select the current directory *)
+          {w with pending_selection = selection_for_entry w entry}
+      | Some entry ->
+          let target = Filename.concat w.current_path entry.name in
+          let sys = Miaou_interfaces.System.require () in
+          let is_dir =
+            entry.is_dir || try sys.is_directory target with _ -> false
           in
-          {w with pending_selection = pending}
-      | "n" ->
-          if not (is_writable w.current_path) then
-            {w with path_error = Some "Not writable"}
-          else
-            let entries =
-              list_entries_safe
-                w.current_path
-                ~dirs_only:false
-                ~show_hidden:true
-            in
-            let suggested =
-              next_available_name ~existing:entries ~prefix:"new_directory" 0
-            in
-            let tb = textbox_create ~initial:suggested () in
+          if is_dir then
+            (* Navigate into subdirectory *)
+            let new_path = normalize_start target in
             {
               w with
-              mode = EditingPath;
-              textbox = Some tb;
-              create_dir_on_enter = true;
+              current_path = new_path;
+              cursor = 0;
               path_error = None;
               pending_selection = None;
-              history_idx = None;
             }
-      | "Shift-Space" ->
-          {
-            w with
-            cursor =
-              List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up;
-          }
-      | "Esc" -> {w with cancelled = true}
-      | "Enter" -> (
-          (* Navigate into subdirectories, select current dir or files *)
-          match List.nth_opt entries w.cursor with
-          | Some entry when entry.name = ".." ->
-              let parent = Filename.dirname w.current_path in
+          else
+            (* Fallback: if is_directory failed, try to list it. 
+                   If we can list it, it's browseable, so treat as directory. *)
+            let works_as_dir =
+              match
+                list_entries target ~dirs_only:false ~show_hidden:w.show_hidden
+              with
+              | Ok _ -> true
+              | Error _ -> false
+            in
+            if works_as_dir then
               {
                 w with
-                current_path = parent;
+                current_path = target;
+                (* Skip normalize_start as it might fail is_directory check *)
                 cursor = 0;
+                path_error = None;
                 pending_selection = None;
               }
-          | Some entry when entry.name = "." ->
-              (* Select the current directory *)
+            else
+              (* Select the file *)
               {w with pending_selection = selection_for_entry w entry}
-          | Some entry ->
-              let target = Filename.concat w.current_path entry.name in
-              let sys = Miaou_interfaces.System.require () in
-              let is_dir =
-                entry.is_dir || try sys.is_directory target with _ -> false
-              in
-              if is_dir then
-                (* Navigate into subdirectory *)
-                let new_path = normalize_start target in
-                {
-                  w with
-                  current_path = new_path;
-                  cursor = 0;
-                  path_error = None;
-                  pending_selection = None;
-                }
-              else
-                (* Fallback: if is_directory failed, try to list it. 
-                   If we can list it, it's browseable, so treat as directory. *)
-                let works_as_dir =
-                  match
-                    list_entries
-                      target
-                      ~dirs_only:false
-                      ~show_hidden:w.show_hidden
-                  with
-                  | Ok _ -> true
-                  | Error _ -> false
-                in
-                if works_as_dir then
-                  {
-                    w with
-                    current_path = target;
-                    (* Skip normalize_start as it might fail is_directory check *)
-                    cursor = 0;
-                    path_error = None;
-                    pending_selection = None;
-                  }
-                else
-                  (* Select the file *)
-                  {w with pending_selection = selection_for_entry w entry}
-          | _ -> w)
-      | "Left" | "Backspace" ->
-          let parent = Filename.dirname w.current_path in
-          {w with current_path = parent; cursor = 0}
-      | "Tab" | "C-l" ->
-          (* Enter editing with textbox prefilled from current_path. *)
-          let tb = textbox_create ~initial:w.current_path ~width:60 () in
-          {
-            w with
-            mode = EditingPath;
-            textbox = Some tb;
-            path_error = None;
-            pending_selection = None;
-            history_idx = None;
-          }
-      | k when String.length k = 1 && (k.[0] = '/' || k.[0] = '~') ->
-          let tb = textbox_create ~initial:(w.current_path ^ k) ~width:60 () in
-          {
-            w with
-            mode = EditingPath;
-            textbox = Some tb;
-            path_error = None;
-            pending_selection = None;
-            history_idx = None;
-          }
-      | "WheelUp" ->
-          {
-            w with
-            cursor =
-              List_nav.move_cursor
-                ~total
-                ~cursor:w.cursor
-                ~delta:(-Miaou_helpers.Mouse.wheel_scroll_lines);
-          }
-      | "WheelDown" ->
-          {
-            w with
-            cursor =
-              List_nav.move_cursor
-                ~total
-                ~cursor:w.cursor
-                ~delta:Miaou_helpers.Mouse.wheel_scroll_lines;
-          }
-      | key -> (
-          (* Check for mouse click to select entry *)
-          match Miaou_helpers.Mouse.parse_click key with
-          | Some {row; col = _} ->
-              (* Header is 1 line (path bar), so body starts at row 2.
+      | _ -> w)
+  | "Left" | "Backspace" ->
+      let parent = Filename.dirname w.current_path in
+      {w with current_path = parent; cursor = 0}
+  | "Tab" | "C-l" ->
+      (* Enter editing with textbox prefilled from current_path. *)
+      let tb = textbox_create ~initial:w.current_path ~width:60 () in
+      {
+        w with
+        mode = EditingPath;
+        textbox = Some tb;
+        path_error = None;
+        pending_selection = None;
+        history_idx = None;
+      }
+  | k when String.length k = 1 && (k.[0] = '/' || k.[0] = '~') ->
+      let tb = textbox_create ~initial:(w.current_path ^ k) ~width:60 () in
+      {
+        w with
+        mode = EditingPath;
+        textbox = Some tb;
+        path_error = None;
+        pending_selection = None;
+        history_idx = None;
+      }
+  | "WheelUp" ->
+      {
+        w with
+        cursor =
+          List_nav.move_cursor
+            ~total
+            ~cursor:w.cursor
+            ~delta:(-Miaou_helpers.Mouse.wheel_scroll_lines);
+      }
+  | "WheelDown" ->
+      {
+        w with
+        cursor =
+          List_nav.move_cursor
+            ~total
+            ~cursor:w.cursor
+            ~delta:Miaou_helpers.Mouse.wheel_scroll_lines;
+      }
+  | key -> (
+      (* Check for mouse click to select entry *)
+      match Miaou_helpers.Mouse.parse_click key with
+      | Some {row; col = _} ->
+          (* Header is 1 line (path bar), so body starts at row 2.
                  row is 1-indexed, so item at row 2 is index 0. *)
-              let header_lines = 1 in
-              let clicked_idx = row - header_lines - 1 in
-              if clicked_idx >= 0 && clicked_idx < total then
-                let w = {w with cursor = clicked_idx} in
-                (* Double-click activates entry (same as Enter) *)
-                if Miaou_helpers.Mouse.is_double_click key then
-                  handle_key w ~key:"Enter"
-                else w
-              else w
-          | None -> w))
-  | EditingPath -> (
-      match (key, w.textbox) with
-      | "Esc", _ ->
-          {
-            w with
-            mode = Browsing;
-            path_error = None;
-            pending_selection = None;
-            create_dir_on_enter = false;
-            history_idx = None;
-          }
-      | " ", Some tb ->
-          (* Space in edit mode: insert space, never set pending_selection *)
-          {w with textbox = Some (textbox_handle_key tb ~key:" ")}
-      | ("Up" | "Down"), Some tb ->
-          let len = List.length w.history in
-          if len = 0 then w
-          else
-            let idx =
-              match (key, w.history_idx) with
-              | "Up", None -> 0
-              | "Down", None -> 0
-              | "Up", Some i -> min (len - 1) (i + 1)
-              | "Down", Some i -> max 0 (i - 1)
-              | _ -> 0
-            in
-            let text = List.nth w.history idx in
-            {
-              w with
-              history_idx = Some idx;
-              textbox = Some (textbox_set_text tb text);
-            }
-      | "Tab", Some tb -> (
-          (* Completion forward - always include hidden files for tab completion *)
-          let buf = textbox_get_text tb in
-          let dir = Filename.dirname buf in
-          let base = Filename.basename buf in
-          let candidates =
-            list_entries_safe dir ~dirs_only:false ~show_hidden:true
-          in
-          let names = List.map (fun e -> e.name) candidates in
-          let matches =
-            List.filter (fun n -> String.starts_with ~prefix:base n) names
-          in
-          let choose name =
-            let newp = Filename.concat dir name in
-            let is_dir =
-              List.exists (fun e -> e.name = name && e.is_dir) candidates
-            in
-            let newp = if is_dir then newp ^ "/" else newp in
-            {
-              w with
-              textbox = Some (textbox_set_text tb newp);
-              path_error = None;
-            }
-          in
-          match matches with
-          | [] -> w
-          | [one] -> choose one
-          | many -> choose (List.hd many))
-      | "Shift-Tab", Some tb -> (
-          (* Completion backward - always include hidden files for tab completion *)
-          let buf = textbox_get_text tb in
-          let dir = Filename.dirname buf in
-          let base = Filename.basename buf in
-          let candidates =
-            list_entries_safe dir ~dirs_only:false ~show_hidden:true
-          in
-          let names = List.map (fun e -> e.name) candidates in
-          let matches =
-            List.filter (fun n -> String.starts_with ~prefix:base n) names
-          in
-          let choose name =
-            let newp = Filename.concat dir name in
-            let is_dir =
-              List.exists (fun e -> e.name = name && e.is_dir) candidates
-            in
-            let newp = if is_dir then newp ^ "/" else newp in
-            {
-              w with
-              textbox = Some (textbox_set_text tb newp);
-              path_error = None;
-            }
-          in
-          match List.rev matches with [] -> w | one :: _ -> choose one)
-      | "Enter", Some tb ->
-          let sys = Miaou_interfaces.System.require () in
-          let p =
-            let s = textbox_get_text tb in
-            if s = "" then w.current_path else s
-          in
-          let p =
-            if Filename.is_relative p then Filename.concat w.current_path p
-            else p
-          in
-          if w.create_dir_on_enter then
-            if sys.file_exists p then
-              {w with path_error = Some "Already exists"}
-            else
-              match sys.mkdir p with
-              | Ok () ->
-                  (* Invalidate cache after creating directory *)
-                  invalidate_cache () ;
-                  {
-                    w with
-                    current_path = p;
-                    cursor = 0;
-                    mode = Browsing;
-                    path_error = None;
-                    pending_selection = None;
-                    history =
-                      (let h = List.filter (fun x -> x <> p) w.history in
-                       p :: h);
-                    history_idx = None;
-                    create_dir_on_enter = false;
-                  }
-              | Error e -> {w with path_error = Some e}
-          else
-            let exists = sys.file_exists p in
-            if not exists then {w with path_error = Some "Path not found"}
-            else
-              let writable_ok = (not w.require_writable) || is_writable p in
-              if sys.is_directory p then
-                if writable_ok then
-                  {
-                    w with
-                    current_path = p;
-                    cursor = 0;
-                    mode = Browsing;
-                    path_error = None;
-                    pending_selection = None;
-                    history =
-                      (if p = "" then w.history
-                       else
-                         let h = List.filter (fun x -> x <> p) w.history in
-                         p :: h);
-                    history_idx = None;
-                  }
-                else {w with path_error = Some "Not writable"}
-              else if writable_ok then
-                {
-                  w with
-                  pending_selection = Some p;
-                  path_error = None;
-                  history =
-                    (let h = List.filter (fun x -> x <> p) w.history in
+          let header_lines = 1 in
+          let clicked_idx = row - header_lines - 1 in
+          if clicked_idx >= 0 && clicked_idx < total then
+            let w = {w with cursor = clicked_idx} in
+            (* Double-click activates entry (same as Enter) *)
+            if Miaou_helpers.Mouse.is_double_click key then
+              handle_key w ~key:"Enter"
+            else w
+          else w
+      | None -> w)
+
+and handle_key_editing w ~key =
+  match (key, w.textbox) with
+  | "Esc", _ ->
+      {
+        w with
+        mode = Browsing;
+        path_error = None;
+        pending_selection = None;
+        create_dir_on_enter = false;
+        history_idx = None;
+      }
+  | " ", Some tb ->
+      (* Space in edit mode: insert space, never set pending_selection *)
+      {w with textbox = Some (textbox_handle_key tb ~key:" ")}
+  | ("Up" | "Down"), Some tb ->
+      let len = List.length w.history in
+      if len = 0 then w
+      else
+        let idx =
+          match (key, w.history_idx) with
+          | "Up", None -> 0
+          | "Down", None -> 0
+          | "Up", Some i -> min (len - 1) (i + 1)
+          | "Down", Some i -> max 0 (i - 1)
+          | _ -> 0
+        in
+        let text = List.nth w.history idx in
+        {
+          w with
+          history_idx = Some idx;
+          textbox = Some (textbox_set_text tb text);
+        }
+  | "Tab", Some tb -> (
+      (* Completion forward - always include hidden files for tab completion *)
+      let buf = textbox_get_text tb in
+      let dir = Filename.dirname buf in
+      let base = Filename.basename buf in
+      let candidates =
+        list_entries_safe dir ~dirs_only:false ~show_hidden:true
+      in
+      let names = List.map (fun e -> e.name) candidates in
+      let matches =
+        List.filter (fun n -> String.starts_with ~prefix:base n) names
+      in
+      let choose name =
+        let newp = Filename.concat dir name in
+        let is_dir =
+          List.exists (fun e -> e.name = name && e.is_dir) candidates
+        in
+        let newp = if is_dir then newp ^ "/" else newp in
+        {w with textbox = Some (textbox_set_text tb newp); path_error = None}
+      in
+      match matches with
+      | [] -> w
+      | [one] -> choose one
+      | many -> choose (List.hd many))
+  | "Shift-Tab", Some tb -> (
+      (* Completion backward - always include hidden files for tab completion *)
+      let buf = textbox_get_text tb in
+      let dir = Filename.dirname buf in
+      let base = Filename.basename buf in
+      let candidates =
+        list_entries_safe dir ~dirs_only:false ~show_hidden:true
+      in
+      let names = List.map (fun e -> e.name) candidates in
+      let matches =
+        List.filter (fun n -> String.starts_with ~prefix:base n) names
+      in
+      let choose name =
+        let newp = Filename.concat dir name in
+        let is_dir =
+          List.exists (fun e -> e.name = name && e.is_dir) candidates
+        in
+        let newp = if is_dir then newp ^ "/" else newp in
+        {w with textbox = Some (textbox_set_text tb newp); path_error = None}
+      in
+      match List.rev matches with [] -> w | one :: _ -> choose one)
+  | "Enter", Some tb ->
+      let sys = Miaou_interfaces.System.require () in
+      let p =
+        let s = textbox_get_text tb in
+        if s = "" then w.current_path else s
+      in
+      let p =
+        if Filename.is_relative p then Filename.concat w.current_path p else p
+      in
+      if w.create_dir_on_enter then
+        if sys.file_exists p then {w with path_error = Some "Already exists"}
+        else
+          match sys.mkdir p with
+          | Ok () ->
+              (* Invalidate cache after creating directory *)
+              invalidate_cache () ;
+              {
+                w with
+                current_path = p;
+                cursor = 0;
+                mode = Browsing;
+                path_error = None;
+                pending_selection = None;
+                history =
+                  (let h = List.filter (fun x -> x <> p) w.history in
+                   p :: h);
+                history_idx = None;
+                create_dir_on_enter = false;
+              }
+          | Error e -> {w with path_error = Some e}
+      else
+        let exists = sys.file_exists p in
+        if not exists then {w with path_error = Some "Path not found"}
+        else
+          let writable_ok = (not w.require_writable) || is_writable p in
+          if sys.is_directory p then
+            if writable_ok then
+              {
+                w with
+                current_path = p;
+                cursor = 0;
+                mode = Browsing;
+                path_error = None;
+                pending_selection = None;
+                history =
+                  (if p = "" then w.history
+                   else
+                     let h = List.filter (fun x -> x <> p) w.history in
                      p :: h);
-                  history_idx = None;
-                }
-              else {w with path_error = Some "Not writable"}
-      | _, Some tb -> {w with textbox = Some (textbox_handle_key tb ~key)}
-      | _, None -> w)
+                history_idx = None;
+              }
+            else {w with path_error = Some "Not writable"}
+          else if writable_ok then
+            {
+              w with
+              pending_selection = Some p;
+              path_error = None;
+              history =
+                (let h = List.filter (fun x -> x <> p) w.history in
+                 p :: h);
+              history_idx = None;
+            }
+          else {w with path_error = Some "Not writable"}
+  | _, Some tb -> {w with textbox = Some (textbox_handle_key tb ~key)}
+  | _, None -> w
 
 let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
   let w = apply_pending_updates w in

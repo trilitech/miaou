@@ -13,7 +13,7 @@ source test/tmux/lib.sh
 BIN="_build/default/example/gallery/main_matrix.exe"
 if [ ! -x "$BIN" ]; then
   echo "SKIP: $BIN not built (run: dune build example/gallery/main_matrix.exe)"
-  exit 0
+  exit 77
 fi
 
 SESSION="miaou_sigterm_$$"

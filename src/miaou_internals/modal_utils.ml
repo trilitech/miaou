@@ -152,12 +152,18 @@ let wrap_line_to_width (line : string) (width : int) : string list =
     let out = if last = "" then !out else last :: !out in
     List.rev out
 
-let wrap_content_to_width content content_width =
+(* Wrap [content] line-by-line to [content_width] using [wrap_line], one of
+   {!wrap_line_to_width} (hard char-wrap) or {!wrap_line_to_width_words}
+   (word-aware wrap). *)
+let wrap_content_to_width_with wrap_line content content_width =
   let lines = String.split_on_char '\n' content in
   let wrapped_lines =
-    List.flatten (List.map (fun l -> wrap_line_to_width l content_width) lines)
+    List.flatten (List.map (fun l -> wrap_line l content_width) lines)
   in
   Helpers.concat_lines wrapped_lines
+
+let wrap_content_to_width content content_width =
+  wrap_content_to_width_with wrap_line_to_width content content_width
 
 let wrap_line_to_width_words (line : string) (width : int) : string list =
   if width <= 0 then [line]
@@ -216,12 +222,7 @@ let wrap_line_to_width_words (line : string) (width : int) : string list =
     List.rev out
 
 let wrap_content_to_width_words content content_width =
-  let lines = String.split_on_char '\n' content in
-  let wrapped_lines =
-    List.flatten
-      (List.map (fun l -> wrap_line_to_width_words l content_width) lines)
-  in
-  Helpers.concat_lines wrapped_lines
+  wrap_content_to_width_with wrap_line_to_width_words content content_width
 
 let markdown_to_ansi (s : string) : string =
   let open Miaou_widgets_display.Widgets in

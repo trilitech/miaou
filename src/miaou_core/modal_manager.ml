@@ -42,20 +42,7 @@ let clear () =
   stack := [] ;
   Miaou_internals.Modal_snapshot.clear_rendered_position ()
 
-let debug_enabled =
-  lazy
-    (let get_env var =
-       match Miaou_interfaces.System.get () with
-       | Some sys -> sys.get_env_var var
-       | None -> Sys.getenv_opt var
-     in
-     match get_env "MIAOU_TUI_DEBUG_MODAL" with
-     | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
-     | _ -> false)
-
-let dprintf fmt =
-  if Lazy.force debug_enabled then Printf.eprintf fmt
-  else Printf.ifprintf Stdlib.stdout fmt
+let dprintf = Miaou_internals.Modal_debug.dprintf
 
 (* Expose a mutable location for the current terminal geometry. The driver
   should update this on each render (and on resize events) so modal view

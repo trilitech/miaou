@@ -38,3 +38,10 @@ val concat_lines : string list -> string
 
 (** Efficiently concatenate strings with separator using Buffer *)
 val concat_with_sep : string -> string list -> string
+
+(** Read the entire contents of the file at [path] as a string.
+
+    The channel is always closed, including when [path] cannot be opened
+    or reading raises partway through — [Error exn] carries whatever
+    exception was raised (e.g. [Sys_error] for a missing file). *)
+val read_file : string -> (string, exn) result
