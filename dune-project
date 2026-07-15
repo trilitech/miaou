@@ -107,6 +107,24 @@
   (eio_main (>= 1.0))))
 
 (package
+ (name miaou-serve)
+ (synopsis "Miaou serve: process-per-session supervisor exposing a MIAOU app over the network")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
+ (depends
+  miaou-core
+  miaou-driver-web
+  eqaf
+  cstruct
+  (cmdliner (>= 1.3))
+  (eio (>= 1.0))
+  (eio_main (>= 1.0))
+  (alcotest :with-test)
+  (bisect_ppx :with-test)))
+
+(package
  (name miaou-runner)
  (synopsis "Miaou runner with backend selection")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")

@@ -1,0 +1,6 @@
+(executable
+ (name main)
+ (public_name miaou)
+ (package miaou-serve)
+ (modules main)
+ (libraries miaou_serve cmdliner))

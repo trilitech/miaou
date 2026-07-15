@@ -1,0 +1,37 @@
+(library
+ (name miaou_serve)
+ (public_name miaou-serve.serve)
+ (modules
+  serve_token
+  serve_policy
+  serve_config
+  serve_run
+  miaou_serve
+  serve_cli)
+ (instrumentation
+  (backend bisect_ppx))
+ (libraries
+  miaou-core.core
+  miaou-core.helpers
+  miaou-driver-web.driver
+  eio
+  eio_main
+  eqaf
+  cstruct
+  cmdliner))
+
+; FR-030/FR-033 mechanical guard: the CSPRNG source and the constant-time
+; comparison are security-load-bearing choices (never Stdlib.Random /
+; Random.self_init, never String.equal / (=) for token comparison). This
+; makes a regression (e.g. someone "simplifying" serve_token.ml back to
+; (=) or Random.self_init) fail the build instead of only being caught by
+; a human reviewer re-reading the diff.
+
+(rule
+ (alias runtest)
+ (deps serve_token.ml)
+ (action
+  (run
+   bash
+   -c
+   "grep -q 'Eqaf.equal' serve_token.ml && grep -q 'secure_random' serve_token.ml || (echo 'FR-030/FR-033 guard failed: serve_token.ml must use Eqaf.equal and env#secure_random' >&2 && exit 1)")))
