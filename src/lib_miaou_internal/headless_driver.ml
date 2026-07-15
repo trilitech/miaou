@@ -128,6 +128,21 @@ let set_limits ?iterations ?seconds () =
 
 let with_page_scope f = Fibers.with_page_scope f
 
+(* Recognise the test-only "__SWITCH__:<page>" keystroke used to force a
+   page transition without going through the normal navigation path.
+   Only honoured when MIAOU_TEST_ALLOW_FORCED_SWITCH=1 is set; returns the
+   target page name. *)
+let forced_switch_prefix = "__SWITCH__:"
+
+let parse_forced_switch k =
+  let prefix_len = String.length forced_switch_prefix in
+  if
+    String.length k > prefix_len
+    && String.sub k 0 prefix_len = forced_switch_prefix
+    && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
+  then Some (String.sub k prefix_len (String.length k - prefix_len))
+  else None
+
 let run (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `Back | `SwitchTo of string] =
   with_page_scope (fun () ->
@@ -176,32 +191,27 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
               "[driver][debug] Key event: '%s' modal_active=%b\n%!"
               k
               (Miaou_core.Modal_manager.has_active ()) ;
-            let forced_switch =
-              String.length k > 11
-              && String.sub k 0 11 = "__SWITCH__:"
-              && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
-            in
-            if not forced_switch then Capture.record_keystroke k ;
-            if forced_switch then
-              `SwitchTo (String.sub k 11 (String.length k - 11))
-            else
-              let ps' =
-                if Miaou_core.Modal_manager.has_active () then (
-                  dprintf
-                    "[driver][debug] Modal manager handling key: '%s'\n%!"
-                    k ;
-                  Miaou_core.Modal_manager.handle_key k ;
-                  ps)
-                else
-                  let key = key_of_string k in
-                  let new_ps, _result = P.on_key ps key ~size:(get_size ()) in
-                  new_ps
-              in
-              let ps' = apply_pending_modal_nav ps' in
-              render_page_with (module P) ps' ;
-              match Navigation.pending ps' with
-              | Some nav -> nav_to_outcome nav
-              | None -> loop (iteration + 1) ps')
+            match parse_forced_switch k with
+            | Some target -> `SwitchTo target
+            | None -> (
+                Capture.record_keystroke k ;
+                let ps' =
+                  if Miaou_core.Modal_manager.has_active () then (
+                    dprintf
+                      "[driver][debug] Modal manager handling key: '%s'\n%!"
+                      k ;
+                    Miaou_core.Modal_manager.handle_key k ;
+                    ps)
+                  else
+                    let key = key_of_string k in
+                    let new_ps, _result = P.on_key ps key ~size:(get_size ()) in
+                    new_ps
+                in
+                let ps' = apply_pending_modal_nav ps' in
+                render_page_with (module P) ps' ;
+                match Navigation.pending ps' with
+                | Some nav -> nav_to_outcome nav
+                | None -> loop (iteration + 1) ps'))
       in
       set_page initial_page ;
       (* Load theme and wrap entire loop in mutable theme context.
@@ -329,18 +339,13 @@ module Stateful = struct
 
   let send_key k =
     ensure () ;
-    let forced_switch =
-      String.length k > 11
-      && String.sub k 0 11 = "__SWITCH__:"
-      && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
-    in
-    if forced_switch then
-      let target = String.sub k 11 (String.length k - 11) in
-      if switch_to_page target then `Continue else `SwitchTo target
-    else (
-      Capture.record_keystroke k ;
-      !send_key_impl k ;
-      maybe_auto_switch ())
+    match parse_forced_switch k with
+    | Some target ->
+        if switch_to_page target then `Continue else `SwitchTo target
+    | None ->
+        Capture.record_keystroke k ;
+        !send_key_impl k ;
+        maybe_auto_switch ()
 
   let idle_wait ?(iterations = 1) ?(sleep = 0.0) () =
     ensure () ;

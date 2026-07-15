@@ -22,25 +22,7 @@ type sdl_render_info = {
 }
 
 (* Parse ANSI color code to RGB *)
-let ansi_to_rgb ansi_code =
-  match ansi_code with
-  | "30" -> (0, 0, 0)
-  | "31" -> (220, 50, 47) (* red *)
-  | "32" -> (133, 153, 0) (* green *)
-  | "33" -> (181, 137, 0) (* yellow *)
-  | "34" -> (38, 139, 210) (* blue *)
-  | "35" -> (211, 54, 130) (* magenta *)
-  | "36" -> (42, 161, 152) (* cyan *)
-  | "37" -> (238, 232, 213) (* white *)
-  | "90" -> (88, 110, 117)
-  | "91" -> (220, 50, 47)
-  | "92" -> (133, 153, 0)
-  | "93" -> (181, 137, 0)
-  | "94" -> (38, 139, 210)
-  | "95" -> (211, 54, 130)
-  | "96" -> (42, 161, 152)
-  | "97" -> (253, 246, 227)
-  | _ -> (133, 153, 0)
+let ansi_to_rgb = Sdl_color.ansi_to_rgb
 
 (* Calculate bounds from all series *)
 let calculate_bounds series_list =

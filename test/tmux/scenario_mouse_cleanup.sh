@@ -13,11 +13,27 @@ source test/tmux/lib.sh
 BIN="_build/default/example/gallery/main_tui.exe"
 if [ ! -x "$BIN" ]; then
   echo "SKIP: $BIN not built (run: dune build example/gallery/main_tui.exe)"
-  exit 0
+  exit 77
 fi
 
 SESSION="miaou_mouse_cleanup_$$"
 tmux_new_session "$SESSION" 80 24 "$BIN"
+
+# `tmux capture-pane -e` only reconstructs the SGR attributes of *rendered*
+# cells; DEC private-mode toggles like the mouse-tracking disable sequence
+# never produce visible cell content, so tmux's terminal emulation consumes
+# them silently and -e cannot see them. `pipe-pane -o`, however, tees the
+# pane's raw pty byte stream — exactly what the child process wrote, before
+# tmux interprets it — to a file, which does let us assert the literal
+# disable sequence was sent. Best-effort: if pipe-pane itself can't be
+# started (e.g. an old/restricted tmux build), skip just that assertion
+# with a documented reason rather than failing the whole scenario.
+RAW_LOG="$(mktemp)"
+# Chain onto lib.sh's own EXIT trap (tmux_cleanup_all) instead of replacing
+# it, so the tmux session is still torn down on every exit path.
+trap 'rm -f "$RAW_LOG"; tmux_cleanup_all' EXIT
+pipe_pane_ok=1
+tmux pipe-pane -t "$SESSION" -o "cat >> '$RAW_LOG'" 2>/dev/null || pipe_pane_ok=0
 
 if ! tmux_wait_for_text "$SESSION" "MIAOU demo launcher" 5; then
   echo "FAIL: launcher did not render within 5s"
@@ -48,9 +64,25 @@ else
   exit 1
 fi
 
-echo "INFO: literal mouse-tracking-disable escape sequence verification is \
-best-effort/out of scope for a black-box tmux capture (see scenario_sigterm.sh \
-for the same convention); this scenario asserts prompt, clean-exit liveness \
-after mouse tracking was genuinely engaged."
+# Give pipe-pane's `cat` a moment to flush the last bytes the child wrote
+# during teardown.
+sleep 0.2
+
+if [ "$pipe_pane_ok" -eq 1 ] && [ -s "$RAW_LOG" ]; then
+  if grep -qF $'\033[?1000l' "$RAW_LOG"; then
+    echo "PASS: mouse-tracking disable sequence (ESC[?1000l) observed in \
+the raw pty stream after Ctrl+C"
+  else
+    echo "FAIL: mouse-tracking disable sequence not observed in the raw pty \
+stream after Ctrl+C"
+    exit 1
+  fi
+else
+  echo "INFO: could not capture the raw pty stream via 'tmux pipe-pane' \
+(unsupported/restricted tmux build?); falling back to the liveness-only \
+assertion above — 'capture-pane -e' cannot see this sequence either, since \
+DEC private-mode toggles are consumed by tmux's terminal emulation and \
+never appear as rendered cell content."
+fi
 
 echo "MOUSE_CLEANUP SCENARIO OK"

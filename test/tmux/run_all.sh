@@ -4,6 +4,12 @@
 # scenario binary wasn't built, or tmux itself isn't available) never fails
 # the run. Not wired into `dune runtest` (see test/tmux/lib.sh header) —
 # invoke directly, e.g. from CI: `bash test/tmux/run_all.sh`.
+#
+# Scenarios signal SKIP via the conventional exit code 77 (as used by
+# autotools test harnesses), which is the authoritative signal below; the
+# "^SKIP:" line they also print is kept as a human-readable explanation and
+# as a fallback classifier for any scenario that hasn't adopted the exit
+# code yet.
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
@@ -26,7 +32,9 @@ for scenario in "${scenarios[@]}"; do
   output="$(bash "$scenario" 2>&1)"
   status=$?
   echo "$output"
-  if [ $status -ne 0 ]; then
+  if [ $status -eq 77 ]; then
+    skipped+=("$name")
+  elif [ $status -ne 0 ]; then
     failed+=("$name")
   elif printf '%s\n' "$output" | grep -q '^SKIP:'; then
     skipped+=("$name")

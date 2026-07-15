@@ -124,13 +124,9 @@ let default_path () =
       | _ -> None)
 
 let read_file path =
-  try
-    let ic = open_in path in
-    let len = in_channel_length ic in
-    let buf = really_input_string ic len in
-    close_in ic ;
-    Some buf
-  with _ -> None
+  match Miaou_helpers.Helpers.read_file path with
+  | Ok s -> Some s
+  | Error _ -> None
 
 let load ?path () =
   let p = match path with Some p -> Some p | None -> default_path () in

@@ -144,3 +144,12 @@ module Pixel_mode : sig
   val resolve :
     ?env_var:string -> unit -> Miaou_widgets_display.Terminal_caps.render_mode
 end
+
+(** {1 Tiny pixel font} *)
+
+module Font3x5 : sig
+  (** Pixel offsets for one glyph in a 3-wide, 5-tall cell, origin
+      top-left. Covers the digit/symbol set used by score popups
+      (['0'..'9'], ['+'], ['-'], [' ']); any other character yields []. *)
+  val pixels : char -> (int * int) list
+end

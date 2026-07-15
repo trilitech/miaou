@@ -4,6 +4,7 @@
  (name miaou_internals)
  (public_name miaou-core.internals)
  (modules
+  modal_debug
   modal_renderer
   modal_snapshot
   modal_utils

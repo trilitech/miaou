@@ -42,13 +42,9 @@ let search_paths () =
 let file_exists path = try Sys.file_exists path with _ -> false
 
 let read_file path =
-  try
-    let ic = open_in path in
-    let n = in_channel_length ic in
-    let s = really_input_string ic n in
-    close_in ic ;
-    Ok s
-  with e -> Error (Printexc.to_string e)
+  match Miaou_helpers.Helpers.read_file path with
+  | Ok _ as ok -> ok
+  | Error e -> Error (Printexc.to_string e)
 
 let of_json_string s =
   try

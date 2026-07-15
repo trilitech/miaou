@@ -21,26 +21,7 @@ type sdl_render_info = {
 }
 
 (* Parse ANSI color code to RGB *)
-let ansi_to_rgb ansi_code =
-  match ansi_code with
-  | "30" -> (0, 0, 0) (* black *)
-  | "31" -> (220, 50, 47) (* red *)
-  | "32" -> (133, 153, 0) (* green *)
-  | "33" -> (181, 137, 0) (* yellow *)
-  | "34" -> (38, 139, 210) (* blue *)
-  | "35" -> (211, 54, 130) (* magenta *)
-  | "36" -> (42, 161, 152) (* cyan *)
-  | "37" -> (238, 232, 213) (* white *)
-  | "90" -> (88, 110, 117) (* bright black *)
-  | "91" -> (220, 50, 47) (* bright red *)
-  | "92" -> (133, 153, 0) (* bright green *)
-  | "93" -> (181, 137, 0) (* bright yellow *)
-  | "94" -> (38, 139, 210) (* bright blue *)
-  | "95" -> (211, 54, 130) (* bright magenta *)
-  | "96" -> (42, 161, 152) (* bright cyan *)
-  | "97" -> (253, 246, 227) (* bright white *)
-  | _ -> (133, 153, 0)
-(* default green *)
+let ansi_to_rgb = Sdl_color.ansi_to_rgb
 
 (* Render sparkline with SDL using smooth lines and filled area *)
 let render_sdl info sparkline ~focus:_ ~show_value:_ ?color ?(thresholds = [])

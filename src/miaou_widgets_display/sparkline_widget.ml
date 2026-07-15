@@ -21,34 +21,46 @@ type t = {
   min_value : float option;
   max_value : float option;
   data : float Queue.t;
+  mutable last : float option;
+      (* Most recently pushed value, tracked directly so [stats]/[get_bounds]
+         don't need an O(n) [List.hd (List.rev ...)] to find it. *)
 }
 
 let create ~width ~max_points ?min_value ?max_value () =
-  {width; max_points; min_value; max_value; data = Queue.create ()}
+  (* A non-positive capacity would let [last] outlive an always-empty queue. *)
+  let max_points = max 1 max_points in
+  {width; max_points; min_value; max_value; data = Queue.create (); last = None}
 
 let push t value =
   Queue.push value t.data ;
+  t.last <- Some value ;
   (* Maintain circular buffer: drop oldest if exceeds max_points *)
   while Queue.length t.data > t.max_points do
     ignore (Queue.pop t.data)
   done
 
+(* Shared min/max resolution: explicit bounds win, otherwise fold over the
+   current data. *)
+let min_max t values =
+  let min_val =
+    match t.min_value with
+    | Some v -> v
+    | None -> List.fold_left min Float.infinity values
+  in
+  let max_val =
+    match t.max_value with
+    | Some v -> v
+    | None -> List.fold_left max Float.neg_infinity values
+  in
+  (min_val, max_val)
+
 let stats t =
-  if Queue.is_empty t.data then (0., 0., 0.)
-  else
-    let values = Queue.to_seq t.data |> List.of_seq in
-    let min_val =
-      match t.min_value with
-      | Some v -> v
-      | None -> List.fold_left min Float.infinity values
-    in
-    let max_val =
-      match t.max_value with
-      | Some v -> v
-      | None -> List.fold_left max Float.neg_infinity values
-    in
-    let current = List.hd (List.rev values) in
-    (min_val, max_val, current)
+  match t.last with
+  | None -> (0., 0., 0.)
+  | Some current ->
+      let values = Queue.to_seq t.data |> List.of_seq in
+      let min_val, max_val = min_max t values in
+      (min_val, max_val, current)
 
 let normalize value min_val max_val =
   let range = max_val -. min_val in
@@ -67,6 +79,32 @@ let get_color ~thresholds ~(default_color : string option) value =
   | Some t -> Some t.color
   | None -> default_color
 
+(* Downsample (average-based) or centre-pad an array of samples to exactly
+   [target] entries — used by both the Octant and Braille renderers to fit
+   sparkline data into their dot-grid width. *)
+let resample values ~target ~fill =
+  let point_count = Array.length values in
+  if point_count > target then
+    let step = float_of_int point_count /. float_of_int target in
+    Array.init target (fun i ->
+        let start_f = float_of_int i *. step in
+        let stop_f = float_of_int (i + 1) *. step in
+        let start_i = int_of_float start_f in
+        let stop_i = min point_count (int_of_float stop_f) in
+        let sum = ref 0. in
+        let count = ref 0 in
+        for idx = start_i to stop_i - 1 do
+          sum := !sum +. values.(idx) ;
+          incr count
+        done ;
+        if !count = 0 then fill else !sum /. float_of_int !count)
+  else if point_count = target then Array.copy values
+  else
+    let pad_left = (target - point_count) / 2 in
+    let arr = Array.make target fill in
+    Array.blit values 0 arr pad_left point_count ;
+    arr
+
 let render_octant t ~focus ~show_value ?color ?(thresholds = []) () =
   let values = Queue.to_seq t.data |> Array.of_seq in
   let min_val, max_val, current = stats t in
@@ -74,29 +112,7 @@ let render_octant t ~focus ~show_value ?color ?(thresholds = []) () =
   let dot_width, dot_height = Octant_canvas.get_dot_dimensions canvas in
   let range = max_val -. min_val in
   let inv_range = if range = 0. then 0. else 1. /. range in
-  let point_count = Array.length values in
-  let samples =
-    if point_count > dot_width then
-      let step = float_of_int point_count /. float_of_int dot_width in
-      Array.init dot_width (fun i ->
-          let start_f = float_of_int i *. step in
-          let stop_f = float_of_int (i + 1) *. step in
-          let start_i = int_of_float start_f in
-          let stop_i = min point_count (int_of_float stop_f) in
-          let sum = ref 0. in
-          let count = ref 0 in
-          for idx = start_i to stop_i - 1 do
-            sum := !sum +. values.(idx) ;
-            incr count
-          done ;
-          if !count = 0 then min_val else !sum /. float_of_int !count)
-    else if point_count = dot_width then Array.copy values
-    else
-      let pad_left = (dot_width - point_count) / 2 in
-      let arr = Array.make dot_width min_val in
-      Array.blit values 0 arr pad_left point_count ;
-      arr
-  in
+  let samples = resample values ~target:dot_width ~fill:min_val in
   Array.iteri
     (fun x value ->
       let y =
@@ -183,31 +199,7 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         let inv_range = if range = 0. then 0. else 1. /. range in
 
         (* Sample or interpolate points to match dot_width *)
-        let point_count = Array.length values in
-        let samples =
-          if point_count > dot_width then
-            (* Downsample by averaging chunks *)
-            let step = float_of_int point_count /. float_of_int dot_width in
-            Array.init dot_width (fun i ->
-                let start_f = float_of_int i *. step in
-                let stop_f = float_of_int (i + 1) *. step in
-                let start_i = int_of_float start_f in
-                let stop_i = min point_count (int_of_float stop_f) in
-                let sum = ref 0. in
-                let count = ref 0 in
-                for idx = start_i to stop_i - 1 do
-                  sum := !sum +. values.(idx) ;
-                  incr count
-                done ;
-                if !count = 0 then min_val else !sum /. float_of_int !count)
-          else if point_count = dot_width then Array.copy values
-          else
-            (* Interpolate/pad to fill width *)
-            let pad_left = (dot_width - point_count) / 2 in
-            let arr = Array.make dot_width min_val in
-            Array.blit values 0 arr pad_left point_count ;
-            arr
-        in
+        let samples = resample values ~target:dot_width ~fill:min_val in
 
         (* Plot each value as a vertical line at its height *)
         Array.iteri
@@ -251,27 +243,20 @@ let render_with_label t ~label ~focus ?color ?(thresholds = []) ?(mode = ASCII)
   let _, _, current = stats t in
   Printf.sprintf "%s: [%s] %.1f" label spark current
 
-let clear t = Queue.clear t.data
+let clear t =
+  Queue.clear t.data ;
+  t.last <- None
 
 (* Accessor functions for SDL rendering *)
 let get_data t = Queue.to_seq t.data |> List.of_seq
 
 let get_bounds t =
-  if Queue.is_empty t.data then (0., 1., 0.)
-  else
-    let values = get_data t in
-    let min_val =
-      match t.min_value with
-      | Some v -> v
-      | None -> List.fold_left min Float.infinity values
-    in
-    let max_val =
-      match t.max_value with
-      | Some v -> v
-      | None -> List.fold_left max Float.neg_infinity values
-    in
-    let current = List.hd (List.rev values) in
-    (min_val, max_val, current)
+  match t.last with
+  | None -> (0., 1., 0.)
+  | Some current ->
+      let values = get_data t in
+      let min_val, max_val = min_max t values in
+      (min_val, max_val, current)
 
 let is_empty t = Queue.is_empty t.data
 

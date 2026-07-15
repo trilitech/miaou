@@ -2,6 +2,7 @@
  (name miaou_widgets_display_sdl)
  (public_name miaou-widgets-display-sdl.widgets)
  (modules
+  sdl_color
   sparkline_widget_sdl
   line_chart_widget_sdl
   image_widget_sdl

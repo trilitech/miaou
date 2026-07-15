@@ -218,3 +218,13 @@ let concat_with_sep sep parts =
           Buffer.add_string buf p)
         tl ;
       Buffer.contents buf
+
+let read_file path =
+  try
+    let ic = open_in path in
+    Fun.protect
+      ~finally:(fun () -> close_in_noerr ic)
+      (fun () ->
+        let n = in_channel_length ic in
+        Ok (really_input_string ic n))
+  with e -> Error e
