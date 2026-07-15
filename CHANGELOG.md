@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Build now guarded against wrong-opam-switch environments via Makefile
   targets and setup docs.
+- **CI now runs the real-terminal runtime scenarios on every build**: Ctrl-C/mouse-tracking cleanup and multi-line modal rendering were previously only checkable by hand; a tmux-driven scenario suite (`test/tmux/run_all.sh`) now runs in CI after the test suite, polling for expected output instead of relying on fixed sleeps, so a regression in these interactive paths is caught automatically instead of requiring a human to notice.
 
 ### Fixed
 

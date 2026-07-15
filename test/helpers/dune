@@ -1,0 +1,4 @@
+(library
+ (name test_helpers)
+ (modules test_helpers)
+ (libraries miaou-core.core miaou-core.interfaces lambda-term))

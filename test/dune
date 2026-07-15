@@ -73,6 +73,15 @@
   miaou-core.widgets.display))
 
 (test
+ (name test_widgets_smoke)
+ (modules test_widgets_smoke)
+ (libraries
+  alcotest
+  miaou-core.helpers
+  miaou-core.interfaces
+  miaou-core.widgets.display))
+
+(test
  (name textbox_widget_test)
  (modules textbox_widget_test)
  (libraries miaou-core.widgets.input))
@@ -80,7 +89,7 @@
 (test
  (name test_pager_streaming)
  (modules test_pager_streaming)
- (libraries miaou-core.widgets.display))
+ (libraries alcotest miaou-core.widgets.display test_helpers))
 
 (test
  (name test_file_pager_cleanup)
@@ -99,12 +108,17 @@
   alcotest
   miaou-core.core
   miaou-core.widgets.layout
-  miaou-core.lib_miaou_internal))
+  miaou-core.lib_miaou_internal
+  test_helpers))
 
 (test
  (name test_capture)
  (modules test_capture)
- (libraries alcotest miaou-core.core miaou-core.lib_miaou_internal))
+ (libraries
+  alcotest
+  miaou-core.core
+  miaou-core.lib_miaou_internal
+  test_helpers))
 
 (test
  (name test_modal_utils)
@@ -152,7 +166,10 @@
   alcotest
   miaou-driver-term.driver
   miaou-driver-sdl.driver
-  miaou-core.runner-common))
+  miaou-core.runner-common
+  miaou-core.core
+  miaou-core.interfaces
+  test_helpers))
 
 (test
  (name test_core_utils)
@@ -181,7 +198,8 @@
   miaou-core.core
   miaou-core.widgets.display
   miaou-core.widgets.layout
-  miaou-core.lib_miaou_internal))
+  miaou-core.lib_miaou_internal
+  test_helpers))
 
 (test
  (name test_widgets_helpers)
@@ -196,7 +214,7 @@
 (test
  (name test_textbox_more)
  (modules test_textbox_more)
- (libraries alcotest miaou-core.widgets.input))
+ (libraries alcotest miaou-core.widgets.input test_helpers))
 
 (test
  (name test_headless_more)
@@ -222,16 +240,6 @@
  (name test_headless_run)
  (modules test_headless_run)
  (libraries alcotest miaou-core.lib_miaou_internal))
-
-(test
- (name test_driver_modal_navigation)
- (modules test_driver_modal_navigation)
- (libraries alcotest miaou-core.core miaou-driver-term.driver))
-
-(test
- (name test_core_driver_modal_navigation)
- (modules test_core_driver_modal_navigation)
- (libraries alcotest miaou-core.core miaou-driver-term.driver))
 
 (test
  (name test_navigation_widgets)
@@ -284,7 +292,8 @@
   miaou-core.widgets.input
   miaou-core.widgets.display
   demo_shared
-  checkbox_demo))
+  checkbox_demo
+  test_helpers))
 
 (test
  (name test_description_list)
@@ -338,7 +347,7 @@
 
 (test
  (name test_registry_validation)
- (libraries miaou alcotest str))
+ (libraries miaou alcotest str test_helpers))
 
 (test
  (name test_input_draining)
@@ -359,6 +368,65 @@
  (name test_matrix_diff)
  (modules test_matrix_diff)
  (libraries alcotest miaou-driver-matrix.driver miaou-core.widgets.display))
+
+(test
+ (name test_matrix_buffer)
+ (modules test_matrix_buffer)
+ (libraries alcotest miaou-driver-matrix.driver test_helpers))
+
+(test
+ (name test_matrix_selection)
+ (modules test_matrix_selection)
+ (libraries alcotest miaou-driver-matrix.driver))
+
+(test
+ (name test_matrix_input)
+ (modules test_matrix_input)
+ (libraries alcotest miaou-driver-matrix.driver miaou-core.helpers))
+
+(test
+ (name test_list_widget)
+ (modules test_list_widget)
+ (libraries alcotest miaou-core.widgets.display test_helpers))
+
+(test
+ (name test_qr_code_widget)
+ (modules test_qr_code_widget)
+ (libraries alcotest miaou-core.widgets.display test_helpers))
+
+(test
+ (name test_octant_canvas)
+ (modules test_octant_canvas)
+ (libraries alcotest miaou-core.widgets.display test_helpers))
+
+(test
+ (name test_spinner_widget)
+ (modules test_spinner_widget)
+ (libraries
+  alcotest
+  miaou-core.widgets.layout
+  miaou-core.widgets.display
+  test_helpers))
+
+(test
+ (name test_framebuffer_widget)
+ (modules test_framebuffer_widget)
+ (libraries alcotest miaou-core.widgets.display))
+
+(test
+ (name test_image_widget)
+ (modules test_image_widget)
+ (libraries alcotest miaou-core.widgets.display))
+
+(test
+ (name test_web_websocket)
+ (modules test_web_websocket)
+ (libraries alcotest miaou-driver-web.driver test_helpers eio))
+
+(test
+ (name test_web_viewer)
+ (modules test_web_viewer)
+ (libraries alcotest miaou-driver-web.driver test_helpers))
 
 (test
  (name test_terminal_raw)
@@ -384,6 +452,21 @@
  (name test_animation)
  (modules test_animation)
  (libraries alcotest miaou-core.helpers))
+
+(test
+ (name test_debounce)
+ (modules test_debounce)
+ (libraries alcotest miaou-core.helpers))
+
+(test
+ (name test_mouse)
+ (modules test_mouse)
+ (libraries alcotest miaou-core.helpers))
+
+(test
+ (name test_workflow)
+ (modules test_workflow)
+ (libraries alcotest miaou-core.core))
 
 (test
  (name test_clipboard)

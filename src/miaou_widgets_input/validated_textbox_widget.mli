@@ -15,13 +15,17 @@ type 'a t
 
     @param debounce_ms Delay in milliseconds before running validation after
     the last keystroke. Default is 250ms. Set to 0 to disable debouncing and
-    validate immediately on every keystroke (legacy behavior). *)
+    validate immediately on every keystroke (legacy behavior).
+    @param now Clock used to timestamp keystrokes and measure the debounce
+    delay. Default: {!Unix.gettimeofday}. Tests can supply a fake,
+    controllable clock here instead of sleeping in wall-clock time. *)
 val create :
   ?title:string ->
   ?width:int ->
   ?initial:string ->
   ?placeholder:string option ->
   ?debounce_ms:int ->
+  ?now:(unit -> float) ->
   validator:'a validator ->
   unit ->
   'a t
@@ -32,6 +36,7 @@ val open_centered :
   ?initial:string ->
   ?placeholder:string option ->
   ?debounce_ms:int ->
+  ?now:(unit -> float) ->
   validator:'a validator ->
   unit ->
   'a t

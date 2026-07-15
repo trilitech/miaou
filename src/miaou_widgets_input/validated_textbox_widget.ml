@@ -19,12 +19,14 @@ type 'a t = {
   debounce_ms : int;
   last_input_time : float;
   pending_validation : bool;
+  now : unit -> float;
 }
 
 let default_debounce_ms = 250
 
 let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
-    ?(debounce_ms = default_debounce_ms) ~validator () =
+    ?(debounce_ms = default_debounce_ms) ?(now = Unix.gettimeofday) ~validator
+    () =
   let textbox = Textbox_widget.create ?title ~width ~initial ~placeholder () in
   let validation_state = validator initial in
   {
@@ -34,11 +36,12 @@ let create ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
     debounce_ms;
     last_input_time = 0.;
     pending_validation = false;
+    now;
   }
 
 let open_centered ?title ?(width = 60) ?(initial = "") ?(placeholder = None)
-    ?(debounce_ms = default_debounce_ms) ~validator () =
-  create ?title ~width ~initial ~placeholder ~debounce_ms ~validator ()
+    ?(debounce_ms = default_debounce_ms) ?now ~validator () =
+  create ?title ~width ~initial ~placeholder ~debounce_ms ?now ~validator ()
 
 let run_validation t =
   let current_value = Textbox_widget.value t.textbox in
@@ -50,7 +53,7 @@ let run_validation t =
 let tick t =
   if not t.pending_validation then t
   else
-    let now = Unix.gettimeofday () in
+    let now = t.now () in
     let elapsed_ms = (now -. t.last_input_time) *. 1000. in
     if elapsed_ms >= float_of_int t.debounce_ms then run_validation t else t
 
@@ -78,7 +81,7 @@ let handle_key t ~key =
   in
   if text_changed then
     (* Text changed: mark validation as pending, record timestamp *)
-    let now = Unix.gettimeofday () in
+    let now = t.now () in
     if t.debounce_ms <= 0 then
       (* No debounce: validate immediately *)
       run_validation {t with textbox = updated_textbox}

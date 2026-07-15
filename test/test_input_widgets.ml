@@ -8,15 +8,7 @@ module Tutorial_modal = Demo_shared.Tutorial_modal
 
 let demo_size : LTerm_geom.size = {rows = 24; cols = 80}
 
-let contains_substring s sub =
-  let len = String.length s in
-  let sub_len = String.length sub in
-  let rec aux i =
-    if i + sub_len > len then false
-    else if String.sub s i sub_len = sub then true
-    else aux (i + 1)
-  in
-  if sub_len = 0 then true else aux 0
+let contains_substring = Test_helpers.contains_substring
 
 let strip_ansi s =
   let len = String.length s in
