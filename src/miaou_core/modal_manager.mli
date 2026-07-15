@@ -45,6 +45,22 @@ val clear : unit -> unit
     presses Enter, use [push] with [commit_on:[]] instead of [push_default].
     Otherwise, the parent modal will close immediately after the child modal
     opens, because the key check happens {i after} your [handle_key] is called.
+
+    {b Same-title replacement semantics}: if a frame with the same [ui.title]
+    is already on the stack, it is silently evicted (removed) before the new
+    frame is pushed — {i without} invoking its [on_close] callback. This is
+    existing, intentional behavior relied on by real call sites (e.g.
+    re-showing a modal with a default title, or a caller that replaces a
+    narrow-terminal/file-browser modal by title); changing it to fire
+    [on_close] on eviction, or to key frames by a unique id instead of title,
+    both break those flows and are tracked as a deferred design change (see
+    the crash-ub-fixes plan's structural-debt backlog) rather than fixed
+    here. If you rely on cleanup logic in [on_close], do not assume it runs
+    when your modal is replaced by a same-titled [push] — only when it is
+    closed via {!close_top}, a [commit_on]/[cancel_on] key, or the key
+    handler's cancel/commit path. A debug line is emitted (gated behind
+    [MIAOU_TUI_DEBUG_MODAL]) whenever a push evicts an existing same-titled
+    frame this way, to make the behavior observable when debugging.
 *)
 val push :
   (module Tui_page.PAGE_SIG with type state = 's) ->

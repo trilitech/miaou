@@ -23,6 +23,20 @@ module Theme_loader = Miaou_style.Theme_loader
 module Keys = Miaou_core.Keys
 open LTerm_geom
 
+(* Debug tracing, gated behind MIAOU_DEBUG (same pattern as
+   Modal_manager.dprintf) so headless test runs stay silent on stderr by
+   default instead of unconditionally emitting "[driver][debug]" lines on
+   every key/refresh. *)
+let debug_enabled =
+  lazy
+    (match Sys.getenv_opt "MIAOU_DEBUG" with
+    | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
+    | _ -> false)
+
+let dprintf fmt =
+  if Lazy.force debug_enabled then Printf.eprintf fmt
+  else Printf.ifprintf Stdlib.stdout fmt
+
 (** Convert a string key name to a [Keys.t], falling back to [Char s]. *)
 let key_of_string s =
   match Keys.of_string s with Some k -> k | None -> Keys.Char s
@@ -154,21 +168,16 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         render_page_with (module P) ps ;
         match Key_queue.take () with
         | None -> (
-            (try
-               Printf.eprintf
-                 "[driver][debug] No key in queue, refreshing page\n%!"
-             with _ -> ()) ;
+            dprintf "[driver][debug] No key in queue, refreshing page\n%!" ;
             let ps' = P.refresh ps |> apply_pending_modal_nav in
             match Navigation.pending ps' with
             | Some nav -> nav_to_outcome nav
             | None -> loop (iteration + 1) ps')
         | Some k -> (
-            (try
-               Printf.eprintf
-                 "[driver][debug] Key event: '%s' modal_active=%b\n%!"
-                 k
-                 (Miaou_core.Modal_manager.has_active ())
-             with _ -> ()) ;
+            dprintf
+              "[driver][debug] Key event: '%s' modal_active=%b\n%!"
+              k
+              (Miaou_core.Modal_manager.has_active ()) ;
             let forced_switch =
               String.length k > 11
               && String.sub k 0 11 = "__SWITCH__:"
@@ -180,11 +189,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             else
               let ps' =
                 if Miaou_core.Modal_manager.has_active () then (
-                  (try
-                     Printf.eprintf
-                       "[driver][debug] Modal manager handling key: '%s'\n%!"
-                       k
-                   with _ -> ()) ;
+                  dprintf
+                    "[driver][debug] Modal manager handling key: '%s'\n%!"
+                    k ;
                   Miaou_core.Modal_manager.handle_key k ;
                   ps)
                 else

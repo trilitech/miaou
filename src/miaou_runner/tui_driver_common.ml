@@ -16,10 +16,12 @@ type outcome = [`Quit | `Back | `SwitchTo of string]
 
 type backend = {available : bool; run : (module PAGE_SIG) -> outcome}
 
-type t = private T
-
-let size () =
-  (Obj.magic 0 : t) [@allow_forbidden "dummy private type for driver interface"]
+(* [type t = private T] plus a [(Obj.magic 0 : t)] "dummy private type"
+   stub used to live here as a placeholder driver-interface shape. It was
+   never constructed by any real value and had no legitimate producer,
+   only this fabricated one — a textbook Obj.magic misuse with no safety
+   justification (crash-ub-fixes slice S8). Removed; nothing referenced
+   [t] or [size] outside this module. *)
 
 let poll_event () = "" (* placeholder synchronous event *)
 
@@ -100,12 +102,17 @@ let run ~term_backend ~sdl_backend ~matrix_backend ~web_backend
         | None -> `Quit)
   in
   let _result = loop initial_page in
-  (* Shutdown fibers and exit to avoid Eio.Switch.run waiting for them *)
-  Miaou_helpers.Fiber_runtime.shutdown () ;
+  (* Shutdown fibers and exit to avoid Eio.Switch.run waiting for them.
+     Kept deliberately (crash-ub-fixes plan, D11): [Fiber_runtime.shutdown]
+     does not cancel any outstanding fiber, so removing this hard [exit 0]
+     would make the process hang waiting for [Eio.Switch.run] to close over
+     fibers that are never asked to stop (e.g. a reader fiber blocked in a
+     blocking await with no more input). Replacing it with a graceful
+     return requires a real fiber-cancellation design and is deferred to
+     the structural-debt backlog, not fixed piecemeal here. *)
   exit 0
 
 let () =
-  ignore size ;
   ignore poll_event ;
   ignore draw_text ;
   ignore clear ;

@@ -58,6 +58,12 @@ type t = {
   queue : Event_queue.t;
   shutdown : bool Atomic.t;
   mutable last_refresh_time : float;
+  (* Read end of the self-pipe woken by Terminal_raw's async-signal-safe
+     exit-signal handler. Watched by a dedicated fiber (see [start]) so an
+     exit signal wakes the driver promptly even if the reader fiber's
+     [Eio_unix.await_readable] on the terminal fd would otherwise not be
+     interrupted by the signal (observed with some Eio backends). *)
+  signal_fd : Unix.file_descr;
 }
 
 (* Refresh interval in seconds — controls how often a synthetic Refresh
@@ -135,6 +141,7 @@ let create ?(handle_sigint = true) terminal =
       ~handle_sigint
       ()
   in
+  let signal_fd = Matrix_terminal.signal_read_fd terminal in
   {
     terminal;
     parser = Parser.create fd;
@@ -142,16 +149,47 @@ let create ?(handle_sigint = true) terminal =
     queue = Event_queue.create ();
     shutdown = Atomic.make false;
     last_refresh_time = 0.0;
+    signal_fd;
   }
 
-(** Start the background reader fiber.  Must be called after terminal
-    raw-mode setup, from inside an Eio switch. *)
+(** Pipe-watcher fiber: blocks on the self-pipe's read end so an exit
+    signal is observed immediately (even while the reader fiber is
+    separately blocked awaiting terminal input), then pushes a [Quit]
+    event so the main tick loop notices it on its next tick — independent
+    of whether the reader fiber ever wakes up.
+
+    [t.shutdown] is only set when the wake is actually attributable to an
+    exit signal ([exit_flag] observed true) or to the enclosing switch
+    being cancelled — not on every wake. A bare EINTR, or [await_readable]
+    returning with [exit_flag] still false (e.g. some other unrelated
+    readability edge), is not evidence that a shutdown was requested, so
+    the loop keeps watching instead of stopping the reader on a false
+    alarm. *)
+let rec pipe_watcher_loop (t : t) env =
+  match Eio_unix.await_readable t.signal_fd with
+  | () ->
+      if Atomic.get t.exit_flag then (
+        Event_queue.push t.queue Matrix_io.Quit ;
+        Atomic.set t.shutdown true)
+      else pipe_watcher_loop t env
+  | exception Eio.Cancel.Cancelled _ -> Atomic.set t.shutdown true
+  | exception Unix.Unix_error (Unix.EINTR, _, _) -> pipe_watcher_loop t env
+
+(** Start the background reader fiber and the signal pipe-watcher fiber.
+    Must be called after terminal raw-mode setup, from inside an Eio
+    switch. *)
 let start t =
   let open Miaou_helpers.Fiber_runtime in
-  spawn (fun env -> reader_loop t env)
+  spawn (fun env -> reader_loop t env) ;
+  spawn (fun env -> pipe_watcher_loop t env)
 
 (** Signal the reader fiber to stop. *)
 let stop t = Atomic.set t.shutdown true
+
+(** Whether an exit signal (SIGINT/SIGTERM/...) was received. Used by the
+    caller to preserve the conventional 130 exit code on the graceful
+    (post-cleanup) shutdown path. *)
+let signaled t = Atomic.get t.exit_flag
 
 (** Drain all pending events (oldest first). *)
 let drain t = Event_queue.drain t.queue

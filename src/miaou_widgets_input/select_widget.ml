@@ -61,7 +61,11 @@ let is_cancelled_inner w = w.cancelled
 
 let reset_cancelled_inner w = {w with cancelled = false}
 
-let value_inner w = List.nth w.items w.cursor
+(* Total: an out-of-range or stale cursor (e.g. after the underlying item
+   list shrinks) must not raise. [""] is the documented "no selection"
+   sentinel, matching the existing [get_selection] convention below. *)
+let value_inner w =
+  match List.nth_opt w.items w.cursor with Some v -> v | None -> ""
 
 let get_selection_inner w = value_inner w
 
@@ -265,6 +269,15 @@ let open_centered_sectioned ?cursor_label ?max_visible ~title ~sections
   let items = List.concat (List.map snd sections) in
   {title; items; to_string; inner; max_visible}
 
+(* Replace the item list in place. Deliberately does NOT reclamp the
+   cursor (unlike [open_centered]): if [items] is shorter than before, the
+   cursor may become stale (out of range for the new list). This is the
+   scenario the total accessors below ([get_selection], [value_opt],
+   [value]) exist to handle without raising. *)
+let set_items (w : 'a t) (items : 'a list) : 'a t =
+  let labels = List.map w.to_string items in
+  {w with items; inner = {w.inner with items = labels}}
+
 (* Size-aware rendering API. New callers may use [render_with_size]. *)
 let render_with_size
     ?(backend : Miaou_widgets_display.Widgets.backend =
@@ -326,15 +339,27 @@ let on_key (w : 'a t) ~key : 'a t * Miaou_interfaces.Key_event.result =
   (w', Miaou_interfaces.Key_event.of_bool handled)
 
 let get_selection (w : 'a t) : 'a option =
-  match w.items with [] -> None | _ -> Some (List.nth w.items w.inner.cursor)
+  (* Total: [List.nth_opt] guards against a stale cursor left over from a
+     shrunk item list instead of raising Invalid_argument. *)
+  List.nth_opt w.items w.inner.cursor
 
 let is_cancelled (w : 'a t) = w.inner.cancelled
 
 let reset_cancelled (w : 'a t) =
   {w with inner = {w.inner with cancelled = false}}
 
-(* Convenience: label string for current selection *)
-let value (w : 'a t) : string = List.nth w.inner.items w.inner.cursor
+(* Convenience: label string for current selection. Total: returns [""] for
+   an empty list or stale cursor (documented "no selection" sentinel,
+   consistent with [value_inner]/[get_selection] above). *)
+let value (w : 'a t) : string =
+  match List.nth_opt w.inner.items w.inner.cursor with
+  | Some v -> v
+  | None -> ""
+
+(* Total counterpart to [value]: returns [None] instead of the [""]
+   sentinel so callers can distinguish "no selection" unambiguously. *)
+let value_opt (w : 'a t) : string option =
+  List.nth_opt w.inner.items w.inner.cursor
 
 let () =
   Miaou_registry.register ~name:"select" ~mli:[%blob "select_widget.mli"] ()

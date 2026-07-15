@@ -35,31 +35,76 @@ type t = {
 }
 
 module Capability = Miaou_interfaces.Capability
+module Iface = Miaou_interfaces.Service_lifecycle
 
-(* Use the same capability key instance as the interface so registration by the
-   Systemd-backed implementation (which registers the interface key) is visible
-   here. Coerce the interface key to this module's type with Obj.magic. *)
-let key : t Capability.key =
-  Obj.magic
-    Miaou_interfaces.Service_lifecycle.key
-  [@allow_forbidden "coerce interface key to local type"]
+(* This module's [t] and the interface's [Iface.t] are NOT the same runtime
+   representation: [Iface.status] is a polymorphic variant
+   ([`Active | `Inactive | `Failed of string]) versus this module's regular
+   variant ([Running | Stopped | Failed of string]), and
+   [Iface.remove_instance_files] takes no [~role] while this module's does.
+   The previous implementation shared one capability key across both types
+   via [Obj.magic] and, on the interface fallback path, additionally
+   [Obj.magic]-cast an [Iface.t] value directly into this module's [t] —
+   an unsound coercion between records of differently-shaped closures:
+   calling the miscast [remove_instance_files] or [get_status] with this
+   module's arity/return-type expectations reads/calls through the wrong
+   closure layout (arity mismatch — segfault-class, not merely a type
+   error caught by the compiler).
+
+   Fixed with an explicit, signature-preserving adapter: this module keeps
+   its own independent capability key (so its public [key]/[set]/[get]/
+   [require] signatures are unchanged for existing callers), and
+   [of_interface] below builds a proper [t] value from an [Iface.t] by
+   translating each field explicitly instead of reinterpreting bytes. *)
+let key : t Capability.key = Capability.create ~name:"service_lifecycle"
 
 let set v = Capability.set key v
+
+let status_of_interface : Iface.service_status -> status = function
+  | `Active -> Running
+  | `Inactive -> Stopped
+  | `Failed msg -> Failed msg
+
+(* Adapt an interface-level implementation into this module's [t] shape.
+   [remove_instance_files] has no [~role] on the interface side; the role
+   passed here is accepted (to match this module's signature) and simply
+   not forwarded, matching the interface's role-agnostic semantics. *)
+let of_interface (iv : Iface.t) : t =
+  {
+    start = (fun ~role ~service -> Iface.start iv ~role ~service);
+    stop = (fun ~role ~service -> Iface.stop iv ~role ~service);
+    restart = (fun ~role ~service -> Iface.restart iv ~role ~service);
+    get_status =
+      (fun ~role ~service ->
+        match Iface.get_status iv ~role ~service with
+        | Ok s -> Ok (status_of_interface s)
+        | Error e -> Error e);
+    install_unit =
+      (fun ~role ~app_bin_dir ~user ->
+        Iface.install_unit iv ~role ~app_bin_dir ~user);
+    write_dropin_node =
+      (fun ~inst ~data_dir ~app_bin_dir ->
+        Iface.write_dropin_node iv ~inst ~data_dir ~app_bin_dir);
+    enable_start = (fun ~role ~inst -> Iface.enable_start iv ~role ~inst);
+    enable = (fun ~role ~inst -> Iface.enable iv ~role ~inst);
+    disable = (fun ~role ~inst -> Iface.disable iv ~role ~inst);
+    remove_instance_files =
+      (fun ~role:_ ~inst ~remove_data ->
+        Iface.remove_instance_files iv ~inst ~remove_data);
+  }
 
 let get () =
   match Capability.get key with
   | Some v -> Some v
   | None -> (
-      (* If another module registered the interface-level capability under
-         the interface's key, consult it and coerce to our type. This covers
-         registration ordering races where the interface registration may
-         be visible via the interface module but not via this module's
-         local key instance. *)
-      match Miaou_interfaces.Service_lifecycle.get () with
-      | Some v ->
-          Some
-            (Obj.magic
-               v [@allow_forbidden "coerce interface type to local type"])
+      (* If another module registered only the interface-level capability
+         (e.g. a Systemd-backed implementation registering via
+         [Iface.register]), adapt it into this module's [t] rather than
+         reinterpreting its bytes. This covers registration-ordering races
+         where the interface registration may be visible via the interface
+         module but not via this module's local key instance. *)
+      match Iface.get () with
+      | Some iv -> Some (of_interface iv)
       | None -> None)
 
 let require () =

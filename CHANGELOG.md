@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Build now guarded against wrong-opam-switch environments via Makefile
   targets and setup docs.
 
+### Fixed
+
+- **Grid layout no longer raises on degenerate sizes**: rendering a grid whose padding exceeds the available terminal area (or into a zero-size viewport) used to raise an exception instead of rendering something sensible; the inner content area is now clamped to zero instead of going negative. A negative padding or column-gap value is now also clamped instead of reaching the same crash further down in rendering.
+- **Selection widget accessors are now total**: reading the current selection or its display label after the underlying item list shrinks (a stale cursor position) used to raise instead of reporting "no selection"; a new `value_opt` accessor also lets callers distinguish "no selection" unambiguously. A new `set_items` lets callers replace a widget's items in place (e.g. for a live-filtered list) without losing the cursor position.
+- **File browser caching no longer cross-contaminates instances**: two file-browser widgets browsing different paths, or the same path with different directory-only filters, could previously see each other's cached listing; the cache is now keyed per path/filter combination. Long, multi-byte filenames are also truncated at a safe character boundary instead of potentially producing corrupted text.
+- **Headless test runs stay quiet on stderr by default**: internal driver tracing is now gated behind `MIAOU_DEBUG` instead of always printing.
+- **Modal background dimming now respects the caller's choice**: requesting an undimmed modal background was previously silently ignored and the background was always dimmed.
+- **Terminal restored after a crashing page**: if a page raised an exception while the terminal (Matrix) driver was running, the terminal could be left in raw/alternate-screen/mouse-tracking mode; cleanup now always runs before the error propagates, and the original error/backtrace is preserved.
+- **Signal handling in the terminal driver is safer and more responsive**: the exit-signal handler now only sets a flag and wakes a dedicated fiber (instead of doing terminal I/O directly inside the signal handler), fixing a case where an idle session could be slow to react to Ctrl-C/SIGTERM. A second signal while already shutting down now always attempts a minimal, lock-free terminal restore and force-exits immediately, rather than potentially blocking on the same lock the first signal's normal shutdown path might be stuck on; the conventional exit code for a signal-triggered quit is preserved either way.
+- **Service lifecycle capability no longer risks a crash when only the lower-level interface implementation is registered**: the two representations (this module's and the underlying interface's) previously shared a capability slot via an unsound low-level cast; a lookup now explicitly translates between them, and the accessor functions for starting/stopping/restarting/querying status (previously implemented but not exposed) are now part of the public interface.
+
 ## [0.5.2] - 2026-05-05
 
 ### Fixed

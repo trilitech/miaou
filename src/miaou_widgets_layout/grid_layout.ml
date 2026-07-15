@@ -139,8 +139,12 @@ let span_height row_sizes row_gap start count =
   !h + max 0 ((count - 1) * row_gap)
 
 let render t ~size =
-  let inner_w = size.LTerm_geom.cols - t.padding.left - t.padding.right in
-  let inner_h = size.LTerm_geom.rows - t.padding.top - t.padding.bottom in
+  let inner_w =
+    max 0 (size.LTerm_geom.cols - t.padding.left - t.padding.right)
+  in
+  let inner_h =
+    max 0 (size.LTerm_geom.rows - t.padding.top - t.padding.bottom)
+  in
   let n_rows = List.length t.rows in
   let n_cols = List.length t.cols in
   if n_rows = 0 || n_cols = 0 then ""
@@ -188,7 +192,12 @@ let render t ~size =
       rendered ;
     (* Assemble output line by line. *)
     let buf = Buffer.create (inner_w * inner_h) in
-    let left_pad = String.make t.padding.left ' ' in
+    (* [t.padding]/[t.col_gap]/[t.row_gap] are caller-supplied and not
+       validated at construction time; clamp with [max 0] at every
+       [String.make] use site (not just the already-clamped [inner_w]/
+       [inner_h] above) so a negative padding/gap value can't raise
+       Invalid_argument (crash-ub-fixes S1 sibling sweep). *)
+    let left_pad = String.make (max 0 t.padding.left) ' ' in
     let blank_line = String.make inner_w ' ' in
     (* Top padding *)
     for _ = 1 to t.padding.top do
@@ -212,7 +221,8 @@ let render t ~size =
         Buffer.add_string buf left_pad ;
         let col = ref 0 in
         while !col < n_cols do
-          if !col > 0 then Buffer.add_string buf (String.make t.col_gap ' ') ;
+          if !col > 0 then
+            Buffer.add_string buf (String.make (max 0 t.col_gap) ' ') ;
           match owner.(row).(!col) with
           | None ->
               Buffer.add_string buf (String.make col_sizes.(!col) ' ') ;

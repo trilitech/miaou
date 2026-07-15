@@ -16,6 +16,26 @@ let available = true
 
 module Fibers = Miaou_helpers.Fiber_runtime
 
+(* Run [f], always invoking [cleanup] afterwards — whether [f] returns
+   normally or raises. Unlike [Fun.protect ~finally:cleanup f], a failure
+   inside [cleanup] itself is swallowed rather than wrapped in
+   [Finally_raised], and an exception from [f] is re-raised with its
+   original backtrace preserved via [Printexc.raise_with_backtrace] instead
+   of being masked. This is what lets a crashing page still leave the
+   terminal in a restored, usable state (see slice S6 of the
+   crash-ub-fixes plan): the caller's [cleanup] is expected to internally
+   guard each of its own steps (see [run] below) so one failing step (e.g.
+   a write to an already-closed fd) doesn't skip the rest. *)
+let run_with_cleanup ~cleanup f =
+  match f () with
+  | result ->
+      (try cleanup () with _ -> ()) ;
+      result
+  | exception exn ->
+      let bt = Printexc.get_raw_backtrace () in
+      (try cleanup () with _ -> ()) ;
+      Printexc.raise_with_backtrace exn bt
+
 let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `Back | `SwitchTo of string] =
   Fibers.with_page_switch (fun env _page_sw ->
@@ -108,17 +128,40 @@ let run ?(config = None) (initial_page : (module Tui_page.PAGE_SIG)) :
         {config; buffer; parser; render_loop; io}
       in
 
-      (* Run the shared main loop *)
-      let result = Matrix_main_loop.run ctx ~env initial_page in
-
-      (* Cleanup *)
-      Matrix_input.stop input ;
-      Matrix_render_loop.shutdown render_loop ;
-      Matrix_terminal.write terminal Matrix_ansi_writer.cursor_show ;
-      Matrix_terminal.write terminal "\027[0m" ;
-      (* Save screen content for debugging - will be printed after exit *)
-      let screen_dump = Matrix_buffer.dump_to_string buffer in
-      Matrix_terminal.set_exit_screen_dump terminal screen_dump ;
-      Matrix_terminal.cleanup terminal ;
-
-      result)
+      (* Cleanup steps, each individually guarded so a failure in one step
+         (e.g. a write to a closed fd) does not prevent the rest of the
+         terminal restoration from running. [Matrix_terminal.cleanup] is
+         idempotent (guarded by [cleanup_done]), so it is safe to call it
+         here even though [at_exit] above will also call it: on the normal
+         (non-exceptional) path this call does the real work and the later
+         [at_exit] invocation is a no-op; on the exceptional path (a page or
+         the loop raising) it is the only place the terminal gets restored
+         before the process unwinds to [at_exit] — otherwise a crashing page
+         would leave the user's shell stuck in raw/alt-screen/mouse-tracking
+         mode. See [run_with_cleanup] above for why this uses a manual
+         try/with instead of [Fun.protect]. *)
+      let safe_step f = try f () with _ -> () in
+      let cleanup () =
+        safe_step (fun () -> Matrix_input.stop input) ;
+        safe_step (fun () -> Matrix_render_loop.shutdown render_loop) ;
+        safe_step (fun () ->
+            Matrix_terminal.write terminal Matrix_ansi_writer.cursor_show) ;
+        safe_step (fun () -> Matrix_terminal.write terminal "\027[0m") ;
+        safe_step (fun () ->
+            (* Save screen content for debugging - will be printed after exit *)
+            let screen_dump = Matrix_buffer.dump_to_string buffer in
+            Matrix_terminal.set_exit_screen_dump terminal screen_dump) ;
+        safe_step (fun () -> Matrix_terminal.cleanup terminal)
+      in
+      let result =
+        run_with_cleanup ~cleanup (fun () ->
+            Matrix_main_loop.run ctx ~env initial_page)
+      in
+      (* Preserve the conventional 130 exit code for a signal-triggered
+         quit. The terminal is already fully restored by [cleanup] above at
+         this point, so it is safe to exit immediately; this also sidesteps
+         waiting on any fiber the signal's blocking wait left behind (e.g.
+         the reader fiber, if it never separately woke up), matching the
+         existing hard-exit pattern used elsewhere in the driver stack
+         rather than requiring full graceful fiber cancellation. *)
+      if Matrix_input.signaled input then exit 130 else result)

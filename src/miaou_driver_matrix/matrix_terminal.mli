@@ -56,6 +56,12 @@ val install_signals : t -> (unit -> unit) -> bool Atomic.t
 val install_signals' :
   t -> (unit -> unit) -> ?handle_sigint:bool -> unit -> bool Atomic.t
 
+(** The read end of the self-pipe woken by {!install_signals'}'s
+    async-signal-safe exit-signal handler. A fiber blocked awaiting
+    readability on another fd should also await this one so it wakes up
+    promptly on an exit signal instead of only on unrelated fd activity. *)
+val signal_read_fd : t -> Unix.file_descr
+
 (** Check if resize is pending (set by SIGWINCH). *)
 val resize_pending : t -> bool
 

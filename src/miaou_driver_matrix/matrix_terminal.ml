@@ -33,6 +33,8 @@ let invalidate_size_cache = Raw.invalidate_size_cache
 
 let resize_pending = Raw.resize_pending
 
+let signal_read_fd = Raw.signal_read_fd
+
 let clear_resize_pending = Raw.clear_resize_pending
 
 let install_signals t cleanup_fn =

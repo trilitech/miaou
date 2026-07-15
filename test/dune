@@ -143,7 +143,7 @@
 (test
  (name test_modal_renderer)
  (modules test_modal_renderer)
- (libraries alcotest miaou-core.internals))
+ (libraries alcotest astring miaou-core.internals))
 
 (test
  (name test_drivers_smoke)
@@ -250,6 +250,31 @@
  (name test_grid_layout)
  (modules test_grid_layout)
  (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
+
+(test
+ (name test_select_widget)
+ (modules test_select_widget)
+ (libraries alcotest miaou-core.widgets.input))
+
+(test
+ (name test_file_browser_cache)
+ (modules test_file_browser_cache)
+ (libraries alcotest astring miaou-core.widgets.layout miaou-core.interfaces))
+
+(test
+ (name test_headless_debug_gate)
+ (modules test_headless_debug_gate)
+ (libraries alcotest astring unix miaou-core.lib_miaou_internal))
+
+(test
+ (name test_matrix_driver_cleanup)
+ (modules test_matrix_driver_cleanup)
+ (libraries alcotest miaou-driver-matrix.driver))
+
+(test
+ (name test_service_lifecycle_adapter)
+ (modules test_service_lifecycle_adapter)
+ (libraries alcotest miaou-core.core miaou-core.interfaces))
 
 (test
  (name test_input_widgets)

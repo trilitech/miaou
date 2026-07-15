@@ -82,6 +82,19 @@ let push (type s) (module P : Tui_page.PAGE_SIG with type state = s)
     (fun i (Frame r) ->
       dprintf "[DEBUG]   [%d] existing: '%s'\n%!" i r.ui.title)
     !stack ;
+  (* Same-title replacement: any existing frame with this title is evicted
+     without its [on_close] running (see mli for why this is intentional,
+     existing behavior rather than a bug to fix here). Log it when it
+     actually happens so the silent-eviction semantics are at least
+     observable while debugging. *)
+  (match List.find_opt (fun (Frame r) -> r.ui.title = ui.title) !stack with
+  | Some _ ->
+      dprintf
+        "[DEBUG] Modal_manager.push: evicting existing frame with same title \
+         '%s' (on_close NOT invoked)\n\
+         %!"
+        ui.title
+  | None -> ()) ;
   stack := List.filter (fun (Frame r) -> r.ui.title <> ui.title) !stack ;
   let fr =
     Frame {p = (module P); st = init; ui; commit_on; cancel_on; on_close}
