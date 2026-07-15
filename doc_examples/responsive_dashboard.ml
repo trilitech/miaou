@@ -16,8 +16,7 @@ let layout_for_width width =
     ~default:Wide
     [{max_width = 59; layout = Narrow}; {max_width = 119; layout = Medium}]
 
-let cell name value =
-  Printf.sprintf "| %-9s %6s " name value
+let cell name value = Printf.sprintf "| %-9s %6s " name value
 
 let render_dashboard ~width =
   match layout_for_width width with

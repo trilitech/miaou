@@ -12,6 +12,7 @@ depends: [
   "miaou-core"
   "miaou-driver-term"
   "miaou-driver-matrix"
+  "eio" {>= "1.0"}
   "odoc" {with-doc}
 ]
 depopts: ["miaou-driver-sdl"]

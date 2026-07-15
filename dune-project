@@ -113,7 +113,11 @@
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
- (depends miaou-core miaou-driver-term miaou-driver-matrix)
+ (depends
+  miaou-core
+  miaou-driver-term
+  miaou-driver-matrix
+  (eio (>= 1.0)))
  (depopts miaou-driver-sdl))
 
 (package

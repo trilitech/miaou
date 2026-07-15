@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Build now guarded against wrong-opam-switch environments via Makefile
+  targets and setup docs.
+
 ## [0.5.2] - 2026-05-05
 
 ### Fixed
