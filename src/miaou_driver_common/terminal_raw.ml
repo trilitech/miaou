@@ -395,11 +395,13 @@ let install_signals' t ~on_resize ~on_exit ?(handle_sigint = true) () =
   (try set_exit_handler Sys.sigquit with _ -> ()) ;
   exit_flag
 
-(* Classic (non-self-pipe) signal installation, kept for consumers whose
-   exit_flag consumers only ever poll it with a bounded sleep (never block
-   indefinitely on another fd) — e.g. the lambda-term driver, via
-   term_terminal_setup. Cleanup runs synchronously in the handler followed
-   by an immediate [exit 130], exactly as before this plan's
+(* Classic (non-self-pipe) signal installation. Both terminal drivers now
+   use {!install_signals'}; the only remaining consumer is the (currently
+   uncalled) [Matrix_terminal.install_signals] wrapper — candidate for
+   removal in a follow-up. WARNING: cleanup here runs synchronously inside
+   the signal handler and takes [write_mutex]; if another domain holds the
+   mutex at signal time the handler deadlocks. Kept only until the last
+   wrapper is deleted, exactly as before this plan's
    Matrix-driver-focused self-pipe rework; deliberately not unified with
    {!install_signals'} to avoid changing an already-working, differently-
    shaped consumer without an interactive terminal available to verify

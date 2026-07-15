@@ -8,18 +8,13 @@
 [@@@warning "-32-34-37"]
 
 open Miaou_core
-module Narrow_modal = Miaou_core.Narrow_modal
-module Logger_capability = Miaou_interfaces.Logger_capability
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer
 module Clipboard = Miaou_interfaces.Clipboard
-module Fibers = Miaou_helpers.Fiber_runtime
 module Widgets = Miaou_widgets_display.Widgets
 module Style_context = Miaou_style.Style_context
 module Theme_loader = Miaou_style.Theme_loader
-
-(* One-time narrow terminal warning flag *)
-let narrow_warned = ref false
+module Narrow_warning = Miaou_driver_common.Narrow_warning
 
 (* Debug overlay - shows FPS/TPS when MIAOU_OVERLAY is set *)
 let overlay_enabled =
@@ -93,11 +88,8 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
   (* Frame counter for periodic partial refresh (doesn't reset like tick_count) *)
   let frame_counter = ref 0 in
 
-  (* Track last size for narrow warning detection *)
-  let last_size =
-    let rows, cols = ctx.io.size () in
-    ref {LTerm_geom.rows; cols}
-  in
+  (* Per-session narrow-terminal warning state (banner + one-time modal) *)
+  let narrow_warning = Narrow_warning.create () in
 
   (* Esc cooldown: after closing a modal with Esc, suppress further Esc keys
      for a short period to prevent key-repeat from reaching the underlying page
@@ -155,55 +147,10 @@ let run ctx ~(env : Eio_unix.Stdenv.base)
     end ;
 
     (* One-time narrow terminal warning (only once per session) *)
-    let prev_cols = !last_size.LTerm_geom.cols in
-    if
-      (cols < 80 && not !narrow_warned)
-      || (cols < 80 && prev_cols >= 80 && not !narrow_warned)
-    then (
-      (match Logger_capability.get () with
-      | Some logger ->
-          logger.logf
-            Warning
-            (Printf.sprintf
-               "WIDTH_CROSSING: prev=%d new=%d (showing narrow modal)"
-               prev_cols
-               cols)
-      | None -> ()) ;
-      narrow_warned := true ;
-      Modal_manager.push
-        (module Narrow_modal.Page)
-        ~init:(Narrow_modal.Page.init ())
-        ~ui:
-          {
-            title = "Narrow terminal";
-            left = Some 2;
-            max_width = None;
-            dim_background = true;
-          }
-        ~commit_on:[]
-        ~cancel_on:[]
-        ~on_close:(fun (_ : Narrow_modal.Page.pstate) _ -> ()) ;
-      Modal_manager.set_consume_next_key () ;
-      let my_title = "Narrow terminal" in
-      Fibers.spawn (fun env ->
-          Eio.Time.sleep env#clock 5.0 ;
-          match Modal_manager.top_title_opt () with
-          | Some t when t = my_title -> Modal_manager.close_top `Cancel
-          | _ -> ())) ;
-    last_size := size ;
+    Narrow_warning.maybe_warn narrow_warning ~cols ;
 
     (* Build header lines for narrow terminal warning banner *)
-    let header_lines =
-      if cols < 80 then
-        [
-          Miaou_widgets_display.Widgets.warning_banner
-            ~cols
-            (Printf.sprintf
-               "Narrow terminal: %d cols (< 80). Some UI may be truncated."
-               cols);
-        ]
-      else []
-    in
+    let header_lines = Narrow_warning.header_lines ~cols in
 
     (* Build footer hints from page key_hints *)
     let footer_pairs =
