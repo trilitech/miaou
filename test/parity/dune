@@ -1,0 +1,14 @@
+(library
+ (name modal_nav_parity)
+ (modules modal_nav_scenario modal_nav_page)
+ (libraries miaou-core.core miaou-core.interfaces lambda-term test_helpers))
+
+(test
+ (name test_modal_nav_parity_term)
+ (modules test_modal_nav_parity_term)
+ (libraries alcotest miaou-core.core modal_nav_parity))
+
+(test
+ (name test_modal_nav_parity_matrix)
+ (modules test_modal_nav_parity_matrix)
+ (libraries alcotest miaou-core.core modal_nav_parity))

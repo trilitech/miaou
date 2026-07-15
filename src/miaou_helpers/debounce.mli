@@ -34,8 +34,12 @@ type t
 
 (** Create a new debounce timer.
     @param debounce_ms Minimum time in milliseconds between the last event
-                       and when [is_ready] returns true. Default: 250ms. *)
-val create : ?debounce_ms:int -> unit -> t
+                       and when [is_ready] returns true. Default: 250ms.
+    @param now Clock used to timestamp events and measure elapsed time.
+               Default: {!Unix.gettimeofday}. Tests can supply a fake,
+               controllable clock here instead of sleeping in wall-clock
+               time. *)
+val create : ?debounce_ms:int -> ?now:(unit -> float) -> unit -> t
 
 (** Mark that an event occurred. Resets the debounce timer and sets pending. *)
 val mark : t -> unit

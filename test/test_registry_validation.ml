@@ -9,21 +9,17 @@ module Good_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
+  include Test_helpers.Stub_page_defaults (struct
+    type nonrec state = state
+
+    type nonrec pstate = pstate
+  end)
+
   let init () = Miaou_core.Navigation.make ()
 
   let update ps _ = ps
 
   let view _ps ~focus:_ ~size:_ = "good"
-
-  let move ps _ = ps
-
-  let refresh ps = ps
-
-  let service_select ps _ = ps
-
-  let service_cycle ps _ = ps
-
-  let back ps = ps
 
   let keymap _ : key_binding list =
     [
@@ -32,23 +28,12 @@ module Good_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let handled_keys () = [Miaou_core.Keys.Char "a"; Miaou_core.Keys.Enter]
 
-  let handle_modal_key ps _ ~size:_ = ps
-
   let handle_key ps _ ~size:_ = ps
 
   let on_key ps key ~size =
     let key_str = Miaou_core.Keys.to_string key in
     let ps' = handle_key ps key_str ~size in
     (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let on_modal_key ps key ~size =
-    let key_str = Miaou_core.Keys.to_string key in
-    let ps' = handle_modal_key ps key_str ~size in
-    (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let key_hints _ = []
-
-  let has_modal _ = false
 end
 
 module Bad_page : Miaou_core.Tui_page.PAGE_SIG = struct
@@ -60,21 +45,17 @@ module Bad_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
+  include Test_helpers.Stub_page_defaults (struct
+    type nonrec state = state
+
+    type nonrec pstate = pstate
+  end)
+
   let init () = Miaou_core.Navigation.make ()
 
   let update ps _ = ps
 
   let view _ps ~focus:_ ~size:_ = "bad"
-
-  let move ps _ = ps
-
-  let refresh ps = ps
-
-  let service_select ps _ = ps
-
-  let service_cycle ps _ = ps
-
-  let back ps = ps
 
   let keymap _ : key_binding list =
     [
@@ -84,23 +65,12 @@ module Bad_page : Miaou_core.Tui_page.PAGE_SIG = struct
   (* This page tries to handle a global key (C-q = Quit) *)
   let handled_keys () = [Miaou_core.Keys.Control "q"]
 
-  let handle_modal_key ps _ ~size:_ = ps
-
   let handle_key ps _ ~size:_ = ps
 
   let on_key ps key ~size =
     let key_str = Miaou_core.Keys.to_string key in
     let ps' = handle_key ps key_str ~size in
     (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let on_modal_key ps key ~size =
-    let key_str = Miaou_core.Keys.to_string key in
-    let ps' = handle_modal_key ps key_str ~size in
-    (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let key_hints _ = []
-
-  let has_modal _ = false
 end
 
 module Conflicting_page : Miaou_core.Tui_page.PAGE_SIG = struct
@@ -112,21 +82,17 @@ module Conflicting_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
+  include Test_helpers.Stub_page_defaults (struct
+    type nonrec state = state
+
+    type nonrec pstate = pstate
+  end)
+
   let init () = Miaou_core.Navigation.make ()
 
   let update ps _ = ps
 
   let view _ps ~focus:_ ~size:_ = "conflicting"
-
-  let move ps _ = ps
-
-  let refresh ps = ps
-
-  let service_select ps _ = ps
-
-  let service_cycle ps _ = ps
-
-  let back ps = ps
 
   let keymap _ : key_binding list =
     [
@@ -141,23 +107,12 @@ module Conflicting_page : Miaou_core.Tui_page.PAGE_SIG = struct
   (* This page handles same key as Good_page *)
   let handled_keys () = [Miaou_core.Keys.Char "a"]
 
-  let handle_modal_key ps _ ~size:_ = ps
-
   let handle_key ps _ ~size:_ = ps
 
   let on_key ps key ~size =
     let key_str = Miaou_core.Keys.to_string key in
     let ps' = handle_key ps key_str ~size in
     (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let on_modal_key ps key ~size =
-    let key_str = Miaou_core.Keys.to_string key in
-    let ps' = handle_modal_key ps key_str ~size in
-    (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let key_hints _ = []
-
-  let has_modal _ = false
 end
 
 let test_valid_page_registration () =

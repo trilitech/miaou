@@ -41,15 +41,31 @@ let test_flush_validation_bypasses_debounce () =
   check (option int) "correct value" (Some 42) (VT.get_validated_value box)
 
 let test_tick_runs_validation_after_debounce () =
-  (* Use very short debounce so we can test tick behavior *)
-  let box = VT.create ~debounce_ms:1 ~validator:int_validator () in
+  (* Deterministic fake clock instead of a real sleep: advance it explicitly
+     past the debounce window rather than waiting on wall-clock time. *)
+  let t_ms = ref 0 in
+  let now () = float_of_int !t_ms /. 1000.0 in
+  let box = VT.create ~debounce_ms:100 ~now ~validator:int_validator () in
   let box = VT.handle_key box ~key:"9" in
   check bool "pending after key" true (VT.has_pending_validation box) ;
-  (* Sleep a bit to let debounce expire *)
-  Unix.sleepf 0.01 ;
+  t_ms := !t_ms + 150 ;
   let box = VT.tick box in
   check bool "not pending after tick" false (VT.has_pending_validation box) ;
   check bool "valid after tick" true (VT.is_valid box)
+
+let test_tick_is_noop_before_debounce_elapses () =
+  let t_ms = ref 0 in
+  let now () = float_of_int !t_ms /. 1000.0 in
+  let box = VT.create ~debounce_ms:100 ~now ~validator:int_validator () in
+  let box = VT.handle_key box ~key:"9" in
+  t_ms := !t_ms + 50 ;
+  let box = VT.tick box in
+  check
+    bool
+    "still pending before debounce elapses"
+    true
+    (VT.has_pending_validation box) ;
+  check bool "not yet valid before debounce elapses" false (VT.is_valid box)
 
 let test_error_message () =
   let box = VT.create ~debounce_ms:0 ~validator:int_validator () in
@@ -91,6 +107,10 @@ let () =
             "tick runs validation after debounce"
             `Quick
             test_tick_runs_validation_after_debounce;
+          test_case
+            "tick is a no-op before debounce elapses"
+            `Quick
+            test_tick_is_noop_before_debounce_elapses;
           test_case "error message" `Quick test_error_message;
           test_case "render shows error" `Quick test_render_shows_error;
         ] );

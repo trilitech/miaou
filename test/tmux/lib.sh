@@ -81,3 +81,24 @@ tmux_kill_session() {
   local name="$1"
   tmux kill-session -t "$name" >/dev/null 2>&1 || true
 }
+
+# tmux_wait_for_text <session_name> <needle> <timeout_seconds> -> exit 0 if
+# the pane's captured content contains <needle> within the timeout, 1
+# otherwise. Polls instead of sleeping a fixed duration, so scenarios don't
+# flake under slow/loaded CI runners and don't waste time on fast ones.
+tmux_wait_for_text() {
+  local name="$1" needle="$2" timeout="$3" waited=0
+  while true; do
+    if ! tmux_session_exists "$name"; then
+      return 1
+    fi
+    case "$(tmux_capture_pane "$name")" in
+    *"$needle"*) return 0 ;;
+    esac
+    sleep 0.1
+    waited=$(awk -v w="$waited" 'BEGIN { print w + 0.1 }')
+    if awk -v w="$waited" -v t="$timeout" 'BEGIN { exit !(w >= t) }'; then
+      return 1
+    fi
+  done
+}

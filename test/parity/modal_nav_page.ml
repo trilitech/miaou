@@ -1,9 +1,11 @@
-open Alcotest
-module LG = LTerm_geom
+(*****************************************************************************)
+(*                                                                           *)
+(* SPDX-License-Identifier: MIT                                              *)
+(* Copyright (c) 2026 Nomadic Labs <contact@nomadic-labs.com>                *)
+(*                                                                           *)
+(*****************************************************************************)
 
-(* Minimal page that starts with a modal which consumes Enter and requests
-   navigation to "NEXT" when closed. *)
-module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
+module Dummy_page : Miaou_core.Tui_page.PAGE_SIG with type state = unit = struct
   type state = unit
 
   type key_binding = state Miaou_core.Tui_page.key_binding_desc
@@ -21,21 +23,17 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
     type msg = unit
 
+    include Test_helpers.Stub_page_defaults (struct
+      type nonrec state = state
+
+      type nonrec pstate = pstate
+    end)
+
     let init () = Miaou_core.Navigation.make ()
 
     let update ps _ = ps
 
     let view _ps ~focus:_ ~size:_ = ""
-
-    let move ps _ = ps
-
-    let refresh ps = ps
-
-    let service_select ps _ = ps
-
-    let service_cycle ps _ = ps
-
-    let back ps = ps
 
     let handle_modal_key ps key ~size:_ =
       (match key with
@@ -48,18 +46,7 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
       | _ -> ()) ;
       ps
 
-    let handle_key ps key ~size:_ =
-      (match key with
-      | "Enter" ->
-          Miaou_core.Modal_manager.set_consume_next_key () ;
-          Miaou_core.Modal_manager.close_top `Commit
-      | "Esc" ->
-          Miaou_core.Modal_manager.set_consume_next_key () ;
-          Miaou_core.Modal_manager.close_top `Cancel
-      | _ -> ()) ;
-      ps
-
-    let has_modal _ = false
+    let handle_key = handle_modal_key
 
     let keymap _ = []
 
@@ -74,8 +61,6 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
       let key_str = Miaou_core.Keys.to_string key in
       let ps' = handle_modal_key ps key_str ~size in
       (ps', Miaou_interfaces.Key_event.Bubble)
-
-    let key_hints _ = []
   end
 
   let push_modal () =
@@ -91,7 +76,13 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
         | `Commit ->
             Miaou_core.Modal_manager.set_pending_navigation
               (Miaou_core.Navigation.Goto "NEXT")
-        | _ -> ())
+        | `Cancel -> ())
+
+  include Test_helpers.Stub_page_defaults (struct
+    type nonrec state = state
+
+    type nonrec pstate = pstate
+  end)
 
   let init () =
     Miaou_core.Modal_manager.clear () ;
@@ -102,24 +93,12 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let view _ps ~focus:_ ~size:_ = ""
 
-  let move ps _ = ps
-
-  let refresh ps = ps
-
-  let service_select ps _ = ps
-
-  let service_cycle ps _ = ps
-
-  let back ps = ps
-
-  let handle_modal_key ps key ~size:_ =
-    Miaou_core.Modal_manager.handle_key key ;
-    ps
-
   let keymap _ = []
 
   let handled_keys () = []
 
+  (* Keys that reach the page directly (no modal active) are inert: this
+     fixture's only observable behavior is the modal's commit/cancel path. *)
   let handle_key ps _ ~size:_ = ps
 
   let has_modal _ = Miaou_core.Modal_manager.has_active ()
@@ -128,48 +107,4 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
     let key_str = Miaou_core.Keys.to_string key in
     let ps' = handle_key ps key_str ~size in
     (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let on_modal_key ps key ~size =
-    let key_str = Miaou_core.Keys.to_string key in
-    let ps' = handle_modal_key ps key_str ~size in
-    (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let key_hints _ = []
 end
-
-let read_keys keys =
-  let keys = ref keys in
-  fun () ->
-    match !keys with
-    | hd :: tl ->
-        keys := tl ;
-        hd
-    | [] -> Miaou_driver_term.Lambda_term_driver.Quit
-
-let test_modal_consumes_enter_triggers_navigation () =
-  let res =
-    Miaou_driver_term.Lambda_term_driver.run_with_key_source_for_tests
-      ~read_key:(read_keys [Miaou_driver_term.Lambda_term_driver.Enter])
-      (module Dummy_page)
-  in
-  check
-    (Alcotest.of_pp (fun fmt -> function
-      | `Quit -> Format.fprintf fmt "Quit"
-      | `Back -> Format.fprintf fmt "Back"
-      | `SwitchTo s -> Format.fprintf fmt "SwitchTo %s" s))
-    "navigation triggered"
-    (`SwitchTo "NEXT")
-    res
-
-let () =
-  run
-    "driver_modal_navigation"
-    [
-      ( "modal_navigation",
-        [
-          test_case
-            "enter closes modal and navigates"
-            `Quick
-            test_modal_consumes_enter_triggers_navigation;
-        ] );
-    ]

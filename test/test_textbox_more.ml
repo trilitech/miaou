@@ -1,15 +1,7 @@
 open Alcotest
 module TB = Miaou_widgets_input.Textbox_widget
 
-let contains_substring s sub =
-  let len = String.length s in
-  let sub_len = String.length sub in
-  let rec loop i =
-    if i + sub_len > len then false
-    else if String.sub s i sub_len = sub then true
-    else loop (i + 1)
-  in
-  sub_len = 0 || loop 0
+let contains_substring = Test_helpers.contains_substring
 
 let test_editing () =
   let tb = TB.create ~initial:"abc" ~width:10 () in

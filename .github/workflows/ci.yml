@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Update apt cache
         run: sudo apt-get update
+      - name: Install tmux
+        run: sudo apt-get install -y tmux
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: 5.3.0
@@ -28,6 +30,8 @@ jobs:
           opam exec -- dune build @all
           opam exec -- dune runtest
           opam exec -- dune build @install
+      - name: Run tmux runtime scenarios
+        run: bash test/tmux/run_all.sh
       - name: Build website
         working-directory: website
         run: |

@@ -9,6 +9,12 @@ module Capture_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
+  include Test_helpers.Stub_page_defaults (struct
+    type nonrec state = state
+
+    type nonrec pstate = pstate
+  end)
+
   let init () = Miaou_core.Navigation.make 0
 
   let update ps _ = ps
@@ -16,21 +22,9 @@ module Capture_page : Miaou_core.Tui_page.PAGE_SIG = struct
   let view ps ~focus:_ ~size:_ =
     Printf.sprintf "Capture demo %d" ps.Miaou_core.Navigation.s
 
-  let move ps _ = ps
-
-  let refresh ps = ps
-
-  let service_select ps _ = ps
-
-  let service_cycle ps _ = ps
-
-  let back ps = ps
-
   let keymap _ = []
 
   let handled_keys () = []
-
-  let handle_modal_key ps _ ~size:_ = ps
 
   let handle_key ps key ~size:_ =
     if key = "x" then Miaou_core.Navigation.update (fun s -> s + 1) ps else ps
@@ -39,15 +33,6 @@ module Capture_page : Miaou_core.Tui_page.PAGE_SIG = struct
     let key_str = Miaou_core.Keys.to_string key in
     let ps' = handle_key ps key_str ~size in
     (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let on_modal_key ps key ~size =
-    let key_str = Miaou_core.Keys.to_string key in
-    let ps' = handle_modal_key ps key_str ~size in
-    (ps', Miaou_interfaces.Key_event.Bubble)
-
-  let key_hints _ = []
-
-  let has_modal _ = false
 end
 
 let with_temp_file prefix f =
