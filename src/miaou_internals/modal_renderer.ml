@@ -145,7 +145,6 @@ let render_overlay ~(cols : int option) ~base ?rows () =
                 let content =
                   wrap_content_to_width raw_content geom.content_width
                 in
-                let dim_background = dim_background || true in
                 (* Derive an adaptive max_height from the current base output lines.
                    Keep a higher floor so content like Select lists isn't clipped by header lines. *)
                 let max_height = geom.max_height in

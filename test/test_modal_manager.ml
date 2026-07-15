@@ -116,10 +116,55 @@ let test_convenience () =
   check bool "helpers consumed" true (List.length !results = 3) ;
   check bool "stack empty" false (MM.has_active ())
 
+(* Regression test for crash-ub-fixes slice S10: document (and pin down)
+   the existing same-title replacement semantics — pushing a second frame
+   with the same title evicts the first WITHOUT invoking its [on_close].
+   This is intentional, existing behavior (see modal_manager.mli); the
+   test exists so that a future change to this semantics is a deliberate,
+   visible decision rather than an accidental regression. *)
+let test_same_title_eviction_skips_on_close () =
+  MM.clear () ;
+  let first_on_close_called = ref false in
+  let second_on_close_called = ref false in
+  MM.push
+    (module Modal_page)
+    ~init:(Modal_page.init ())
+    ~ui:{title = "dup"; left = None; max_width = None; dim_background = true}
+    ~commit_on:["ok"]
+    ~cancel_on:["Esc"]
+    ~on_close:(fun _ _ -> first_on_close_called := true) ;
+  check bool "first pushed" true (MM.has_active ()) ;
+  (* Push a second frame with the same title: the first is evicted
+     silently, its on_close must NOT fire. *)
+  MM.push
+    (module Modal_page)
+    ~init:(Modal_page.init ())
+    ~ui:{title = "dup"; left = None; max_width = None; dim_background = true}
+    ~commit_on:["ok"]
+    ~cancel_on:["Esc"]
+    ~on_close:(fun _ _ -> second_on_close_called := true) ;
+  check
+    bool
+    "first frame's on_close not invoked on eviction"
+    false
+    !first_on_close_called ;
+  check bool "still exactly one active modal" true (MM.has_active ()) ;
+  MM.handle_key "ok" ;
+  check
+    bool
+    "second frame's on_close invoked on its own commit"
+    true
+    !second_on_close_called ;
+  MM.clear ()
+
 let suite =
   [
     test_case "push/commit/cancel" `Quick test_push_commit_cancel;
     test_case "convenience helpers" `Quick test_convenience;
+    test_case
+      "same-title eviction skips on_close"
+      `Quick
+      test_same_title_eviction_skips_on_close;
   ]
 
 let () = run "modal_manager" [("modal_manager", suite)]

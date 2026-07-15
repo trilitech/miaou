@@ -181,6 +181,87 @@ let test_row_gap_multi_line () =
   check string "row 1 line 0" "BBBB" (List.nth lines 3) ;
   check string "row 1 line 1" "BBBB" (List.nth lines 4)
 
+(* Degenerate-size regression tests: padding/child geometry can make the
+   inner content area shrink to zero or below. Buffer.create/String.make
+   raise Invalid_argument on negative lengths, so render must clamp instead
+   of crashing (see crash-ub-fixes plan, slice S1). *)
+let test_zero_size () =
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 1]
+      ~cols:[Grid.Px 1]
+      [Grid.cell ~row:0 ~col:0 (fill_char 'A')]
+  in
+  (* Degenerate 0x0 container: previously `String.make inner_w ' '` with a
+     negative-derived inner_w could raise Invalid_argument; clamped to 0 it
+     must render without raising (fixed-size tracks still render at their
+     declared size, independent of the container). *)
+  let out = Grid.render grid ~size:(size 0 0) in
+  ignore out ;
+  check bool "no exception raised" true true
+
+let test_padding_exceeds_size () =
+  (* Padding larger than the available size drives inner_w/inner_h negative
+     before clamping; must not raise. *)
+  let padding : Miaou_widgets_layout.Flex_layout.padding =
+    {left = 5; right = 5; top = 5; bottom = 5}
+  in
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 1]
+      ~cols:[Grid.Px 1]
+      ~padding
+      [Grid.cell ~row:0 ~col:0 (fill_char 'A')]
+  in
+  let out = Grid.render grid ~size:(size 2 2) in
+  ignore out ;
+  check bool "no exception raised" true true
+
+let test_negative_padding_does_not_raise () =
+  (* Caller-supplied padding is not validated at construction; a negative
+     value must not reach String.make raw (reviewer-flagged sibling of the
+     inner_w/inner_h clamp: grid_layout.ml's left_pad). *)
+  let padding : Miaou_widgets_layout.Flex_layout.padding =
+    {left = -3; right = 0; top = 0; bottom = 0}
+  in
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 1]
+      ~cols:[Grid.Px 3]
+      ~padding
+      [Grid.cell ~row:0 ~col:0 (fill_char 'A')]
+  in
+  let out = Grid.render grid ~size:(size 10 1) in
+  ignore out ;
+  check bool "no exception raised" true true
+
+let test_negative_col_gap_does_not_raise () =
+  (* Same as above for [col_gap]: grid_layout.ml's per-column gap fill. *)
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 1]
+      ~cols:[Grid.Px 3; Grid.Px 3]
+      ~col_gap:(-2)
+      [
+        Grid.cell ~row:0 ~col:0 (fill_char 'A');
+        Grid.cell ~row:0 ~col:1 (fill_char 'B');
+      ]
+  in
+  let out = Grid.render grid ~size:(size 10 1) in
+  ignore out ;
+  check bool "no exception raised" true true
+
+let test_oversized_children () =
+  let grid =
+    Grid.create
+      ~rows:[Grid.Px 100]
+      ~cols:[Grid.Px 100]
+      [Grid.cell ~row:0 ~col:0 (fill_char 'A')]
+  in
+  let out = Grid.render grid ~size:(size 1 1) in
+  ignore out ;
+  check bool "no exception raised" true true
+
 let () =
   run
     "grid_layout"
@@ -198,5 +279,16 @@ let () =
           test_case "minmax track" `Quick test_minmax_track;
           test_case "row gap" `Quick test_row_gap;
           test_case "row gap multi-line" `Quick test_row_gap_multi_line;
+          test_case "zero size" `Quick test_zero_size;
+          test_case "padding exceeds size" `Quick test_padding_exceeds_size;
+          test_case
+            "negative padding does not raise"
+            `Quick
+            test_negative_padding_does_not_raise;
+          test_case
+            "negative col_gap does not raise"
+            `Quick
+            test_negative_col_gap_does_not_raise;
+          test_case "oversized children" `Quick test_oversized_children;
         ] );
     ]

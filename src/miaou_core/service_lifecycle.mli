@@ -21,10 +21,23 @@
 
     Example
     {[
-      let start ~service = (* spawn systemd unit or run command *) in
-      let stop ~service = (* stop unit *) in
-      let get_status ~service = Ok Miaou_core.Service_lifecycle.Running in
-      Miaou_core.Service_lifecycle.set { start; stop; restart=(fun ~service -> Ok ()); get_status }
+      let unavailable = Error "not implemented" in
+      Miaou_core.Service_lifecycle.set
+        {
+          start = (fun ~role:_ ~service:_ -> (* spawn systemd unit or run command *) Ok ());
+          stop = (fun ~role:_ ~service:_ -> Ok ());
+          restart = (fun ~role:_ ~service:_ -> Ok ());
+          get_status =
+            (fun ~role:_ ~service:_ -> Ok Miaou_core.Service_lifecycle.Running);
+          install_unit = (fun ~role:_ ~app_bin_dir:_ ~user:_ -> unavailable);
+          write_dropin_node =
+            (fun ~inst:_ ~data_dir:_ ~app_bin_dir:_ -> unavailable);
+          enable_start = (fun ~role:_ ~inst:_ -> unavailable);
+          enable = (fun ~role:_ ~inst:_ -> unavailable);
+          disable = (fun ~role:_ ~inst:_ -> unavailable);
+          remove_instance_files =
+            (fun ~role:_ ~inst:_ ~remove_data:_ -> unavailable);
+        }
     ]}
 *)
 
@@ -59,6 +72,20 @@ val set : t -> unit
 val get : unit -> t option
 
 val require : unit -> t
+
+(* [start]/[stop]/[restart]/[get_status] were implemented in the .ml but
+   never declared here, so this abstract-[t] public interface could not
+   actually be used for the capability's namesake operations (start/stop/
+   status) — only the unit-install/enable/disable/remove_instance_files
+   side. Exposed here (crash-ub-fixes slice S9): purely additive, no
+   existing declaration changed. *)
+val start : t -> role:string -> service:string -> (unit, string) result
+
+val stop : t -> role:string -> service:string -> (unit, string) result
+
+val restart : t -> role:string -> service:string -> (unit, string) result
+
+val get_status : t -> role:string -> service:string -> (status, string) result
 
 val install_unit :
   t ->

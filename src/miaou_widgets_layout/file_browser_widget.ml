@@ -9,29 +9,32 @@
 
 type entry = {name : string; is_dir : bool}
 
-(* Cache for directory listings and writable status to avoid repeated filesystem calls *)
-type cache = {
-  mutable cached_path : string;
-  mutable cached_entries : entry list;
-  mutable cached_writable : (string, bool) Hashtbl.t;
-  mutable cached_show_hidden : bool;
-}
+(* Cache for directory listings and writable status to avoid repeated
+   filesystem calls.
 
-let make_cache () =
-  {
-    cached_path = "";
-    cached_entries = [];
-    cached_writable = Hashtbl.create 32;
-    cached_show_hidden = false;
-  }
+   Historically this was a single mutable slot holding only the most
+   recently visited (path, show_hidden) pair, shared by every browser
+   instance in the process. Two [t] values browsing different directories
+   (or the same directory with different [dirs_only] filters) would
+   silently evict each other's cached listing, and public [invalidate_cache]
+   (used by tests and by "n"/mkdir flows) only ever cleared that single
+   slot.
 
-(* Global cache - invalidated when path changes *)
-let cache = make_cache ()
+   This keys the listing cache by [(path, dirs_only, show_hidden)] and the
+   writable cache by [path], so distinct browser instances/paths no longer
+   contaminate each other. [invalidate_cache] bumps a global epoch instead
+   of clearing tables directly: cache entries are tagged with the epoch
+   they were computed at, so every instance transparently refreshes on its
+   next access after invalidation, and [Hashtbl.replace] keeps memory bounded
+   by the number of distinct paths visited rather than growing per epoch. *)
+let cache_epoch = ref 0
 
-let invalidate_cache () =
-  cache.cached_path <- "" ;
-  cache.cached_entries <- [] ;
-  Hashtbl.clear cache.cached_writable
+let entries_cache : (string * bool * bool, int * entry list) Hashtbl.t =
+  Hashtbl.create 16
+
+let writable_cache : (string, int * bool) Hashtbl.t = Hashtbl.create 32
+
+let invalidate_cache () = incr cache_epoch
 
 type t = {
   current_path : string;
@@ -133,14 +136,14 @@ let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
 let clamp = List_nav.clamp
 
 let is_writable path =
-  match Hashtbl.find_opt cache.cached_writable path with
-  | Some v -> v
-  | None ->
+  match Hashtbl.find_opt writable_cache path with
+  | Some (epoch, v) when epoch = !cache_epoch -> v
+  | _ ->
       let sys = Miaou_interfaces.System.require () in
       let result =
         match sys.probe_writable ~path with Ok b -> b | Error _ -> false
       in
-      Hashtbl.add cache.cached_writable path result ;
+      Hashtbl.replace writable_cache path (!cache_epoch, result) ;
       result
 
 let rec next_available_name ~existing ~prefix idx =
@@ -184,30 +187,22 @@ let list_entries_safe path ~dirs_only ~show_hidden =
 
 let list_entries_with_parent path ~dirs_only ~show_hidden =
   (* Use cached entries if path and show_hidden match *)
-  if
-    cache.cached_path = path
-    && cache.cached_show_hidden = show_hidden
-    && cache.cached_entries <> []
-  then cache.cached_entries
-  else begin
-    (* Path or show_hidden changed - clear writable cache for fresh checks *)
-    if cache.cached_path <> path then Hashtbl.clear cache.cached_writable ;
-    let entries = list_entries_safe path ~dirs_only ~show_hidden in
-    let parent = Filename.dirname path in
-    let result =
-      let with_parent =
-        if parent = path then entries
-        else {name = ".."; is_dir = true} :: entries
+  let key = (path, dirs_only, show_hidden) in
+  match Hashtbl.find_opt entries_cache key with
+  | Some (epoch, entries) when epoch = !cache_epoch && entries <> [] -> entries
+  | _ ->
+      let entries = list_entries_safe path ~dirs_only ~show_hidden in
+      let parent = Filename.dirname path in
+      let result =
+        let with_parent =
+          if parent = path then entries
+          else {name = ".."; is_dir = true} :: entries
+        in
+        (* Always include the current directory entry first so Enter selects it by default. *)
+        {name = "."; is_dir = true} :: with_parent
       in
-      (* Always include the current directory entry first so Enter selects it by default. *)
-      {name = "."; is_dir = true} :: with_parent
-    in
-    (* Update cache *)
-    cache.cached_path <- path ;
-    cache.cached_entries <- result ;
-    cache.cached_show_hidden <- show_hidden ;
-    result
-  end
+      Hashtbl.replace entries_cache key (!cache_epoch, result) ;
+      result
 
 let is_cancelled w = w.cancelled
 
@@ -654,8 +649,13 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     if len <= max_width then s
     else if max_width <= 1 then String.make max_width '.'
     else
-      let cut = max 0 (max_width - 1) in
-      String.sub s 0 cut ^ "."
+      (* Byte-safe cut: [String.sub s 0 (max_width - 1)] would slice a
+         multi-byte UTF-8 codepoint in half and produce an invalid string.
+         Use the canonical visible-width-to-byte-index helper instead. *)
+      let cut_bytes =
+        Helpers.visible_byte_index_of_pos s (max 0 (max_width - 1))
+      in
+      String.sub s 0 cut_bytes ^ "."
   in
   let pad_to_width s =
     let v = W.visible_chars_count s in

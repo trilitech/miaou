@@ -81,6 +81,19 @@ val open_centered_sectioned :
   unit ->
   'a t
 
+(** Replace the item list of an existing widget in place (e.g. for a
+    live-filtered candidate list), keeping the cursor position and other
+    state untouched.
+
+    Unlike {!open_centered}/{!open_centered_sectioned}, this does {b not}
+    reclamp the cursor to the new list's bounds: if [items] is shorter than
+    before, the cursor may become stale (no longer a valid index). Use
+    {!get_selection} or {!value_opt} afterwards — both are total and return
+    [None] rather than raising when the cursor no longer indexes a valid
+    item.
+*)
+val set_items : 'a t -> 'a list -> 'a t
+
 (** {1 Rendering} *)
 
 (** Render the select widget with size awareness.
@@ -156,8 +169,18 @@ val on_key : 'a t -> key:string -> 'a t * Miaou_interfaces.Key_event.result
 
     Returns [None] if the list is empty, [Some item] otherwise.
     The selected item is determined by the current cursor position.
+    Total: also returns [None] for a stale cursor left over from a
+    shrunk item list, instead of raising.
 *)
 val get_selection : 'a t -> 'a option
+
+(** Get the display label of the currently selected item.
+
+    Returns [None] if the list is empty or the cursor is stale (e.g. after
+    the underlying item list shrunk). Prefer this over relying on the
+    internal (non-mli) [""] sentinel used elsewhere in the module.
+*)
+val value_opt : 'a t -> string option
 
 (** Check if the user pressed Esc to cancel selection.
 

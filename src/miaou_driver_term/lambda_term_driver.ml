@@ -111,12 +111,14 @@ let render_diff ~rows last_lines next_lines =
 
 module LT = LTerm
 
-type t = private T
+(* [type t = private T] plus a [(Obj.magic 0 : t)] "dummy private type"
+   stub used to live here as a placeholder driver-interface shape. It was
+   never constructed by any real value and had no legitimate producer, only
+   this fabricated one — a textbook Obj.magic misuse with no safety
+   justification (crash-ub-fixes slice S8). Removed; nothing referenced
+   [t] or [size] outside this module. *)
 
 let available = true
-
-let size () =
-  (Obj.magic 0 : t) [@allow_forbidden "dummy private type for driver interface"]
 
 module Events = Term_events
 

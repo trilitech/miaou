@@ -24,13 +24,19 @@ type t
       allowing the app to receive it as a key event. Default: true *)
 val create : ?handle_sigint:bool -> Matrix_terminal.t -> t
 
-(** Start the background reader fiber.  Must be called after entering
-    terminal raw mode, from inside an Eio switch (uses
-    {!Miaou_helpers.Fiber_runtime.spawn}). *)
+(** Start the background reader fiber and the signal pipe-watcher fiber.
+    Must be called after entering terminal raw mode, from inside an Eio
+    switch (uses {!Miaou_helpers.Fiber_runtime.spawn}). *)
 val start : t -> unit
 
 (** Signal the reader fiber to stop. *)
 val stop : t -> unit
+
+(** Whether an exit signal (SIGINT/SIGTERM/SIGHUP/SIGQUIT) was received.
+    Callers use this to preserve the conventional 130 exit code on the
+    graceful post-cleanup shutdown path, since the terminal-cleanup handler
+    itself no longer calls [exit] directly on the first signal. *)
+val signaled : t -> bool
 
 (** Drain all pending events from the queue (oldest first).
     Returns the empty list when nothing is buffered. *)

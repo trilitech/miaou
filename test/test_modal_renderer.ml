@@ -103,11 +103,51 @@ let test_clamped_resize () =
         (size200.LTerm_geom.cols > size100.LTerm_geom.cols)
   | _ -> fail (Printf.sprintf "expected 3 sizes, got %d" (List.length !sizes))
 
+(* Regression test for crash-ub-fixes slice S5: [render_overlay] used to
+   force `dim_background || true`, so a caller asking for an undimmed
+   background (dim_background:false) was silently overridden and the base
+   was always dimmed (wrapped in the SGR "\027[2m...\027[0m" dim escape). *)
+let test_dim_background_false_leaves_base_undimmed () =
+  MS.set_provider (fun () ->
+      [("Modal", None, None, false, fun _size -> "content")]) ;
+  let base = "XXXXXXXXXX" in
+  let rendered = MR.render_overlay ~cols:(Some 20) ~rows:10 ~base () in
+  match rendered with
+  | None -> fail "expected overlay"
+  | Some s ->
+      check
+        bool
+        "undimmed background has no SGR dim escape"
+        false
+        (Astring.String.is_infix ~affix:"\027[2m" s)
+
+let test_dim_background_true_dims_base () =
+  MS.set_provider (fun () ->
+      [("Modal", None, None, true, fun _size -> "content")]) ;
+  let base = "XXXXXXXXXX" in
+  let rendered = MR.render_overlay ~cols:(Some 20) ~rows:10 ~base () in
+  match rendered with
+  | None -> fail "expected overlay"
+  | Some s ->
+      check
+        bool
+        "dimmed background contains SGR dim escape"
+        true
+        (Astring.String.is_infix ~affix:"\027[2m" s)
+
 let suite =
   [
     test_case "render overlay" `Quick test_overlay;
     test_case "dynamic resize" `Quick test_dynamic_resize;
     test_case "clamped resize" `Quick test_clamped_resize;
+    test_case
+      "dim_background:false leaves base undimmed"
+      `Quick
+      test_dim_background_false_leaves_base_undimmed;
+    test_case
+      "dim_background:true dims base"
+      `Quick
+      test_dim_background_true_dims_base;
   ]
 
 let () = run "modal_renderer" [("modal_renderer", suite)]
