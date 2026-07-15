@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **New `miaou serve` command and `Miaou_serve.run` library entry point (Slice 1 of a multi-slice build)**: an app can now be exposed over HTTP/WebSocket via a CSPRNG-generated, constant-time-compared session token instead of today's plain shared password, and the server refuses to bind a non-loopback address unless an auth mechanism (or an explicit override flag) is configured. This slice proves the CLI/token/fail-closed-default surface only — process-per-session isolation (separate worker processes, multi-session support, viewer read-only enforcement, reconnect) lands in later slices.
 - Build now guarded against wrong-opam-switch environments via Makefile
   targets and setup docs.
 - **CI now runs the real-terminal runtime scenarios on every build**: Ctrl-C/mouse-tracking cleanup and multi-line modal rendering were previously only checkable by hand; a tmux-driven scenario suite (`test/tmux/run_all.sh`) now runs in CI after the test suite, polling for expected output instead of relying on fixed sleeps, so a regression in these interactive paths is caught automatically instead of requiring a human to notice.
@@ -633,7 +634,7 @@ This reduces code duplication between Matrix and Lambda-term drivers.
 
 #### High-Performance Matrix Terminal Driver
 
-- **`miaou-driver-matrix`** package with Ratatui-style diff rendering
+- **`miaou-driver-matrix`** package with diff-based cell rendering
 - **Two-domain architecture** using OCaml 5 Domains for true parallelism:
   - Render Domain: 60 FPS, handles diff computation and terminal output
   - Main Domain: 30 TPS, handles input and state updates

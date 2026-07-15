@@ -514,3 +514,29 @@
   miaou-runner.tui
   eio_main)
  (modules modal_multiline_test))
+
+(test
+ (name test_serve_token)
+ (modules test_serve_token)
+ (libraries alcotest eio_main miaou-serve.serve))
+
+(test
+ (name test_serve_cli)
+ (modules test_serve_cli)
+ (libraries alcotest miaou-serve.serve))
+
+(test
+ (name test_serve_auth_default)
+ (modules test_serve_auth_default)
+ (libraries alcotest miaou-core.core miaou-serve.serve))
+
+(executable
+ (name serve_stub_worker)
+ (modules serve_stub_worker)
+ (libraries miaou-core.core miaou-serve.serve))
+
+(test
+ (name test_miaou_serve_lib)
+ (modules test_miaou_serve_lib)
+ (deps serve_stub_worker.exe)
+ (libraries alcotest unix))

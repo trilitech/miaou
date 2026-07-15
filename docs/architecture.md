@@ -326,6 +326,53 @@ miaou ──────────────────┬──> miaou-tui
 5. **Reset ANSI codes** - Always reset styling at line ends
 6. **Test with workflows** - Use `Miaou.Core.Workflow` for testing
 
+## `miaou serve` — process-per-session web supervisor
+
+`miaou serve` (package `miaou-serve`, `src/miaou_serve/`) exposes a MIAOU app
+over HTTP/WebSocket for remote/browser access. Chosen architecture:
+**process-per-session** — a supervisor process spawns one full-process worker
+per session (each an ordinary, unmodified single-controller `Web_driver.run`
+app instance), rather than running multiple sessions as concurrent Eio fibers
+inside one process. This sidesteps the process-global mutable state shared by
+`Modal_manager`/`Registry`/`Fiber_runtime` (none of which is mutex-guarded or
+per-instance today) without requiring any of that state to be made
+context-aware first — isolation is enforced by the OS process boundary, not
+by OCaml-level discipline.
+
+### Slice 0 measurement (worker baseline memory footprint)
+
+Before picking a numeric `max_sessions`/per-worker-limit default (Slice 4),
+one worker's baseline RSS was measured running today's `Web_driver.run`
+unmodified, via `example/gallery/main_web.exe` (the existing gallery demo,
+Matrix driver + a modest widget tree), started with no client connected:
+
+```
+$ MIAOU_WEB_PORT=8099 ./_build/default/example/gallery/main_web.exe &
+$ grep VmRSS /proc/<pid>/status
+VmRSS:      6048 kB
+```
+
+**~6 MB RSS per idle worker** (measured on this development machine, x86_64
+Linux, OCaml 5.3.0, opam switch `miaou`). This is a baseline figure (no
+client attached, no sustained render activity) — it is a lower bound, not a
+worst case; Slice 4's numeric `max_sessions`/`setrlimit` defaults should add
+headroom rather than budgeting exactly to this number, and the figure should
+be re-measured on the actual target deployment host before it is trusted
+operationally (container memory limits, different OCaml runtime GC settings,
+etc. can all shift it). Recorded here per FR-071 ("measure before inventing a
+number"), not fabricated.
+
+### Slice 1 (current) scope
+
+`src/miaou_serve/` currently provides only the CLI/token/auth-default
+surface (`Serve_token`, `Serve_policy`, `Serve_config`, `Serve_cli`,
+`Miaou_serve.run`) with a single, hardcoded worker — no supervisor,
+no process spawning, no per-session Unix-socket proxy yet (Slice 2). See
+`src/miaou_serve/serve_run.mli` for the documented Slice 1 bridging
+behavior and its known gaps (query-param token instead of path-based
+`/s/<token>`, and `Web_driver.run`'s pre-existing all-interfaces bind
+regardless of the requested `bind` address).
+
 ## See Also
 
 - [Capabilities Guide](capabilities.md) - Dependency injection system
