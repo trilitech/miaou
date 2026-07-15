@@ -5,7 +5,6 @@
 (* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
-[@@@warning "-32-34-37-69"]
 
 (* Removed Unix dependency to keep this module lightweight; use Sys.time for timestamps. *)
 
@@ -54,9 +53,6 @@ type t = {
 }
 
 let default_win = 20
-
-(* Avoid referencing LTerm types here to keep this lib independent. *)
-let win_of_rows rows = max 1 (rows - 1)
 
 (* Keep a shim so call sites that pass a Lambda-Term size keep compiling without
 	forcing a lambda-term dependency here. We ignore the actual value and use a
@@ -420,9 +416,8 @@ let stop_streaming t =
 	 completed by a later chunk).
 *)
 type json_streamer = {
-  mutable buf : Buffer.t; (* holds completed text ready to split into lines *)
-  mutable partial : Buffer.t;
-      (* holds last partial line without trailing newline *)
+  buf : Buffer.t; (* holds completed text ready to split into lines *)
+  partial : Buffer.t; (* holds last partial line without trailing newline *)
   mutable indent : int;
   mutable in_string : bool;
   mutable in_escape : bool;

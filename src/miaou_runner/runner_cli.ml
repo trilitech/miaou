@@ -5,8 +5,6 @@
  *                                                                           *
  *****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 open Miaou_core
 
 module Placeholder_page : Tui_page.PAGE_SIG = struct

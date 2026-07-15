@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 module Logger_capability = Miaou_interfaces.Logger_capability
 
 type outcome = [`Commit | `Cancel]
@@ -65,8 +63,6 @@ let dprintf fmt =
 let current_size = ref {LTerm_geom.rows = 24; cols = 80}
 
 let set_current_size rows cols = current_size := {LTerm_geom.rows; cols}
-
-let current_cols () = !current_size.LTerm_geom.cols
 
 let get_current_size () =
   (!current_size.LTerm_geom.rows, !current_size.LTerm_geom.cols)
@@ -171,13 +167,6 @@ let handle_key key =
         pop_top () ;
         on_close st `Commit)
       else ()
-
-let render_overlay ~base =
-  (* render_overlay is intentionally not implemented here; use modal renderer
-     in the executable. The internal library provides a snapshot accessor via
-     Miaou.Internal.Modal_snapshot.set_provider which we register below. *)
-  let _ = base in
-  None
 
 (* Register provider for internal snapshot accessor so the internal lib can
    call back into this module without requiring the internal lib to depend

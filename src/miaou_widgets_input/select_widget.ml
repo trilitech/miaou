@@ -6,7 +6,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 (* Select widget: supports both monomorphic string items and a polymorphic API *)
-[@@@warning "-32-34-37-69"]
 
 module Helpers = Miaou_helpers.Helpers
 
@@ -53,21 +52,6 @@ let create_sectioned_inner ?cursor_label ~title
         find 0 items
   in
   create_inner ~cursor ~title ~items ()
-
-let open_centered_sectioned_inner ?cursor_label ~title ~sections () =
-  create_sectioned_inner ?cursor_label ~title ~sections ()
-
-let is_cancelled_inner w = w.cancelled
-
-let reset_cancelled_inner w = {w with cancelled = false}
-
-(* Total: an out-of-range or stale cursor (e.g. after the underlying item
-   list shrinks) must not raise. [""] is the documented "no selection"
-   sentinel, matching the existing [get_selection] convention below. *)
-let value_inner w =
-  match List.nth_opt w.items w.cursor with Some v -> v | None -> ""
-
-let get_selection_inner w = value_inner w
 
 (* Compute which items are visible given current state and size.
    Returns (start_index, max_shown, has_top_indicator). *)
@@ -147,11 +131,6 @@ let handle_key_inner_with_size w ~key ~(size : LTerm_geom.size) =
             else w
           else w
       | None -> w)
-
-let handle_key_inner w ~key =
-  (* Fallback without size - use default *)
-  let default_size : LTerm_geom.size = {rows = 24; cols = 80} in
-  handle_key_inner_with_size w ~key ~size:default_size
 
 let render_inner
     ?(backend : Miaou_widgets_display.Widgets.backend =
@@ -245,7 +224,6 @@ let render_inner
 (* Polymorphic-by-default API *)
 
 type 'a t = {
-  title : string;
   items : 'a list;
   to_string : 'a -> string;
   inner : outer_t;
@@ -256,7 +234,7 @@ let open_centered ?(cursor = 0) ?max_visible ~title ~items ~to_string () : 'a t
     =
   let labels = List.map to_string items in
   let inner = open_centered_inner ~cursor ~title ~items:labels () in
-  {title; items; to_string; inner; max_visible}
+  {items; to_string; inner; max_visible}
 
 let open_centered_sectioned ?cursor_label ?max_visible ~title ~sections
     ~to_string () : 'a t =
@@ -267,13 +245,13 @@ let open_centered_sectioned ?cursor_label ?max_visible ~title ~sections
     create_sectioned_inner ?cursor_label ~title ~sections:sections_str ()
   in
   let items = List.concat (List.map snd sections) in
-  {title; items; to_string; inner; max_visible}
+  {items; to_string; inner; max_visible}
 
 (* Replace the item list in place. Deliberately does NOT reclamp the
    cursor (unlike [open_centered]): if [items] is shorter than before, the
    cursor may become stale (out of range for the new list). This is the
-   scenario the total accessors below ([get_selection], [value_opt],
-   [value]) exist to handle without raising. *)
+   scenario the total accessors below ([get_selection], [value_opt])
+   exist to handle without raising. *)
 let set_items (w : 'a t) (items : 'a list) : 'a t =
   let labels = List.map w.to_string items in
   {w with items; inner = {w.inner with items = labels}}
@@ -348,16 +326,8 @@ let is_cancelled (w : 'a t) = w.inner.cancelled
 let reset_cancelled (w : 'a t) =
   {w with inner = {w.inner with cancelled = false}}
 
-(* Convenience: label string for current selection. Total: returns [""] for
-   an empty list or stale cursor (documented "no selection" sentinel,
-   consistent with [value_inner]/[get_selection] above). *)
-let value (w : 'a t) : string =
-  match List.nth_opt w.inner.items w.inner.cursor with
-  | Some v -> v
-  | None -> ""
-
-(* Total counterpart to [value]: returns [None] instead of the [""]
-   sentinel so callers can distinguish "no selection" unambiguously. *)
+(* Total: returns [None] instead of raising or returning a sentinel, so
+   callers can distinguish "no selection" unambiguously. *)
 let value_opt (w : 'a t) : string option =
   List.nth_opt w.inner.items w.inner.cursor
 

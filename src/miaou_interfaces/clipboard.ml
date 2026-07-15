@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 type t = {copy : string -> unit; copy_available : unit -> bool}
 
 let key : t Capability.key = Capability.create ~name:"Clipboard"

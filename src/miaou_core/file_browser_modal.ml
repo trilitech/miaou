@@ -5,8 +5,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 module Navigation = Navigation
 module Modal_manager = Modal_manager
 module File_browser_widget = Miaou_widgets_layout.File_browser_widget

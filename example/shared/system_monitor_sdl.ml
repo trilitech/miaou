@@ -17,6 +17,13 @@ module SDL_ctx = Miaou_widgets_display.Sdl_chart_context
 module Sdl = Tsdl.Sdl
 module Ttf = Tsdl_ttf.Ttf
 
+(* [SDL_ctx.renderer] is an opaque capability token (see sdl_chart_context.ml):
+   this demo module, which does depend on tsdl directly, is one of the narrow
+   boundaries that recovers the real [Sdl.renderer] from that token (mirroring
+   the coercion the SDL driver performs on the registration side). *)
+let renderer_of_token (t : SDL_ctx.renderer) : Sdl.renderer =
+  Obj.magic t [@allow_forbidden "recover real SDL renderer from opaque token"]
+
 (* Render sparkline - uses SDL if context available, otherwise text *)
 let render_sparkline_sdl sparkline ~color ~thresholds =
   match SDL_ctx.get_context () with
@@ -31,7 +38,9 @@ let render_sparkline_sdl sparkline ~color ~thresholds =
         ()
   | Some ctx ->
       (* SDL context available - render chart to SDL and return text for layout *)
-      let renderer : Sdl.renderer = SDL_ctx.get_renderer ctx in
+      let renderer : Sdl.renderer =
+        renderer_of_token (SDL_ctx.get_renderer ctx)
+      in
       (* Calculate dynamic X position based on layout *)
       let terminal_width = ctx.cols in
       let left_width = min 50 (terminal_width / 2) in
@@ -73,7 +82,9 @@ let render_line_chart_sdl chart ~thresholds =
       Line_chart.render chart ~show_axes:false ~show_grid:false ~thresholds ()
   | Some ctx ->
       (* SDL context available - render directly to SDL *)
-      let renderer : Sdl.renderer = SDL_ctx.get_renderer ctx in
+      let renderer : Sdl.renderer =
+        renderer_of_token (SDL_ctx.get_renderer ctx)
+      in
       (* Line chart starts after: title(1) + sys_info(~5) + blank(1) = ~7 lines *)
       let line_chart_y = ctx.char_h * 8 in
       let info : Line_chart_sdl.sdl_render_info =

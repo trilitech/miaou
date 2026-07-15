@@ -12,9 +12,6 @@
 
 open Miaou_core
 open Miaou_driver_matrix
-
-[@@@warning "-32-34-37-69"]
-
 module Fibers = Miaou_helpers.Fiber_runtime
 
 let available = true
@@ -52,13 +49,9 @@ end
 
 (* Session tracks the controller and read-only viewers. *)
 module Session = struct
-  type t = {
-    mutex : Mutex.t;
-    mutable viewers : Web_websocket.t list;
-    mutable active : bool;
-  }
+  type t = {mutex : Mutex.t; mutable viewers : Web_websocket.t list}
 
-  let create () = {mutex = Mutex.create (); viewers = []; active = true}
+  let create () = {mutex = Mutex.create (); viewers = []}
 
   let add_viewer t ws =
     Mutex.lock t.mutex ;
@@ -87,7 +80,6 @@ module Session = struct
     Mutex.lock t.mutex ;
     List.iter (fun ws -> try Web_websocket.close ws with _ -> ()) t.viewers ;
     t.viewers <- [] ;
-    t.active <- false ;
     Mutex.unlock t.mutex
 end
 

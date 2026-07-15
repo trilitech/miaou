@@ -7,6 +7,10 @@
 
 [@@@warning "-32-34-37"]
 
+(* Suppression retained deliberately: this module is the deferred matrix-loop
+   consolidation target (see kb/risks.md, term-backend deferral); the warning
+   sweep of 2026-07-15 excluded it to avoid churn ahead of that work. *)
+
 open Miaou_core
 module Clock = Miaou_interfaces.Clock
 module Timer = Miaou_interfaces.Timer

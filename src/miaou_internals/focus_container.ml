@@ -5,8 +5,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 (** Widget operations for Focus_container.
 
     New API uses [on_key] with [Key_event.result].

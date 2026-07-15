@@ -90,13 +90,40 @@ type driver = {
   log : string -> unit;  (** debugging / trace hook *)
 }
 
-(** Register a global driver used by [run]/[run_modal]. *)
+(** Register a global driver used by [run]/[run_modal]. Delegates to
+    {!default_ctx} — behavior-identical to before the app-context record was
+    introduced (structural-debt G5b, FR-107). *)
 val register_driver : driver -> unit
 
-(** Obtain currently registered driver or raise if absent. *)
+(** Obtain currently registered driver or raise if absent. Reads from
+    {!default_ctx}. *)
 val current_driver : unit -> driver
 
 val with_driver : driver -> (unit -> 'a) -> 'a
+
+(** Mutex-guarded holder for a registered {!driver}. Isolated instances (via
+    {!make_ctx}) let callers (e.g. tests) register/run a driver without
+    touching {!default_ctx}, the instance {!register_driver}/
+    {!current_driver}/{!with_driver} delegate to. *)
+type ctx
+
+(** Construct a fresh, empty context (no driver registered). *)
+val make_ctx : unit -> ctx
+
+(** The module-level default context — what the zero-argument
+    [register_driver]/[current_driver]/[with_driver] operate on. *)
+val default_ctx : ctx
+
+(** [register_driver_ctx ctx d] registers [d] on [ctx] (mutex-guarded). *)
+val register_driver_ctx : ctx -> driver -> unit
+
+(** [current_driver_ctx ctx] returns [ctx]'s registered driver, or raises if
+    none is registered. *)
+val current_driver_ctx : ctx -> driver
+
+(** [with_driver_ctx ctx d f] runs [f] with [d] registered on [ctx],
+    restoring [ctx]'s previous driver afterwards (even if [f] raises). *)
+val with_driver_ctx : ctx -> driver -> (unit -> 'a) -> 'a
 
 (** Monadic / applicative helpers *)
 val return : 'a -> ('a, 'ctx) t

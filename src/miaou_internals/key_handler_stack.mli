@@ -4,7 +4,6 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-[@@@warning "-32-34-37-69"]
 
 (** Pure hierarchical key handler stack (no global mutable state).
 

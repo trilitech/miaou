@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 type hint = {short : string option; long : string option}
 
 (* Maintain a stack of hints. Top-most (head) takes precedence. *)

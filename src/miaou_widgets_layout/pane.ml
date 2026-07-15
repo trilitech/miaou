@@ -7,18 +7,12 @@
 (*****************************************************************************)
 (* Pane splitting helpers for Miaou widgets *)
 
-[@@@warning "-32-34-37-69"]
-
 (* reuse visible/ansi helpers and glyphs from display widgets/helpers *)
 module Helpers = Miaou_helpers.Helpers
 
 let visible_chars_count = Miaou_helpers.Helpers.visible_chars_count
 
 let visible_byte_index_of_pos = Miaou_helpers.Helpers.visible_byte_index_of_pos
-
-let insert_before_reset = Miaou_helpers.Helpers.insert_before_reset
-
-let has_trailing_reset = Miaou_helpers.Helpers.has_trailing_reset
 
 let repeat s n =
   let buf = Buffer.create (max 0 n * String.length s) in
@@ -27,12 +21,8 @@ let repeat s n =
   done ;
   Buffer.contents buf
 
-let ansi = Miaou_widgets_display.Widgets.ansi
-
 (* Canonical glyphs and unicode-border flag come from display Widgets so behavior is
 	consistent across all widgets. Keep local short names for convenience. *)
-let use_ascii_borders = Miaou_widgets_display.Widgets.use_ascii_borders
-
 let glyph_corner_tl = Miaou_widgets_display.Widgets.glyph_corner_tl
 
 let glyph_corner_tr = Miaou_widgets_display.Widgets.glyph_corner_tr
@@ -42,8 +32,6 @@ let glyph_corner_bl = Miaou_widgets_display.Widgets.glyph_corner_bl
 let glyph_corner_br = Miaou_widgets_display.Widgets.glyph_corner_br
 
 let glyph_hline = Miaou_widgets_display.Widgets.glyph_hline
-
-let glyph_vline = Miaou_widgets_display.Widgets.glyph_vline
 
 let pad_right s n =
   let v = visible_chars_count s in

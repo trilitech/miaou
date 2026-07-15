@@ -6,8 +6,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 module W = Miaou_widgets_display.Widgets
 module H = Miaou_helpers.Helpers
 

@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 type outcome = [`Commit | `Cancel]
 
 (** Specification for modal width sizing.

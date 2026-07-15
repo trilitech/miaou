@@ -5,8 +5,6 @@
  *                                                                           *
  *****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 open Miaou_core.Tui_page
 module Widgets = Miaou_widgets_display.Widgets
 module Registry = Miaou_core.Registry

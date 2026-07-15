@@ -88,19 +88,46 @@ type driver = {
   log : string -> unit;
 }
 
-let current_driver_ref : driver option ref = ref None
+(* App-context record (structural-debt G5b, FR-107): the registered driver is
+   now held in a mutex-guarded [ctx] record instead of a bare top-level
+   [ref], so isolated contexts can be constructed (e.g. for tests wanting to
+   register a driver without disturbing [default_ctx]). The zero-argument
+   [register_driver]/[current_driver]/[with_driver] functions below keep
+   their existing behavior unchanged, delegating to [default_ctx]. *)
+type ctx = {mutable driver : driver option; mutex : Mutex.t}
 
-let register_driver d = current_driver_ref := Some d
+let make_ctx () = {driver = None; mutex = Mutex.create ()}
 
-let current_driver () =
-  match !current_driver_ref with
-  | Some d -> d
-  | None -> failwith "Workflow: no driver registered"
+let default_ctx : ctx = make_ctx ()
 
-let with_driver d f =
-  let prev = !current_driver_ref in
-  current_driver_ref := Some d ;
-  Fun.protect ~finally:(fun () -> current_driver_ref := prev) f
+let register_driver_ctx ctx d =
+  Mutex.lock ctx.mutex ;
+  ctx.driver <- Some d ;
+  Mutex.unlock ctx.mutex
+
+let current_driver_ctx ctx =
+  Mutex.lock ctx.mutex ;
+  let d = ctx.driver in
+  Mutex.unlock ctx.mutex ;
+  match d with Some d -> d | None -> failwith "Workflow: no driver registered"
+
+let with_driver_ctx ctx d f =
+  Mutex.lock ctx.mutex ;
+  let prev = ctx.driver in
+  ctx.driver <- Some d ;
+  Mutex.unlock ctx.mutex ;
+  Fun.protect
+    ~finally:(fun () ->
+      Mutex.lock ctx.mutex ;
+      ctx.driver <- prev ;
+      Mutex.unlock ctx.mutex)
+    f
+
+let register_driver d = register_driver_ctx default_ctx d
+
+let current_driver () = current_driver_ctx default_ctx
+
+let with_driver d f = with_driver_ctx default_ctx d f
 
 type error = {
   step : string;

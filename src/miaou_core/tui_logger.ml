@@ -5,8 +5,6 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-[@@@warning "-32-34-37-69"]
-
 open Miaou_interfaces.Logger_capability
 
 let enabled = ref false

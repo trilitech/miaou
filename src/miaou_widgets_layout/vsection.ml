@@ -5,7 +5,6 @@
 (* Copyright (c) 2026 Mathias Bourgoin <mathias.bourgoin@atacama.tech>       *)
 (*                                                                           *)
 (*****************************************************************************)
-[@@@warning "-32-34-37-69"]
 
 module Helpers = Miaou_helpers.Helpers
 
