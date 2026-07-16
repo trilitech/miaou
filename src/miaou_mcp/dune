@@ -1,14 +1,19 @@
-; The mcp-kit / mcp-kit-eio libraries are not published to the default opam
-; repository: they are only present in a switch that has pinned the exact
-; commit named in ../../miaou-mcp.opam.template's pin-depends (see
-; docs/agent-protocol.md, "Root-build story"). `(optional)` on both stanzas
-; below means `dune build @all`/`dune runtest` silently skip miaou-mcp
-; instead of failing when that pin has not been added — a dev switch
-; without it stays green on every other package.
+; mcp-kit / mcp-kit-eio are not on the default opam repository yet, so
+; miaou-mcp is a BUILD-ONLY target — deliberately NOT an installable opam
+; package (no root miaou-mcp.opam), so CI's `opam install --deps-only .`
+; never tries to resolve the unreleased pin. To build the server, add the
+; pin to your switch and build this directory directly:
+;   opam pin add -n mcp-kit git+https://github.com/epure-team/ocaml-mcp#feat/split-transport-packages
+;   opam pin add -n mcp-kit-eio git+https://github.com/epure-team/ocaml-mcp#feat/split-transport-packages
+;   opam install mcp-kit mcp-kit-eio
+;   dune build src/miaou_mcp
+; `(optional)` means `dune build @all`/`dune runtest` silently skip these
+; targets when the pin is absent, so the rest of the tree stays green.
+; Promote to a real opam package once mcp-kit is published. See
+; docs/agent-protocol.md "Root-build story".
 
 (library
  (name mcp_tools)
- (public_name miaou-mcp.tools)
  (modules mcp_tools)
  (optional)
  (instrumentation
@@ -19,8 +24,6 @@
 
 (executable
  (name miaou_mcp_main)
- (public_name miaou-mcp)
- (package miaou-mcp)
  (modules miaou_mcp_main)
  (optional)
  (instrumentation
