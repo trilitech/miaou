@@ -20,6 +20,13 @@ type t = {
   max_sessions : int;
   idle_timeout : float;  (** seconds *)
   insecure_allow_plaintext_external : bool;
+  allowed_origins : string list;
+      (** Extra [Origin] values accepted at WebSocket upgrade (FR-045),
+          in addition to the same-origin-as-[bind] default
+          ({!Serve_origin.default_allowed}) — for a reverse-proxy setup
+          whose public origin differs from the bind address. Populated
+          by one or more [--allowed-origin] flags; [[]] means "no extra
+          origins beyond the bind-derived default". *)
 }
 
 (** Defaults used when a flag/argument is not supplied. [bind] defaults to

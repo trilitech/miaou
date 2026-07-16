@@ -14,6 +14,7 @@ type t = {
   max_sessions : int;
   idle_timeout : float;
   insecure_allow_plaintext_external : bool;
+  allowed_origins : string list;
 }
 
 let default =
@@ -23,6 +24,7 @@ let default =
     bind = "127.0.0.1";
     auth_token = None;
     auth_file = None;
+    allowed_origins = [];
     (* FR-071: grounded in a measured per-worker RSS figure, not invented.
        A worker's baseline RSS was measured at ~6-9MB (see
        docs/serve-architecture.md §3 for the measurement and the

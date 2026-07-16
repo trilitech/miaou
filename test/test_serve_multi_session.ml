@@ -390,7 +390,13 @@ let start_harness () =
             (`Tcp (Eio.Net.Ipaddr.V4.loopback, port))
         in
         Atomic.set ready true ;
-        Supervisor.accept_loop ~sw ~env ~sessions ~max_sessions:1000 listening)
+        Supervisor.accept_loop
+          ~sw
+          ~env
+          ~sessions
+          ~max_sessions:1000
+          ~allowed_origins:[]
+          listening)
       ()
   in
   let deadline = Unix.gettimeofday () +. 10.0 in

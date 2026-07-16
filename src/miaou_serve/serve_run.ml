@@ -14,7 +14,7 @@
 exception Bind_refused = Serve_supervisor.Bind_refused
 
 let run ?auth_token ?auth_file ?port ?bind ?max_sessions ?idle_timeout
-    ?insecure_allow_plaintext_external
+    ?insecure_allow_plaintext_external ?allowed_origins
     (initial_page : (module Miaou_core.Tui_page.PAGE_SIG)) : unit =
   (* Entry contract (see .mli): this check MUST run before any Eio event
      loop starts, so a re-exec'd worker never pays for (or accidentally
@@ -32,4 +32,5 @@ let run ?auth_token ?auth_file ?port ?bind ?max_sessions ?idle_timeout
         ?max_sessions
         ?idle_timeout
         ?insecure_allow_plaintext_external
+        ?allowed_origins
         initial_page
