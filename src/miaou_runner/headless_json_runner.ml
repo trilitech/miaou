@@ -8,65 +8,14 @@
 (** Headless JSON-over-stdio runner.  Activated when [MIAOU_DRIVER=headless].
     Reads newline-delimited JSON commands from stdin and writes JSON responses
     to stdout.  The app binary becomes a subprocess that an AI agent or CI
-    script can drive without a real terminal. *)
+    script can drive without a real terminal.
 
-module HD = Lib_miaou_internal.Headless_driver
+    This module is a thin stdio transport shim: command dispatch itself lives
+    in the transport-agnostic {!Miaou_protocol.Protocol_core}, shared with the
+    [miaou-mcp] server. *)
+
 module Tui_page = Miaou_core.Tui_page
-
-(* ── ANSI strip ─────────────────────────────────────────────────────────── *)
-
-(** Remove ANSI/VT escape sequences from [s], returning plain text. *)
-let ansi_strip s =
-  let buf = Buffer.create (String.length s) in
-  let n = String.length s in
-  let i = ref 0 in
-  while !i < n do
-    if s.[!i] = '\x1b' then (
-      incr i ;
-      if !i < n && s.[!i] = '[' then (
-        (* CSI sequence: ESC [ ... <final byte 0x40-0x7e> *)
-        incr i ;
-        while !i < n && (s.[!i] < '@' || s.[!i] > '~') do
-          incr i
-        done ;
-        if !i < n then incr i (* consume final byte *))
-      else if !i < n then incr i (* skip single char after ESC (Fe sequence) *))
-    else (
-      Buffer.add_char buf s.[!i] ;
-      incr i)
-  done ;
-  Buffer.contents buf
-
-(* ── on_frame callback ──────────────────────────────────────────────────── *)
-
-(** Optional callback invoked with the raw ANSI frame on every frame emit.
-    Set by [run ~on_frame] before the command loop starts.  The callback
-    receives the terminal dimensions (rows, cols) followed by the raw ANSI
-    data so that a viewer can resize its terminal to match. *)
-let on_frame_fn : (rows:int -> cols:int -> string -> unit) option ref = ref None
-
-(* ── Frame helpers ───────────────────────────────────────────────────────── *)
-
-let current_frame () =
-  let size = HD.get_size () in
-  let raw = HD.Screen.get () in
-  (match !on_frame_fn with
-  | Some f -> f ~rows:size.LTerm_geom.rows ~cols:size.LTerm_geom.cols raw
-  | None -> ()) ;
-  let text = ansi_strip raw in
-  `Assoc
-    [
-      ("type", `String "frame");
-      ("text", `String text);
-      ("rows", `Int size.LTerm_geom.rows);
-      ("cols", `Int size.LTerm_geom.cols);
-    ]
-
-let nav_response action =
-  `Assoc [("type", `String "nav"); ("action", `String action)]
-
-let error_response msg =
-  `Assoc [("type", `String "error"); ("message", `String msg)]
+module Protocol_core = Miaou_protocol.Protocol_core
 
 let emit json =
   (print_string [@allow_forbidden "headless runner writes JSON to stdout"])
@@ -74,85 +23,24 @@ let emit json =
   (print_char [@allow_forbidden "headless runner writes JSON to stdout"]) '\n' ;
   (flush [@allow_forbidden "headless runner flushes stdout"]) stdout
 
-(* ── Command dispatch ────────────────────────────────────────────────────── *)
+let error_response msg =
+  `Assoc [("type", `String "error"); ("message", `String msg)]
 
-(** Process one parsed command.  Returns [true] to keep running, [false] to
-    stop the loop. *)
-let handle_cmd (cmd : (string * Yojson.Safe.t) list) : bool =
-  let get_string key =
-    match List.assoc_opt key cmd with Some (`String s) -> Some s | _ -> None
-  in
-  let get_int key =
-    match List.assoc_opt key cmd with Some (`Int n) -> Some n | _ -> None
-  in
-  match get_string "cmd" with
-  | None ->
-      emit (error_response "Missing 'cmd' field") ;
-      true
-  | Some "render" ->
-      emit (current_frame ()) ;
-      true
-  | Some "key" -> (
-      match get_string "key" with
-      | None ->
-          emit (error_response "Missing 'key' field") ;
-          true
-      | Some k -> (
-          let outcome = HD.Stateful.send_key k in
-          (* Run a few idle ticks so timers/refresh settle *)
-          let outcome =
-            match outcome with
-            | `Continue -> HD.Stateful.idle_wait ~iterations:3 ()
-            | other -> other
-          in
-          match outcome with
-          | `Quit ->
-              emit (nav_response "quit") ;
-              false
-          | `Back ->
-              emit (nav_response "back") ;
-              false
-          | `SwitchTo name ->
-              emit (nav_response ("switch:" ^ name)) ;
-              true
-          | `Continue ->
-              emit (current_frame ()) ;
-              true))
-  | Some "click" ->
-      (* Click is not yet implemented in Stateful; just re-render *)
-      ignore (get_int "row") ;
-      ignore (get_int "col") ;
-      emit (current_frame ()) ;
-      true
-  | Some "tick" -> (
-      let n = Option.value ~default:1 (get_int "n") in
-      let outcome = HD.Stateful.idle_wait ~iterations:n () in
-      (match outcome with
-      | `Quit -> emit (nav_response "quit")
-      | `Back -> emit (nav_response "back")
-      | `SwitchTo name -> emit (nav_response ("switch:" ^ name))
-      | `Continue -> emit (current_frame ())) ;
-      match outcome with `Quit | `Back -> false | _ -> true)
-  | Some "resize" -> (
-      match (get_int "rows", get_int "cols") with
-      | Some rows, Some cols ->
-          HD.set_size rows cols ;
-          emit (current_frame ()) ;
-          true
-      | _ ->
-          emit (error_response "Missing 'rows' or 'cols'") ;
-          true)
-  | Some "quit" ->
-      emit (nav_response "quit") ;
-      false
-  | Some other ->
-      emit (error_response (Printf.sprintf "Unknown command: %s" other)) ;
-      true
+(* [--no-record] (FR-061): checked via argv since this module is itself the
+   process entry point when [MIAOU_DRIVER=headless]. *)
+let no_record_flag () =
+  Array.exists (fun a -> a = "--no-record") Sys.argv
+  ||
+  match Sys.getenv_opt "MIAOU_NO_RECORD" with
+  | Some v ->
+      let v = String.lowercase_ascii (String.trim v) in
+      not (v = "" || v = "0" || v = "false" || v = "off" || v = "no")
+  | None -> false
 
 (* ── Main entry point ────────────────────────────────────────────────────── *)
 
 let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
-  on_frame_fn := on_frame ;
+  Protocol_core.set_on_frame on_frame ;
   (* Redirect stderr to /dev/null unless verbose mode requested *)
   (match Sys.getenv_opt "MIAOU_HEADLESS_VERBOSE" with
   | None | Some "" -> (
@@ -162,10 +50,7 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
         Unix.close null_fd
       with _ -> ())
   | _ -> ()) ;
-  (* Unpack and repack to give OCaml a concrete module with an abstract state
-     type, avoiding first-class module type-path issues with Stateful.init. *)
-  let module P = (val page : Tui_page.PAGE_SIG) in
-  HD.Stateful.init (module P) ;
+  Protocol_core.init_session ~no_record:(no_record_flag ()) page ;
   let rec loop () =
     (* Use run_in_systhread so the blocking input_line runs in a system
        thread.  This keeps the eio event loop active, allowing background
@@ -183,7 +68,10 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
           | exception Yojson.Json_error msg ->
               emit (error_response ("JSON parse error: " ^ msg)) ;
               loop ()
-          | `Assoc pairs -> if handle_cmd pairs then loop ()
+          | `Assoc pairs ->
+              let resp, outcome = Protocol_core.handle_cmd pairs in
+              emit resp ;
+              if outcome = `Continue then loop ()
           | _ ->
               emit (error_response "Expected a JSON object") ;
               loop ())
@@ -193,10 +81,11 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
      scheduling ensures the refresh fiber only runs while the main loop
      is blocked on stdin (run_in_systhread), so there is no concurrent
      access to the headless driver state. *)
-  (match !on_frame_fn with
-  | Some _ ->
+  (match on_frame with
+  | Some on_frame ->
       Eio.Switch.run @@ fun sw ->
       Eio.Fiber.fork_daemon ~sw (fun () ->
+          let module HD = Lib_miaou_internal.Headless_driver in
           let prev = ref "" in
           while true do
             Eio_unix.sleep 0.2 ;
@@ -210,10 +99,7 @@ let run ?on_frame (page : (module Tui_page.PAGE_SIG)) =
             let raw = HD.Screen.get () in
             if raw <> !prev then (
               prev := raw ;
-              match !on_frame_fn with
-              | Some f ->
-                  f ~rows:size.LTerm_geom.rows ~cols:size.LTerm_geom.cols raw
-              | None -> ())
+              on_frame ~rows:size.LTerm_geom.rows ~cols:size.LTerm_geom.cols raw)
           done ;
           `Stop_daemon) ;
       loop ()

@@ -11,10 +11,33 @@ let truthy value =
   let normalized = String.lowercase_ascii (String.trim value) in
   match normalized with "" | "0" | "false" | "off" | "no" -> false | _ -> true
 
+(* Default-on session recording (FR-060). [forced_enabled] is set by
+   {!force_enable} (called by protocol entry points before their first
+   frame); [no_record] is set by {!disable} (an explicit [--no-record] /
+   [MIAOU_NO_RECORD] opt-out) and always wins. Neither ref affects existing
+   explicit-env-var behaviour: callers that already set
+   [MIAOU_DEBUG_*_CAPTURE]/[MIAOU_DEBUG_*_CAPTURE_PATH] see the same
+   resolution as before this feature existed. *)
+let forced_enabled = ref false
+
+let no_record = ref false
+
+let force_enable () =
+  let opted_out =
+    match Sys.getenv_opt "MIAOU_NO_RECORD" with
+    | Some v -> truthy v
+    | None -> false
+  in
+  if opted_out then no_record := true else forced_enabled := true
+
+let disable () = no_record := true
+
 let default_capture_dir () =
   match Sys.getenv_opt "MIAOU_DEBUG_CAPTURE_DIR" with
   | Some dir when String.trim dir <> "" -> dir
-  | _ -> ( try Sys.getcwd () with _ -> Filename.get_temp_dir_name ())
+  | _ -> (
+      if !forced_enabled then "recordings/sessions"
+      else try Sys.getcwd () with _ -> Filename.get_temp_dir_name ())
 
 let timestamp_suffix () =
   let tm = Unix.localtime (Unix.time ()) in
@@ -91,10 +114,12 @@ let resolve_path kind path_env =
         (sprintf "miaou_tui_%s_%s.jsonl" kind (timestamp_suffix ()))
 
 let writer_enabled flag_env path_env =
-  match (Sys.getenv_opt flag_env, Sys.getenv_opt path_env) with
-  | None, None -> false
-  | Some flag, _ -> truthy flag
-  | None, Some path -> String.trim path <> ""
+  if !no_record then false
+  else
+    match (Sys.getenv_opt flag_env, Sys.getenv_opt path_env) with
+    | None, None -> !forced_enabled
+    | Some flag, _ -> truthy flag
+    | None, Some path -> String.trim path <> ""
 
 let create_writer ~kind ~flag_env ~path_env =
   if writer_enabled flag_env path_env then
@@ -145,28 +170,41 @@ let record_keystroke key =
         flush w.oc
       with _ -> ())
 
+(* Dedup consecutive identical frames in the recording path: a [wait_for]
+   poll loop can re-render the same unchanged screen dozens of times (e.g. a
+   5s wait at a 50ms poll interval is 100 identical frames); only the first
+   of a run of identical (rows, cols, frame) triples is written. *)
+let last_frame_key : (int * int * string) option ref = ref None
+
 let record_frame ~rows ~cols frame =
-  match
-    ensure_writer frame_writer (fun () ->
-        create_writer
-          ~kind:"frames"
-          ~flag_env:"MIAOU_DEBUG_FRAME_CAPTURE"
-          ~path_env:"MIAOU_DEBUG_FRAME_CAPTURE_PATH")
-  with
-  | None -> ()
-  | Some w -> (
-      try
-        fprintf
-          w.oc
-          "{\"timestamp\": %.6f, \"size\": {\"rows\": %d, \"cols\": %d}, \
-           \"frame\": %S}\n"
-          (Unix.gettimeofday ())
-          rows
-          cols
-          frame ;
-        flush w.oc
-      with _ -> ())
+  let key = (rows, cols, frame) in
+  if !last_frame_key = Some key then ()
+  else (
+    last_frame_key := Some key ;
+    match
+      ensure_writer frame_writer (fun () ->
+          create_writer
+            ~kind:"frames"
+            ~flag_env:"MIAOU_DEBUG_FRAME_CAPTURE"
+            ~path_env:"MIAOU_DEBUG_FRAME_CAPTURE_PATH")
+    with
+    | None -> ()
+    | Some w -> (
+        try
+          fprintf
+            w.oc
+            "{\"timestamp\": %.6f, \"size\": {\"rows\": %d, \"cols\": %d}, \
+             \"frame\": %S}\n"
+            (Unix.gettimeofday ())
+            rows
+            cols
+            frame ;
+          flush w.oc
+        with _ -> ()))
 
 let reset_for_tests () =
   close_writer_opt keystroke_writer ;
-  close_writer_opt frame_writer
+  close_writer_opt frame_writer ;
+  last_frame_key := None ;
+  forced_enabled := false ;
+  no_record := false

@@ -1,0 +1,27 @@
+; Optional for the same reason src/miaou_mcp/dune is: mcp-kit is only
+; present in a switch that has pinned the commit named in
+; ../../miaou-mcp.opam.template. `(test)` doesn't support `(optional)`
+; directly, so this is spelled out as an `(executable)` (which does) plus a
+; manual `runtest` alias rule; `dune runtest` silently skips this suite
+; instead of failing when that pin is absent.
+
+(executable
+ (name mcp_tools_test)
+ (modules mcp_tools_test)
+ (optional)
+ (libraries
+  alcotest
+  yojson
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-runner.protocol
+  mcp_tools
+  test_helpers
+  eio_main
+  mcp-kit))
+
+(rule
+ (alias runtest)
+ (deps mcp_tools_test.exe)
+ (action
+  (run %{deps})))

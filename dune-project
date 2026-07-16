@@ -165,3 +165,20 @@
   miaou-driver-sdl
   miaou-runner
   (ppx_blob (>= 0.9.0))))
+
+(package
+ (name miaou-mcp)
+ (synopsis "MIAOU agent protocol MCP server (stdio)")
+ (description
+  "Exposes the MIAOU agent protocol (render/key/tick/resize/wait_for/assert_screen) as MCP tools/resources over stdio. Pinned to an unreleased MCP server-kit commit (see miaou-mcp.opam.template's pin-depends); the executable is (optional) so `dune build @all` stays green for developers who have not added that pin. See docs/agent-protocol.md.")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
+ (depends
+  miaou-core
+  miaou-runner
+  miaou
+  yojson
+  mcp-kit
+  mcp-kit-eio))

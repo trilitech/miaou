@@ -1,0 +1,16 @@
+(library
+ (name miaou_protocol)
+ (public_name miaou-runner.protocol)
+ (modules protocol_version protocol_errors protocol_core)
+ (instrumentation
+  (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
+ (libraries
+  miaou-core.core
+  miaou-core.lib_miaou_internal
+  yojson
+  str
+  unix
+  eio
+  eio.unix))
