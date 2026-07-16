@@ -18,6 +18,16 @@ type t = {
   socket_path : string;
   mutable worker_state : worker_state;
   mutable controller_live : bool;
+  mutable last_activity : float;
+      (** Set by {!controller_detach}; consulted by {!is_idle}. Its
+          initial value ([neg_infinity]) is never itself observable as
+          "idle", since {!is_idle} also requires [not controller_live]
+          — true only after at least one attach+detach cycle — so a
+          brand new session can never be idle-reaped before its first
+          detach regardless of this placeholder. *)
+  mutable dead : bool;
+      (** Set once by {!kill_worker_escalating} (FR-013); never reset —
+          see {!is_dead}. *)
 }
 
 let create ~env ~socket_path =
@@ -27,6 +37,8 @@ let create ~env ~socket_path =
     socket_path;
     worker_state = Not_spawned;
     controller_live = false;
+    last_activity = neg_infinity;
+    dead = false;
   }
 
 let controller_token_string t = Serve_token.to_string t.controller_token
@@ -121,11 +133,54 @@ let controller_attach t =
     `Attach
   end
 
-let controller_detach t = t.controller_live <- false
+let controller_detach t ~now =
+  t.controller_live <- false ;
+  t.last_activity <- now
 
 let kill_worker t =
   match t.worker_state with
   | Spawned worker -> Serve_process.kill worker
+  | Not_spawned | Spawning _ -> ()
+
+let is_dead t = t.dead
+
+let is_idle t ~now ~idle_timeout =
+  has_worker t && (not t.controller_live) && (not t.dead)
+  && now -. t.last_activity > idle_timeout
+
+let would_spawn t =
+  match t.worker_state with
+  | Not_spawned -> true
+  | Spawning _ | Spawned _ -> false
+
+(* Marking [t.dead] happens first, unconditionally, before anything else
+   below runs — including before checking whether a worker even exists —
+   so a session killed while [Not_spawned] (already reaped from a prior
+   crash, or never spawned) is still permanently excluded from {!find}.
+   No lock is needed for this ordering: the supervisor is single-domain
+   (module-level invariant documented in Serve_supervisor), so there is
+   no intervening Eio yield between setting [t.dead] and the SIGTERM
+   send below that a concurrent attach could land inside. *)
+let kill_worker_escalating t ~sw ~clock ~grace =
+  t.dead <- true ;
+  match t.worker_state with
+  | Spawned worker ->
+      Serve_process.kill worker (* SIGTERM *) ;
+      Eio.Fiber.fork ~sw (fun () ->
+          Eio.Time.sleep clock grace ;
+          match t.worker_state with
+          | Spawned w when w == worker ->
+              (* Still the same, not-yet-reaped worker after the grace
+                 window: it did not act on SIGTERM in time. Escalate. *)
+              w.Serve_process.signal Sys.sigkill
+          | Not_spawned | Spawning _ | Spawned _ ->
+              (* Already reaped (the ordinary case: the worker's default
+                 SIGTERM disposition terminates it well within [grace]),
+                 or — the currently-unreachable overlap case guarded
+                 against elsewhere in this module — replaced by a
+                 different [Spawned] worker. Either way, nothing to
+                 escalate. *)
+              ())
   | Not_spawned | Spawning _ -> ()
 
 type table = {mutable sessions : t list}
@@ -134,10 +189,37 @@ let create_table () = {sessions = []}
 
 let add table t = table.sessions <- t :: table.sessions
 
+let to_list table = table.sessions
+
+(* Counts a session as occupying a slot from the moment [ensure_worker]
+   synchronously transitions it out of [Not_spawned] (i.e. [Spawning] or
+   [Spawned]), not just once it reaches [Spawned] — that transition
+   happens with no intervening Eio yield (see {!ensure_worker}'s own
+   comment), so a racing [would_spawn]-gated check that runs after it is
+   guaranteed to observe the updated count. Counting only [Spawned]
+   (M1 fix) would leave a window, for the whole duration of one worker's
+   spawn+ready-wait, during which a second concurrent first-attach could
+   also pass the cap check and over-admit past [max_sessions] — a
+   resource-limit bypass, not just a cosmetic undercount. *)
+let count_spawned table =
+  List.fold_left
+    (fun acc t -> if not (would_spawn t) then acc + 1 else acc)
+    0
+    table.sessions
+
 let find table ~candidate =
   List.find_map
     (fun t ->
-      match match_role t ~candidate with
-      | Some role -> Some (t, role)
-      | None -> None)
+      if t.dead then None
+      else
+        match match_role t ~candidate with
+        | Some role -> Some (t, role)
+        | None -> None)
     table.sessions
+
+let reap_idle_sessions ~sw ~clock ~sessions ~idle_timeout ~grace ~now =
+  List.iter
+    (fun t ->
+      if is_idle t ~now ~idle_timeout then
+        kill_worker_escalating t ~sw ~clock ~grace)
+    (to_list sessions)

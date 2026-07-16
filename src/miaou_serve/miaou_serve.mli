@@ -17,6 +17,11 @@ module Serve_policy = Serve_policy
 module Serve_config = Serve_config
 module Serve_cli = Serve_cli
 
+(** Per-worker OS resource limits (FR-072) — exposed so a test can drive
+    {!Serve_rlimit.apply_from_env} or inspect its environment-variable
+    names directly. *)
+module Serve_rlimit = Serve_rlimit
+
 (** The worker half of Slice 2's process-per-session supervisor — see
     {!Serve_run}'s entry contract documentation. Exposed for the named
     session-lifecycle test to drive worker startup directly. *)

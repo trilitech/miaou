@@ -573,3 +573,17 @@
   miaou-core.interfaces
   miaou-serve.serve
   test_helpers))
+
+(test
+ (name test_serve_limits)
+ (modules test_serve_limits)
+ (libraries
+  alcotest
+  eio_main
+  eio.mock
+  eio.unix
+  unix
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-serve.serve
+  test_helpers))

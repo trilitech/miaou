@@ -5,6 +5,7 @@
   serve_token
   serve_policy
   serve_config
+  serve_rlimit
   serve_worker
   serve_process
   serve_session

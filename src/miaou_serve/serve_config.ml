@@ -23,9 +23,16 @@ let default =
     bind = "127.0.0.1";
     auth_token = None;
     auth_file = None;
-    (* FR-071's measurement (Slice 0, kb/architecture.md) is not yet a
-       shipped numeric default owner in Slice 1; this value is a
-       placeholder pending Slice 4, kept conservative. *)
+    (* FR-071: grounded in a measured per-worker RSS figure, not invented.
+       A worker's baseline RSS was measured at ~6-9MB (see
+       docs/serve-architecture.md §3 for the measurement and the
+       derivation below, spelled out there in full). Assuming a
+       conservative 320MB memory budget an operator can spare for
+       `miaou serve` sessions on a modest host, and a 20MB
+       per-worker headroom figure (roughly 2x the measured RSS, to
+       absorb OCaml-runtime/OS bookkeeping overhead beyond live heap
+       data): 320 / 20 = 16. Adjustable via --max-sessions for hosts
+       with a different memory budget. *)
     max_sessions = 16;
     idle_timeout = 15. *. 60.;
     insecure_allow_plaintext_external = false;

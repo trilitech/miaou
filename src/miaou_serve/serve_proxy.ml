@@ -40,6 +40,9 @@ let respond_403 conn = respond conn ~status:"403 Forbidden" "Forbidden"
 
 let respond_409 conn msg = respond conn ~status:"409 Conflict" msg
 
+let respond_429 conn =
+  respond conn ~status:"429 Too Many Sessions" "Too Many Sessions"
+
 let respond_502 conn = respond conn ~status:"502 Bad Gateway" "Bad Gateway"
 
 (* Parse "METHOD /uri HTTP/x.y" (Eio.Buf_read.line keeps a trailing '\r'
@@ -101,10 +104,11 @@ let rewrite_to_viewer tail = if tail = "/ws" then "/ws/viewer" else tail
    forward to, and the (possibly rewritten) tail to forward, or an
    outcome that closes [conn] without ever contacting a worker.
    Never raises. *)
-let resolve ~sw ~env session role tail :
+let resolve ~sw ~env ~sessions ~max_sessions session role tail :
     [ `Forward of string * string * (unit -> unit)
     | `Refuse_403
     | `Refuse_409 of string
+    | `Refuse_429
     | `Refuse_502 ] =
   match (role, is_controller_ws_path tail) with
   | Serve_session.Viewer, true ->
@@ -116,7 +120,8 @@ let resolve ~sw ~env session role tail :
       if not (Serve_session.has_worker session) then
         (* No controller has ever attached to this session: there is no
            worker to view, and a viewer alone must never bring one into
-           existence. *)
+           existence — so this path never spawns, and is never itself
+           subject to the FR-070 cap (that only gates a *new* spawn). *)
         `Refuse_409 "No controller connected yet"
       else begin
         match
@@ -130,30 +135,45 @@ let resolve ~sw ~env session role tail :
         | Ok socket_path -> `Forward (socket_path, tail, fun () -> ())
         | Error Serve_session.Unreachable -> `Refuse_502
       end
-  | Serve_session.Controller, _ -> (
-      match
-        Serve_session.ensure_worker
-          session
-          ~sw
-          ~proc_mgr:env#process_mgr
-          ~net:env#net
-          ~clock:env#clock
-      with
-      | Error Serve_session.Unreachable -> `Refuse_502
-      | Ok socket_path ->
-          if is_controller_ws_path tail then begin
-            match Serve_session.controller_attach session with
-            | `Attach ->
-                `Forward
-                  ( socket_path,
-                    tail,
-                    fun () -> Serve_session.controller_detach session )
-            | `Downgrade ->
-                `Forward (socket_path, rewrite_to_viewer tail, fun () -> ())
-          end
-          else `Forward (socket_path, tail, fun () -> ()))
+  | Serve_session.Controller, _ ->
+      (* FR-070: only a controller attach that would actually spawn a
+         *new* worker process (this session currently has none) is
+         subject to [max_sessions] — a controller reattaching to a
+         session whose worker is already running (or mid-spawn) costs no
+         new resource and must never be refused by the cap (the "existing
+         sessions unaffected" half of FR-070's own check). *)
+      if
+        Serve_session.would_spawn session
+        && Serve_session.count_spawned sessions >= max_sessions
+      then `Refuse_429
+      else begin
+        match
+          Serve_session.ensure_worker
+            session
+            ~sw
+            ~proc_mgr:env#process_mgr
+            ~net:env#net
+            ~clock:env#clock
+        with
+        | Error Serve_session.Unreachable -> `Refuse_502
+        | Ok socket_path ->
+            if is_controller_ws_path tail then begin
+              match Serve_session.controller_attach session with
+              | `Attach ->
+                  `Forward
+                    ( socket_path,
+                      tail,
+                      fun () ->
+                        Serve_session.controller_detach
+                          session
+                          ~now:(Eio.Time.now env#clock) )
+              | `Downgrade ->
+                  `Forward (socket_path, rewrite_to_viewer tail, fun () -> ())
+            end
+            else `Forward (socket_path, tail, fun () -> ())
+      end
 
-let handle_connection ~sw ~env ~sessions ~conn =
+let handle_connection ~sw ~env ~sessions ~max_sessions ~conn =
   try
     let br = Eio.Buf_read.of_flow ~max_size:(1024 * 1024) conn in
     let request_line = Eio.Buf_read.line br in
@@ -167,9 +187,12 @@ let handle_connection ~sw ~env ~sessions ~conn =
             match Serve_session.find sessions ~candidate with
             | None -> respond_403 conn
             | Some (session, role) -> (
-                match resolve ~sw ~env session role tail with
+                match
+                  resolve ~sw ~env ~sessions ~max_sessions session role tail
+                with
                 | `Refuse_403 -> respond_403 conn
                 | `Refuse_409 msg -> respond_409 conn msg
+                | `Refuse_429 -> respond_429 conn
                 | `Refuse_502 -> respond_502 conn
                 | `Forward (worker_socket_path, forward_tail, on_close) ->
                     (* [on_close] (a controller detach, or a no-op for a

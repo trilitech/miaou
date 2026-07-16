@@ -43,11 +43,15 @@ let kill = Serve_process.kill
    ({!accept_loop}) so tests can drive the same production dispatch path
    against a session table they build themselves (e.g. the multi-session
    isolation test), rather than duplicating routing logic. *)
-let rec accept_loop ~sw ~env ~sessions listening =
+let rec accept_loop ~sw ~env ~sessions ~max_sessions listening =
   let conn, _addr = Eio.Net.accept ~sw listening in
   Eio.Fiber.fork ~sw (fun () ->
-      Serve_proxy.handle_connection ~sw ~env ~sessions ~conn) ;
-  accept_loop ~sw ~env ~sessions listening
+      Serve_proxy.handle_connection ~sw ~env ~sessions ~max_sessions ~conn) ;
+  accept_loop ~sw ~env ~sessions ~max_sessions listening
+
+let idle_kill_grace_seconds = 5.0
+
+let idle_scan_interval_seconds = 5.0
 
 let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
     ?(bind = Serve_config.default.bind)
@@ -73,9 +77,7 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
        %!"
       bind ;
   Printf.eprintf
-    "[miaou serve] max_sessions=%d idle_timeout=%.0fs (Slice 3: session table \
-     + lazy per-session workers; limits/timeout enforcement is Slice 4)\n\
-     %!"
+    "[miaou serve] max_sessions=%d idle_timeout=%.0fs (both enforced)\n%!"
     max_sessions
     idle_timeout ;
   Eio_main.run @@ fun env ->
@@ -135,8 +137,27 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
         end
       in
       watch ()) ;
+  (* FR-013: periodically reap idle sessions (no controller attached for
+     longer than [idle_timeout]). A fixed, short scan interval
+     ({!idle_scan_interval_seconds}) independent of [idle_timeout]'s own
+     magnitude — see that value's doc comment. *)
+  Eio.Fiber.fork ~sw (fun () ->
+      let rec scan () =
+        if not (Atomic.get Serve_process.stop_requested) then begin
+          Serve_session.reap_idle_sessions
+            ~sw
+            ~clock:env#clock
+            ~sessions
+            ~idle_timeout
+            ~grace:idle_kill_grace_seconds
+            ~now:(Eio.Time.now env#clock) ;
+          Eio.Time.sleep env#clock idle_scan_interval_seconds ;
+          scan ()
+        end
+      in
+      scan ()) ;
   let listen_addr = `Tcp (Serve_process.ipaddr_of_host bind, port) in
   let listening =
     Eio.Net.listen env#net ~sw ~reuse_addr:true ~backlog:16 listen_addr
   in
-  accept_loop ~sw ~env ~sessions listening
+  accept_loop ~sw ~env ~sessions ~max_sessions listening

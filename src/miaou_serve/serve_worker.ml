@@ -40,6 +40,10 @@ let watch_stdin_orphan_guard (env : Eio_unix.Stdenv.base) =
           ())
 
 let run ~socket_path (page : (module Miaou_core.Tui_page.PAGE_SIG)) : unit =
+  (* FR-072: applied before anything else in the worker's own execution —
+     before the Eio event loop even starts — so the self-imposed limit
+     covers as much of the worker's lifetime as possible. *)
+  Serve_rlimit.apply_from_env () ;
   Eio_main.run @@ fun env ->
   Eio.Switch.run @@ fun sw ->
   Fibers.init ~env ~sw ;

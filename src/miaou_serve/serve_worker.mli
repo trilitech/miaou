@@ -19,7 +19,9 @@
     the worker must listen on. *)
 val env_var : string
 
-(** [run ~socket_path page] starts this process as a worker: initializes
+(** [run ~socket_path page] starts this process as a worker: applies any
+    {!Serve_rlimit.apply_from_env} resource limits (FR-072, first — before
+    anything else runs), initializes
     the Eio/Fiber runtime (full {!Miaou_helpers.Fiber_runtime},
     {!Miaou_core.Registry}, {!Miaou_core.Modal_manager} — untouched,
     exactly as a directly-run app would use them), installs the
