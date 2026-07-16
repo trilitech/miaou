@@ -49,9 +49,28 @@ end
 
 (* Session tracks the controller and read-only viewers. *)
 module Session = struct
-  type t = {mutex : Mutex.t; mutable viewers : Web_websocket.t list}
+  type t = {
+    mutex : Mutex.t;
+    mutable viewers : Web_websocket.t list;
+    mutable viewer_input_rejections : int;
+        (** FR-041 audit counter: every inbound frame on a viewer
+            connection that would map to an input event (key/resize/
+            mouse) increments this instead of being silently discarded,
+            so the rejection is observable/testable rather than
+            enforcement-by-omission. *)
+  }
 
-  let create () = {mutex = Mutex.create (); viewers = []}
+  let create () =
+    {mutex = Mutex.create (); viewers = []; viewer_input_rejections = 0}
+
+  (* Records one rejected viewer input frame and returns the new running
+     count (used only to make the emitted audit line self-numbering). *)
+  let record_viewer_input_rejection t =
+    Mutex.lock t.mutex ;
+    t.viewer_input_rejections <- t.viewer_input_rejections + 1 ;
+    let n = t.viewer_input_rejections in
+    Mutex.unlock t.mutex ;
+    n
 
   let add_viewer t ws =
     Mutex.lock t.mutex ;
@@ -194,6 +213,35 @@ let parse_client_message events ~current_rows ~current_cols msg =
           let col = member "col" json |> to_int in
           (* Web driver doesn't report button, default to left (0) *)
           Eio.Stream.add events (Matrix_io.Mouse (row, col, 0))
+      | _ -> ()
+      | exception _ -> ())
+  | exception _ -> ()
+
+(* FR-040/FR-041: a viewer connection's role is fixed at connect time (by
+   which path it upgraded on — never re-derived per frame, and never
+   client-asserted); this classifies an inbound frame on that connection
+   *without* ever handing it to {!parse_client_message} (which is what
+   would route it to {!Matrix_io}). Any frame whose declared ["type"] is
+   one that {!parse_client_message} would turn into an input event
+   (["key"], ["resize"], ["mouse"]) is an explicit, audited rejection
+   instead of the previous silent discard-everything behavior — closing
+   the "easy to regress silently" gap (a future refactor that reused
+   [parse_client_message] here would have quietly reintroduced viewer
+   input, with nothing catching it). Anything else (unknown message
+   types, malformed JSON, keepalive-style pings already handled inside
+   {!Web_websocket.recv_text}) is not an input event and is ignored, same
+   as before. *)
+let classify_and_audit_viewer_input session msg =
+  match Yojson.Safe.from_string msg with
+  | json -> (
+      let open Yojson.Safe.Util in
+      match member "type" json |> to_string with
+      | ("key" | "resize" | "mouse") as input_type ->
+          let n = Session.record_viewer_input_rejection session in
+          Printf.eprintf
+            "[web] AUDIT viewer-input-rejected type=%s count=%d\n%!"
+            input_type
+            n
       | _ -> ()
       | exception _ -> ())
   | exception _ -> ()
@@ -567,7 +615,9 @@ let run_on ?(config = None) ~(listen : listen) ?auth
                                 let rec loop () =
                                   match Web_websocket.recv_text ws br with
                                   | None -> ()
-                                  | Some _ -> loop ()
+                                  | Some msg ->
+                                      classify_and_audit_viewer_input sess msg ;
+                                      loop ()
                                 in
                                 loop ()
                               with _ -> ()) ;

@@ -545,3 +545,31 @@
  (name test_serve_session_lifecycle)
  (modules test_serve_session_lifecycle)
  (libraries alcotest eio_main unix miaou-core.core miaou-serve.serve))
+
+(test
+ (name test_serve_multi_session)
+ (modules test_serve_multi_session)
+ (libraries
+  alcotest
+  eio_main
+  eio.unix
+  unix
+  threads.posix
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-serve.serve
+  test_helpers))
+
+(test
+ (name test_serve_viewer_readonly)
+ (modules test_serve_viewer_readonly)
+ (libraries
+  alcotest
+  eio_main
+  eio.unix
+  unix
+  threads.posix
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-serve.serve
+  test_helpers))

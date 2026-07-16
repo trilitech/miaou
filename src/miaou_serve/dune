@@ -6,6 +6,8 @@
   serve_policy
   serve_config
   serve_worker
+  serve_process
+  serve_session
   serve_proxy
   serve_supervisor
   serve_run
@@ -40,3 +42,19 @@
    bash
    -c
    "grep -q 'Eqaf.equal' serve_token.ml && grep -q 'secure_random' serve_token.ml || (echo 'FR-030/FR-033 guard failed: serve_token.ml must use Eqaf.equal and env#secure_random' >&2 && exit 1)")))
+
+; FR-032/FR-033 mechanical guard, Slice 3: serve_session.ml is now the
+; module that decides which role a candidate token grants
+; (match_role/find) — this is as security-load-bearing as serve_token.ml's
+; own comparison, so it must route every token comparison through
+; Serve_token.matches (constant-time) and never fall back to
+; String.equal/Stdlib's structural (=) on a token value.
+
+(rule
+ (alias runtest)
+ (deps serve_session.ml)
+ (action
+  (run
+   bash
+   -c
+   "grep -q 'Serve_token.matches' serve_session.ml && ! grep -qE 'String\\.equal' serve_session.ml || (echo 'FR-032/FR-033 guard failed: serve_session.ml must compare tokens only via Serve_token.matches (no String.equal on token values)' >&2 && exit 1)")))
