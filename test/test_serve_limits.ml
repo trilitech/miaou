@@ -158,8 +158,12 @@ let start_two_session_harness ~sw ~env ~max_sessions =
   let socket_path_b =
     Filename.concat dir (Printf.sprintf "limits-b-%d.sock" n)
   in
-  let session_a = Session.create ~env ~socket_path:socket_path_a in
-  let session_b = Session.create ~env ~socket_path:socket_path_b in
+  let session_a =
+    Session.create ~env ~socket_path:socket_path_a ~now:(Eio.Time.now env#clock)
+  in
+  let session_b =
+    Session.create ~env ~socket_path:socket_path_b ~now:(Eio.Time.now env#clock)
+  in
   let sessions = Session.create_table () in
   Session.add sessions session_a ;
   Session.add sessions session_b ;
@@ -184,7 +188,8 @@ let start_two_session_harness ~sw ~env ~max_sessions =
         ~sessions
         ~max_sessions
         ~allowed_origins:[]
-        listening) ;
+        listening ;
+      `Stop_daemon) ;
   (port, session_a, session_b)
 
 (* M1 regression (post-review hardening): {!Session.count_spawned} must
@@ -209,7 +214,9 @@ let test_count_spawned_includes_spawning_window () =
   let socket_path =
     Filename.concat dir (Printf.sprintf "limits-spawning-%d.sock" n)
   in
-  let session = Session.create ~env ~socket_path in
+  let session =
+    Session.create ~env ~socket_path ~now:(Eio.Time.now env#clock)
+  in
   let sessions = Session.create_table () in
   Session.add sessions session ;
   let observed_count = ref None in
@@ -352,7 +359,9 @@ let test_idle_timeout_kills_worker_and_dead_token_not_resurrectable () =
   let socket_path =
     Filename.concat dir (Printf.sprintf "limits-idle-%d.sock" n)
   in
-  let session = Session.create ~env ~socket_path in
+  let session =
+    Session.create ~env ~socket_path ~now:(Eio.Time.now env#clock)
+  in
   let sessions = Session.create_table () in
   Session.add sessions session ;
   let port = free_port () in
@@ -371,7 +380,8 @@ let test_idle_timeout_kills_worker_and_dead_token_not_resurrectable () =
         ~sessions
         ~max_sessions:10
         ~allowed_origins:[]
-        listening) ;
+        listening ;
+      `Stop_daemon) ;
   let token = Session.controller_token_string session in
   let viewer_token = Session.viewer_token_string session in
   let conn, status =
@@ -448,6 +458,73 @@ let test_idle_timeout_kills_worker_and_dead_token_not_resurrectable () =
     "dead token refused over the wire, never resurrected"
     "403"
     status2
+
+(* Regression (post-S7-review): a worker can be spawned by any
+   controller-role request that needs forwarding — not only a [/ws]
+   upgrade ({!Serve_proxy.resolve}'s [Controller] branch calls
+   {!Session.ensure_worker} unconditionally, so a plain [GET /] for the
+   controller HTML page already does this). [controller_live] is only
+   ever flipped [true] by the [/ws]-specific {!Session.controller_attach}.
+   Before the fix, {!Session.create} seeded [last_activity] with
+   [neg_infinity], so such a session satisfied {!Session.is_idle}
+   trivially ([now -. neg_infinity > idle_timeout] is always [true])
+   from the very instant its worker became [Spawned] — regardless of
+   the configured [idle_timeout] — and could be killed by the very next
+   idle-scan tick. A real browser's ordinary flow (page load, then the
+   WS upgrade) could race this and lose its session before ever
+   connecting. This exercises {!Session.ensure_worker} directly, WITHOUT
+   ever calling {!Session.controller_attach}, to reproduce that exact
+   precondition ([has_worker = true], [controller_live = false])
+   without needing to drive an actual HTTP [GET /]. *)
+let test_pre_attach_worker_not_immediately_idle () =
+  Eio_main.run @@ fun env ->
+  Eio.Switch.run @@ fun sw ->
+  let n = Atomic.fetch_and_add harness_counter 1 in
+  let dir = Supervisor.socket_dir ~pid:(Unix.getpid ()) in
+  Supervisor.ensure_socket_dir dir ;
+  let socket_path =
+    Filename.concat dir (Printf.sprintf "limits-pre-attach-%d.sock" n)
+  in
+  let create_time = Eio.Time.now env#clock in
+  let session = Session.create ~env ~socket_path ~now:create_time in
+  (match
+     Session.ensure_worker
+       session
+       ~sw
+       ~proc_mgr:env#process_mgr
+       ~net:env#net
+       ~clock:env#clock
+   with
+  | Ok _ -> ()
+  | Error Session.Unreachable -> fail "session's worker never became ready") ;
+  check
+    bool
+    "worker is running even though no controller has ever attached"
+    true
+    (Session.has_worker session) ;
+  (* Less than idle_timeout since creation: must NOT be idle — this is
+     exactly the bug (it used to be trivially idle from the moment the
+     worker spawned, regardless of idle_timeout). *)
+  check
+    bool
+    "not idle within idle_timeout of creation, even though no controller has \
+     ever attached (the regression)"
+    false
+    (Session.is_idle session ~now:(create_time +. 5.0) ~idle_timeout:60.0) ;
+  (* Past idle_timeout since creation, still no controller: the
+     worker-leak backstop must still fire. *)
+  check
+    bool
+    "idle once idle_timeout has elapsed since creation with no controller ever \
+     attaching (worker-leak backstop preserved)"
+    true
+    (Session.is_idle session ~now:(create_time +. 61.0) ~idle_timeout:60.0) ;
+  Session.kill_worker session ;
+  wait_until
+    ~env
+    ~deadline:(Unix.gettimeofday () +. 5.0)
+    ~msg:"session's worker was never reaped at test teardown"
+    (fun () -> not (Session.has_worker session))
 
 (* Scenario: "worker-self-applies-rlimit-from-env" (FR-072). Shells to
    the same [prlimit(1)] utility {!Serve_rlimit} itself uses, so this is
@@ -555,6 +632,11 @@ let () =
             "idle-timeout-kills-worker and dead-token-not-resurrectable"
             `Slow
             test_idle_timeout_kills_worker_and_dead_token_not_resurrectable;
+          test_case
+            "pre-attach worker (spawned via a non-/ws request) is not \
+             immediately idle"
+            `Slow
+            test_pre_attach_worker_not_immediately_idle;
         ] );
       ( "rlimit",
         [

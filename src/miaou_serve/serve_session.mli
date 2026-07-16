@@ -22,12 +22,24 @@ type role = Controller | Viewer
 
 type t
 
-(** [create ~env ~socket_path] mints a fresh controller/viewer token pair
-    (FR-030, FR-032) for a session whose worker — once spawned — will
-    listen on [socket_path]. No worker is started yet. *)
+(** [create ~env ~socket_path ~now] mints a fresh controller/viewer token
+    pair (FR-030, FR-032) for a session whose worker — once spawned —
+    will listen on [socket_path]. No worker is started yet. [now] (the
+    caller's clock reading, e.g. [Eio.Time.now env#clock] in production
+    or a fake clock's reading in a test — never read internally, so the
+    clock stays fully injectable) seeds {!is_idle}'s last-activity
+    baseline at creation time rather than an unbounded sentinel: a
+    session whose worker is spawned by a non-[/ws] request before its
+    controller completes the [/ws] upgrade must not look idle within
+    seconds regardless of [--idle-timeout], but a session that never
+    completes that upgrade at all must still eventually be reaped (see
+    {!is_idle}'s doc comment for the full reasoning). Emits one
+    {!Serve_audit.Create} audit line (FR-080), hashing the new
+    controller token — never logging it raw. *)
 val create :
   env:< secure_random : Eio.Flow.source_ty Eio.Resource.t ; .. > ->
   socket_path:string ->
+  now:float ->
   t
 
 (** The controller token's string form, for building the session's
@@ -115,7 +127,10 @@ val controller_detach : t -> now:float -> unit
     operator-facing explicit kill (FR-014) is expected to be followed by
     an ordinary crash-recovery reap ({!ensure_worker} self-heals on the
     next attach), whereas an idle-timeout kill (FR-013) must not
-    resurrect. *)
+    resurrect. Emits one {!Serve_audit.Explicit_kill} audit line
+    (FR-080) unconditionally, even when there was no worker to signal —
+    the audited event is "an explicit kill was requested", not "a
+    worker was terminated". *)
 val kill_worker : t -> unit
 
 (** [true] iff [t] has been killed by {!kill_worker_escalating} (an
@@ -130,13 +145,28 @@ val is_dead : t -> bool
     spawned worker, no controller is currently attached, [t] is not
     already {!is_dead}, and more than [idle_timeout] seconds have
     elapsed (per the caller's [now]) since the last {!controller_detach}
-    call — the FR-013 idle-reap predicate. A session with no worker yet,
-    with a live controller, or already dead, is never idle regardless of
-    how much time has passed — the [not (is_dead t)] guard specifically
-    stops a scan from re-issuing [SIGTERM] and forking a second
-    escalation fiber against a session whose reap is already in flight
-    (a slow-dying worker would otherwise be re-killed on every
-    subsequent scan pass until it finally exits). *)
+    call, {b or}, if no {!controller_detach} has ever happened yet,
+    since {!create} was called — the FR-013 idle-reap predicate. A
+    session with no worker yet, with a live controller, or already dead,
+    is never idle regardless of how much time has passed — the
+    [not (is_dead t)] guard specifically stops a scan from re-issuing
+    [SIGTERM] and forking a second escalation fiber against a session
+    whose reap is already in flight (a slow-dying worker would otherwise
+    be re-killed on every subsequent scan pass until it finally exits).
+
+    The "or since {!create}" half matters because a worker can be
+    spawned by *any* controller-role request that needs forwarding, not
+    only a [/ws] upgrade ({!Serve_proxy.resolve}'s [Controller] branch
+    calls {!ensure_worker} unconditionally) — so a plain page fetch,
+    before the browser's WS upgrade even starts, already has
+    [has_worker t = true] while [controller_live] is still [false]
+    (only the [/ws]-specific {!controller_attach} sets it). Using
+    {!create}'s own [~now] as the pre-attach baseline (instead of an
+    unbounded sentinel) means such a session is not idle-eligible until
+    a full [idle_timeout] has elapsed since its own creation — ample for
+    an ordinary page-load-then-upgrade flow — while a session whose
+    controller never shows up at all is still eventually reaped (the
+    worker-leak backstop this predicate exists for). *)
 val is_idle : t -> now:float -> idle_timeout:float -> bool
 
 (** [true] iff [t] currently has no spawned worker (a fresh session, or
@@ -210,7 +240,9 @@ val find : table -> candidate:string -> (t * role) option
     [now] and [idle_timeout]) is [true]. [now] and [clock] are both
     caller-supplied so this is fully driveable by a fake clock in tests
     (no real sleeping required to prove an idle session gets reaped) —
-    production callers pass [Eio.Time.now env#clock] and [env#clock]. *)
+    production callers pass [Eio.Time.now env#clock] and [env#clock].
+    Emits one {!Serve_audit.Idle_kill} audit line (FR-080) per session
+    reaped this way. *)
 val reap_idle_sessions :
   sw:Eio.Switch.t ->
   clock:_ Eio.Time.clock ->

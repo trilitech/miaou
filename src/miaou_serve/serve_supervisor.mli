@@ -113,12 +113,15 @@ val kill : worker -> unit
     session table) rather than a single hardcoded token, with
     [max_sessions] enforced per-connection (FR-070) and [allowed_origins]
     passed through to {!Serve_proxy.handle_connection}'s FR-045 Origin
-    check on any WebSocket-upgrade request. Never returns on its own
-    (loops until [sw] is cancelled). Exposed so a test can drive the same
-    production routing/role-enforcement path against a session table it
-    builds directly (e.g. two sessions, to prove process isolation),
-    without going through {!run}'s single-bootstrap-session convenience
-    wrapper. *)
+    check on any WebSocket-upgrade request. Loops until either [sw] is
+    cancelled or [listening] is closed while
+    {!Serve_process.stop_requested} is set (FR-090's graceful-shutdown
+    stop-accepting-new-connections step, see {!run}) — the latter case
+    returns [()] normally rather than raising. Exposed so a test can
+    drive the same production routing/role-enforcement path against a
+    session table it builds directly (e.g. two sessions, to prove
+    process isolation), without going through {!run}'s
+    single-bootstrap-session convenience wrapper. *)
 val accept_loop :
   sw:Eio.Switch.t ->
   env:Eio_unix.Stdenv.base ->
@@ -126,7 +129,7 @@ val accept_loop :
   max_sessions:int ->
   allowed_origins:string list ->
   _ Eio.Net.listening_socket ->
-  'a
+  unit
 
 (** Grace period (seconds) between an idle-timeout kill's [SIGTERM] and
     its [SIGKILL] escalation ({!Serve_session.kill_worker_escalating}).
@@ -161,7 +164,17 @@ val idle_scan_interval_seconds : float
     same-origin-as-[bind] default) is passed through to {!accept_loop}
     for the FR-045 Origin check; [auth_token]/[auth_file] remain
     bind-policy-only (see {!Serve_run}'s auth model note) — neither is a
-    per-request credential. *)
+    per-request credential.
+
+    FR-090 (graceful shutdown): once {!Serve_process.install_signal_handler}'s
+    handler observes [SIGTERM]/[SIGINT], a background fiber closes
+    [listening] (making {!accept_loop} stop accepting new connections and
+    return), sends every currently-known session's worker [SIGTERM] with
+    a bounded grace period before escalating to [SIGKILL]
+    ({!Serve_session.kill_worker_escalating}), waits (bounded) until
+    every worker has actually been reaped, then removes the socket
+    directory and calls [exit 0] — no worker outlives its supervisor,
+    and no session's socket directory is left behind. *)
 val run :
   ?auth_token:string ->
   ?auth_file:string ->

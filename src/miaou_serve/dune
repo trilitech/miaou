@@ -6,6 +6,7 @@
   serve_policy
   serve_config
   serve_rlimit
+  serve_audit
   serve_worker
   serve_process
   serve_session
@@ -27,7 +28,8 @@
   unix
   eqaf
   cstruct
-  cmdliner))
+  cmdliner
+  digestif))
 
 ; FR-030/FR-033 mechanical guard: the CSPRNG source and the constant-time
 ; comparison are security-load-bearing choices (never Stdlib.Random /
