@@ -17,6 +17,7 @@ module Serve_token = Serve_token
 module Serve_policy = Serve_policy
 module Serve_config = Serve_config
 module Serve_cli = Serve_cli
+module Serve_rlimit = Serve_rlimit
 module Serve_worker = Serve_worker
 module Serve_process = Serve_process
 module Serve_session = Serve_session

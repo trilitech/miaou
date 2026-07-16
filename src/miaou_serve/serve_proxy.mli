@@ -28,10 +28,11 @@
     only by the worker's own {!Miaou_driver_web.Web_websocket}
     (unmodified). *)
 
-(** [handle_connection ~sw ~env ~sessions ~conn] services one accepted
-    client connection: parses the request head, resolves the [/s/<token>]
-    prefix against [sessions] (constant-time per session), and on a
-    match:
+(** [handle_connection ~sw ~env ~sessions ~max_sessions ~conn] services
+    one accepted client connection: parses the request head, resolves
+    the [/s/<token>] prefix against [sessions] (constant-time per
+    session, and never matching a session {!Serve_session.is_dead} —
+    FR-013's dead-token-never-resurrects guarantee), and on a match:
     - a viewer-role token requesting the [/ws] controller endpoint is
       refused (403) without ever contacting a worker (FR-032);
     - a viewer-role token requesting anything else, for a session with
@@ -41,11 +42,17 @@
       refused (409, mirroring the worker's own "no controller connected
       yet" backstop response for the same precondition) — a viewer
       cannot bring a session's worker into existence;
-    - a controller-role token lazily spawns (or reuses) the session's
-      worker ({!Serve_session.ensure_worker}) and, for the [/ws]
-      endpoint specifically, is either forwarded unmodified (first/only
-      live controller) or rewritten to [/ws/viewer] (a controller
-      connection is already live — FR-011);
+    - a controller-role token that would cause a *new* worker spawn
+      ({!Serve_session.would_spawn}) while [sessions] already has
+      [max_sessions] spawned workers ({!Serve_session.count_spawned}) is
+      refused (429 — FR-070), without contacting any worker; a
+      controller reattaching to a session whose worker already exists is
+      never refused by this cap;
+    - otherwise, a controller-role token lazily spawns (or reuses) the
+      session's worker ({!Serve_session.ensure_worker}) and, for the
+      [/ws] endpoint specifically, is either forwarded unmodified
+      (first/only live controller) or rewritten to [/ws/viewer] (a
+      controller connection is already live — FR-011);
     - any other path (static assets, the viewer endpoint once a worker
       exists) is forwarded to the session's worker unmodified.
 
@@ -61,6 +68,7 @@ val handle_connection :
   sw:Eio.Switch.t ->
   env:Eio_unix.Stdenv.base ->
   sessions:Serve_session.table ->
+  max_sessions:int ->
   conn:_ Eio.Net.stream_socket ->
   unit
 

@@ -107,21 +107,38 @@ val reap :
     with a {!reap}'d [on_exit] callback to observe completion. *)
 val kill : worker -> unit
 
-(** [accept_loop ~sw ~env ~sessions listening] forks
+(** [accept_loop ~sw ~env ~sessions ~max_sessions listening] forks
     {!Serve_proxy.handle_connection} for each connection accepted on
     [listening], dispatched against [sessions] (Slice 3's session table)
-    rather than a single hardcoded token. Never returns on its own
-    (loops until [sw] is cancelled). Exposed so a test can drive the same
-    production routing/role-enforcement path against a session table it
-    builds directly (e.g. two sessions, to prove process isolation),
-    without going through {!run}'s single-bootstrap-session convenience
-    wrapper. *)
+    rather than a single hardcoded token, with [max_sessions] enforced
+    per-connection (FR-070). Never returns on its own (loops until [sw]
+    is cancelled). Exposed so a test can drive the same production
+    routing/role-enforcement path against a session table it builds
+    directly (e.g. two sessions, to prove process isolation), without
+    going through {!run}'s single-bootstrap-session convenience wrapper. *)
 val accept_loop :
   sw:Eio.Switch.t ->
   env:Eio_unix.Stdenv.base ->
   sessions:Serve_session.table ->
+  max_sessions:int ->
   _ Eio.Net.listening_socket ->
   'a
+
+(** Grace period (seconds) between an idle-timeout kill's [SIGTERM] and
+    its [SIGKILL] escalation ({!Serve_session.kill_worker_escalating}).
+    A worker's default signal disposition terminates it on [SIGTERM]
+    alone, well within this window; the escalation exists only for a
+    worker that is somehow ignoring or slow to act on [SIGTERM]. *)
+val idle_kill_grace_seconds : float
+
+(** How often (seconds) {!run}'s background fiber re-scans the session
+    table for idle sessions ({!Serve_session.reap_idle_sessions}). A
+    fixed, short interval regardless of [idle_timeout]: the scan itself
+    is a cheap linear pass bounded by [max_sessions], so scanning far
+    more often than the (typically minutes-scale) idle timeout costs
+    little and keeps reap latency low and independent of the configured
+    timeout's own magnitude. *)
+val idle_scan_interval_seconds : float
 
 (** [run ?auth_token ?auth_file ?port ?bind ?max_sessions ?idle_timeout
     ?insecure_allow_plaintext_external page] is the supervisor entry
@@ -132,8 +149,10 @@ val accept_loop :
     controller-role request rather than eagerly ({!Serve_session.ensure_worker},
     FR-010) — prints the [/s/<token>/] session URL, and serves the public
     TCP listener as a byte proxy ({!accept_loop}) until the process is
-    signaled to stop. [max_sessions]/[idle_timeout] are accepted and
-    recorded but not yet enforced (Slice 4). *)
+    signaled to stop. As of Slice 4, [max_sessions] is enforced by
+    {!accept_loop} on every connection (FR-070) and [idle_timeout] is
+    enforced by a background fiber that periodically calls
+    {!Serve_session.reap_idle_sessions} (FR-013). *)
 val run :
   ?auth_token:string ->
   ?auth_file:string ->

@@ -157,3 +157,133 @@ call-until-terminal-result shape does not need to change — parking means
 scoped as Slice 6 work, not attempted here (Slice 2 is
 supervisor/worker/proxy only) — this section exists so Slice 6 does not
 have to re-derive the change points from scratch.
+
+## 3. Slice 4 — idle timeout + resource limits
+
+### Idle timeout (FR-013)
+
+A session becomes idle when it has a spawned worker but no controller
+currently attached (`Serve_session.controller_live = false`) for longer
+than `--idle-timeout` seconds since the last detach
+(`Serve_session.last_activity`, stamped by `controller_detach ~now`).
+The supervisor's `run` forks a background fiber that calls
+`Serve_session.reap_idle_sessions` every `idle_scan_interval_seconds`
+(fixed at 5s, independent of the configured `idle_timeout` — the scan
+itself is a cheap linear pass bounded by `max_sessions`, so scanning far
+more often than a typically minutes-scale timeout costs little and keeps
+reap latency low).
+
+Reaping a session (`Serve_session.kill_worker_escalating`):
+
+1. Marks the session permanently dead (`t.dead <- true`) *before*
+   sending any signal — the supervisor is single-domain (documented
+   invariant, no `Domain.spawn`), so there is no intervening yield a
+   concurrent attach could land inside between this and the next step.
+2. Sends the worker `SIGTERM`.
+3. Forks a fiber that sleeps `idle_kill_grace_seconds` (5s) on the
+   caller's clock, then sends `SIGKILL` only if the worker has not
+   already exited (the ordinary case, since a worker's default `SIGTERM`
+   disposition terminates it well within the grace window — the
+   escalation exists only for a worker that is somehow ignoring or slow
+   to react to `SIGTERM`).
+
+`Serve_session.find` — the single chokepoint every attach request passes
+through — refuses any session with `dead = true`, even though the token
+byte strings are unchanged in memory: **a dead token never resurrects**
+(US-4 scenario 2), independent of whatever `worker_state` transition
+happens afterward (a crash-recovery reap that is *not* an idle-timeout
+kill still self-heals via `ensure_worker`, by design — only
+`kill_worker_escalating`'s explicit `dead <- true` is permanent).
+
+The clock is fully injectable end to end: `reap_idle_sessions` takes
+both `now` (a plain float, so a test can assert idleness with a
+contrived timestamp with zero waiting) and `clock` (an `Eio.Time.clock`,
+so the grace-period wait can be driven by a mock clock stepped directly
+in a test, never a real sleep). Production wires both to
+`env#clock`/`Eio.Time.now env#clock`.
+
+### `max_sessions` (FR-070/FR-071)
+
+The cap is enforced where a **new** worker process would actually be
+spawned (`Serve_proxy.resolve`'s controller branch, gated on
+`Serve_session.would_spawn`), not on the session table's size in the
+abstract: a controller reattaching to a session whose worker already
+exists (or is mid-spawn) costs no new resource and is never itself
+refused by the cap — only a request that would grow
+`Serve_session.count_spawned` beyond `max_sessions` gets the uniform,
+bounded `429 Too Many Sessions` response, before any worker is ever
+contacted. This keeps the "existing sessions unaffected" half of
+FR-070's own check true by construction rather than by extra
+bookkeeping.
+
+**Default derivation (FR-071)**: a worker's baseline RSS was measured
+directly (spawning a worker process and reading its `VmRSS` from
+`/proc/<pid>/status` shortly after startup, no client attached) at
+**~9.3MB** for this repository's test-harness binary (which carries
+coverage/test-framework instrumentation overhead beyond a lean
+production binary) — consistent with, and slightly above, a prior
+~6MB figure for an uninstrumented build, both in the same low-tens-of-MB
+range the spec anticipated (§2, "expected low tens of MB per worker").
+Assuming a conservative 320MB memory budget an operator can spare for
+`miaou serve` sessions on a modest host, and a 20MB per-worker headroom
+figure (roughly 2x the measured RSS, absorbing OS/runtime bookkeeping
+beyond live heap data): `320 / 20 = 16`. This is `Serve_config.default`'s
+existing `max_sessions = 16` value — carried forward from its earlier
+placeholder, now grounded in a real measurement rather than a guess, per
+FR-071's own requirement not to ship an invented number. Adjustable via
+`--max-sessions` for a host with a different memory budget.
+
+### Per-worker resource limits (FR-072)
+
+Each worker self-applies a resource limit from `MIAOU_SERVE_RLIMIT_AS_MB`
+/ `MIAOU_SERVE_RLIMIT_CPU_SECONDS` environment variables at worker-mode
+entry (`Serve_worker.run`'s first line, before the Eio event loop even
+starts).
+
+**Why this isn't a `Unix.setrlimit` call**: OCaml's stdlib `Unix` module
+has no `setrlimit` binding at all (confirmed against this project's
+pinned compiler). Rather than add a new opam dependency (e.g.
+`extunix`, not otherwise used anywhere in this codebase) or a
+from-scratch C stub library for one defense-in-depth knob — either a
+disproportionate amount of new build surface for this — `Serve_rlimit`
+shells out to the `prlimit(1)` command-line utility against the
+worker's own pid (`prlimit --pid <self> --as=N:N` / `--cpu=N:N`), which
+adjusts a *running* process's own limit in place: functionally identical
+to a self-`setrlimit` call, no re-exec, no new file descriptors, no new
+opam/build dependency. If the utility is missing or the call otherwise
+fails, this is logged to stderr and the worker proceeds unlimited — a
+missing defense-in-depth backstop must never itself become a
+denial-of-service for a legitimate session (the documented
+platform-support caveat FR-072's own check anticipates).
+
+**The RLIMIT_AS-vs-OCaml-heap caveat, confirmed empirically while
+writing this slice's test**: setting `MIAOU_SERVE_RLIMIT_AS_MB` too low
+does not gracefully degrade the worker's memory usage — it prevents the
+worker from starting at all. At 256MB, the worker reliably aborted
+during Eio's own runtime initialization (`io_uring_queue_init: ENOMEM`,
+i.e. before the app or the OCaml heap had done anything); 384MB+ started
+reliably in this environment. `test_serve_limits.ml`'s rlimit scenario
+uses 512MB, a safe margin above that observed floor, specifically so the
+limit is genuinely exercised (verified via `/proc/<pid>/limits`) without
+being a no-op. Operators should set this value well above a worker's
+expected resident set, not merely at it — RLIMIT_AS bounds total
+*virtual* address space (including the runtime's own bulk, ahead-of-use
+reservations), not live heap data. `MIAOU_SERVE_RLIMIT_CPU_SECONDS` has
+no equivalent interaction and is the safer knob alone if this caveat is
+a concern for a given deployment.
+
+### A pre-existing, out-of-scope finding surfaced while manually
+verifying this slice
+
+Driving a real `miaou serve` worker with `curl` (WebSocket upgrade,
+then an abrupt client-side disconnect — not a clean WebSocket close
+frame) reproducibly logged `worker pid=<n> exited: signaled -11`
+(SIGSEGV) instead of a clean exit, on both attempts tried. This
+reproduces with Slice 2/3 code alone (the crash happens inside
+`Web_driver`'s own controller-disconnect teardown path, well before any
+Slice 4 code runs) and is already handled correctly by the existing
+FR-015 reaper (no zombie, no hang) regardless of the crash — Slice 4's
+own idle-timeout/`max_sessions`/dead-token guarantees were all still
+verified to hold. This is flagged here as a finding for a future slice
+to investigate (not fixed in this slice — out of the FR-013/070/072
+scope), not silently absorbed.
