@@ -1,13 +1,15 @@
-; Optional for the same reason src/miaou_mcp/dune is: mcp-kit is only
-; present in a switch that has pinned the commit named in
-; the pin (see src/miaou_mcp/dune). `(test)` doesn't support `(optional)`
-; directly, so this is spelled out as an `(executable)` (which does) plus a
-; manual `runtest` alias rule; `dune runtest` silently skips this suite
-; instead of failing when that pin is absent.
+; Gated behind MIAOU_MCP=1 for the same reason as src/miaou_mcp/dune:
+; mcp-kit is only present when the pin is added, and `(optional)` alone
+; doesn't stop `dune build @all` / an explicit rule dependency from forcing
+; the build. `(enabled_if MIAOU_MCP=1)` on both the executable and the
+; runtest rule removes them from the graph entirely unless opted in, so CI
+; stays green. Run locally with `MIAOU_MCP=1 dune runtest test/mcp`.
 
 (executable
  (name mcp_tools_test)
  (modules mcp_tools_test)
+ (enabled_if
+  (= %{env:MIAOU_MCP=} 1))
  (optional)
  (libraries
   alcotest
@@ -22,6 +24,8 @@
 
 (rule
  (alias runtest)
+ (enabled_if
+  (= %{env:MIAOU_MCP=} 1))
  (deps mcp_tools_test.exe)
  (action
   (run %{deps})))
