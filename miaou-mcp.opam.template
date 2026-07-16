@@ -1,0 +1,4 @@
+pin-depends: [
+  ["mcp-kit.dev" "git+https://github.com/epure-team/ocaml-mcp#c83c986dbea8"]
+  ["mcp-kit-eio.dev" "git+https://github.com/epure-team/ocaml-mcp#c83c986dbea8"]
+]

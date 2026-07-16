@@ -26,6 +26,7 @@
   miaou-driver-matrix.driver
   miaou-core.core
   miaou-core.lib_miaou_internal
+  miaou-runner.protocol
   yojson
   eio.unix
   unix))

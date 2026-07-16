@@ -1,0 +1,43 @@
+(test
+ (name replay_test)
+ (modules replay_test)
+ (deps
+  (glob_files golden/*.jsonl))
+ (libraries
+  alcotest
+  yojson
+  miaou-core.core
+  miaou-core.helpers
+  miaou-runner.protocol
+  gallery
+  demo_shared
+  eio_main))
+
+(test
+ (name docs_version_test)
+ (modules docs_version_test)
+ (deps ../../docs/agent-protocol.md)
+ (libraries alcotest miaou-runner.protocol))
+
+(test
+ (name wait_for_test)
+ (modules wait_for_test)
+ (libraries
+  alcotest
+  yojson
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-core.lib_miaou_internal
+  miaou-runner.protocol
+  test_helpers
+  eio_main))
+
+(test
+ (name recording_test)
+ (modules recording_test)
+ (libraries alcotest unix miaou-core.core test_helpers))
+
+(test
+ (name internal_error_test)
+ (modules internal_error_test)
+ (libraries alcotest yojson miaou-core.core miaou-runner.protocol eio_main))

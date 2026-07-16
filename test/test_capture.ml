@@ -89,7 +89,40 @@ let test_capture_outputs () =
                 (String.length frame_payload > 0) ;
               Miaou_core.Tui_capture.reset_for_tests ())))
 
+(* Frame-hash dedup: a run of identical (rows, cols, frame) triples only
+   produces one JSONL line, so a wait_for poll loop re-rendering the same
+   unchanged screen a hundred times over doesn't inflate the recording. *)
+let test_frame_dedup () =
+  with_temp_file "miaou_dedup_frames" (fun frames ->
+      with_env
+        [
+          ("MIAOU_DEBUG_FRAME_CAPTURE", Some "1");
+          ("MIAOU_DEBUG_FRAME_CAPTURE_PATH", Some frames);
+        ]
+        (fun () ->
+          for _ = 1 to 100 do
+            Miaou_core.Tui_capture.record_frame ~rows:24 ~cols:80 "same frame"
+          done ;
+          Miaou_core.Tui_capture.record_frame
+            ~rows:24
+            ~cols:80
+            "different frame" ;
+          let payload = slurp frames in
+          let line_count =
+            String.fold_left
+              (fun n c -> if c = '\n' then n + 1 else n)
+              0
+              payload
+          in
+          check int "100 identical frames + 1 different = 2 lines" 2 line_count ;
+          Miaou_core.Tui_capture.reset_for_tests ()))
+
 let () =
   run
     "capture"
-    [("capture", [test_case "writes files" `Quick test_capture_outputs])]
+    [
+      ("capture", [test_case "writes files" `Quick test_capture_outputs]);
+      ( "frame_dedup",
+        [test_case "consecutive identical frames dedup" `Quick test_frame_dedup]
+      );
+    ]

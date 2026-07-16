@@ -1,0 +1,40 @@
+; The mcp-kit / mcp-kit-eio libraries are not published to the default opam
+; repository: they are only present in a switch that has pinned the exact
+; commit named in ../../miaou-mcp.opam.template's pin-depends (see
+; docs/agent-protocol.md, "Root-build story"). `(optional)` on both stanzas
+; below means `dune build @all`/`dune runtest` silently skip miaou-mcp
+; instead of failing when that pin has not been added — a dev switch
+; without it stays green on every other package.
+
+(library
+ (name mcp_tools)
+ (public_name miaou-mcp.tools)
+ (modules mcp_tools)
+ (optional)
+ (instrumentation
+  (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
+ (libraries miaou-runner.protocol yojson mcp-kit))
+
+(executable
+ (name miaou_mcp_main)
+ (public_name miaou-mcp)
+ (package miaou-mcp)
+ (modules miaou_mcp_main)
+ (optional)
+ (instrumentation
+  (backend bisect_ppx))
+ (preprocess
+  (pps ppx_forbid))
+ (libraries
+  mcp_tools
+  miaou-runner.protocol
+  miaou-core.core
+  miaou-core.helpers
+  demo_shared
+  gallery
+  yojson
+  eio_main
+  mcp-kit
+  mcp-kit.stdio))
