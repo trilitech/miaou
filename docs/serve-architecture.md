@@ -385,3 +385,139 @@ listener beyond loopback (or to pass
 independent of, not a substitute for, the per-request session-token
 check. See `src/miaou_serve/serve_run.mli`'s entry-contract doc comment
 for the same decision spelled out at the API-documentation layer.
+
+## 5. Slice 6 — reconnect + resync (FR-050), and the two deferred prereqs
+
+### PREREQ-A: the S4 "SIGSEGV" finding was a misdiagnosis, not a crash
+
+The S4/S6-prereq brief reported a client-triggerable worker crash:
+`worker pid=<n> exited: signaled -11`, read as SIGSEGV (raw OS signal
+11). Direct reproduction against a real worker process — abrupt
+disconnects (`Unix.shutdown` + close, no WebSocket close frame, no
+clean FIN) before any input, mid-stream while frames are actively
+flushing, and repeated across many trials on this environment's actual
+Eio/io_uring backend — never crashed the worker, in any trial. The
+"-11" itself explains why: OCaml's `Sys` module encodes signals with its
+own *portable* negative constants, not raw OS signal numbers —
+`Sys.sigterm = -11`, `Sys.sigsegv = -10` (confirmed directly: `Sys.sigsegv
+= -10; Sys.sigterm = -11` on this project's pinned compiler).
+`Unix.waitpid`'s `WSIGNALED` — which `Eio.Process.exit_status`'s
+`` `Signaled `` wraps, and which `Serve_process.string_of_exit_status`
+prints verbatim — reports in this same portable encoding. "signaled -11"
+is an ordinary SIGTERM, not a segfault. The likely original sequence:
+stopping the foreground supervisor (Ctrl-C) right after a manual `curl`
+repro triggers the supervisor's own graceful-shutdown path, which SIGTERMs
+its worker(s); a worker installs no SIGTERM handler of its own, so the OS
+default disposition (process termination) applies, and the resulting
+`` `Signaled (-11) `` (portable SIGTERM) is what got logged and misread as
+a crash. Separately, Eio itself already globally disables `SIGPIPE`
+(`eio_linux.ml`/`eio_posix.ml` both set `Sys.sigpipe` to `Signal_ignore`
+at module load, before any of this repository's code runs), so a write to
+an already-reset peer cannot deliver a process-fatal signal through that
+path either — ruling out the other classic cause of a "write to a dead
+socket kills the process" bug.
+
+No source fix was needed for a crash that does not reproduce. What S6
+does instead: makes "an abrupt disconnect survives" a structural property
+(see the parking design below — a client-close, of any shape, never
+reaches a code path that tears the worker down) and adds a permanent
+regression test, `test/test_serve_reconnect.ml`'s `prereq_a` scenario,
+which exercises exactly this invariant against a real worker process on
+every `dune runtest` run.
+
+### PREREQ-B: Origin check moved before `ensure_worker`
+
+`Serve_proxy.resolve` (which may call `Serve_session.ensure_worker`,
+spawning a worker) now runs strictly after `handle_connection` has read
+the request head and evaluated the FR-045 Origin check — previously the
+Origin check lived inside the `` `Forward `` branch, after `resolve` had
+already run. A valid-token-but-foreign-Origin controller request is now
+refused before any worker is ever spawned, rather than spawning one that
+is refused before being contacted.
+
+### The reconnect implementation
+
+The design spike above (§2) predicted the change was localized to three
+points in `run_tui` plus a same-worker-reconnect lookup in the session
+table, without needing to touch `Matrix_main_loop`. That held, with one
+simplification the spike didn't anticipate: `Matrix_main_loop.run`
+already handles a `Matrix_io.Resize` event by writing `"\027[2J\027[H"`
+and calling `Matrix_buffer.mark_all_dirty` (`matrix_main_loop.ml`'s
+`Matrix_io.Resize` case, used for an ordinary xterm.js window resize
+during a live session) — exactly the FR-050 full-redraw behavior a
+reattach needs. Reconnect reuses this *existing, already-tested* path by
+injecting a synthetic `Matrix_io.Resize` event, rather than duplicating
+the clear/redraw sequence in `web_driver.ml`.
+
+`Web_driver.Session.t` (the worker's own single-controller-slot record,
+distinct from `Serve_session.t`) gained:
+- `controller_parked : bool` — true once a controller has attached and
+  its connection has since closed (any close, clean or abrupt) without
+  the app reaching a terminal outcome.
+- `reattach : (Web_websocket.t -> Eio.Buf_read.t -> close:(unit -> unit)
+  -> unit) option` — installed once by `run_tui`, right before it starts
+  running the main loop; captures `run_tui`'s own private mutable state
+  (the current-transport cell, the switch reader fibers are forked
+  under, the event stream), so `Session` itself never needs to know any
+  of `run_tui`'s internals.
+
+`run_tui` gained a mutable `current_ws`/`close_current` cell (the "current
+transport" the spike named) and a `park_if_current` function (a
+physical-equality-guarded reset, same pattern as
+`Serve_session.reap_and_log`'s `w == worker` guard) called by the reader
+fiber's close-handling *instead of* injecting `Matrix_io.Quit`. The
+flusher fiber now reads through `current_ws` on every tick instead of
+closing over a fixed `ws`, and drops (does not buffer) output while
+parked — a reattach forces a full redraw via the synthetic Resize event,
+so replaying whatever accumulated while nobody was listening would be
+wasted work at best and stale content at worst. The accept loop's `/ws`
+branch routes a new connection to a session that is `Session.can_reattach`
+(parked, with a live `reattach` callback) to that callback instead of
+spawning a fresh `page_loop`/`run_tui` call or refusing "slot taken".
+
+App Quit (or `Back` with an empty page stack, or `SwitchTo` naming a page
+the registry doesn't have) is the one outcome that still ends `run_tui`'s
+call for good; `Web_driver.run_on` gained an `?on_session_end` hook
+(default a no-op, preserving this generic driver's pre-S6 behavior for
+non-serve callers such as `example/gallery/main_web.ml`) fired exactly
+once at that point. `Serve_worker.run` wires this hook to
+`exit Serve_worker.quit_exit_code` — an arbitrary, distinguishing exit
+code — so the worker process itself ends. `Serve_session.reap_and_log`
+recognizes that specific exit code and marks the session permanently
+`dead` (the same terminal state `kill_worker_escalating`'s idle-timeout
+reap already uses), rather than self-healing back to `Not_spawned`: a
+deliberate app-quit is a dead end (FR-050: "reconnect-after-quit = dead
+token"), not a crash to recover from.
+
+### FR-051 (documented non-goal)
+
+There is no input sequence numbering across a reconnect. A keystroke sent
+by the client in the brief window between the old connection parking and
+a new one reattaching can be lost (the reader fiber that would have
+delivered it no longer exists, and the new one hasn't started yet) — this
+is an accepted limitation, not a bug: implementing exactly-once delivery
+across an arbitrary client-side transport swap would require a
+sequence-numbered ack/replay protocol the spec explicitly scopes out of
+this slice (`briefs/miaou-serve-spec.md`'s FR-051 entry). A lost keystroke
+in that window is silently dropped, exactly as if the user had typed it a
+moment before the tab closed.
+
+### Verification
+
+`test/test_serve_reconnect.ml` drives a real supervisor + worker (via
+`Supervisor.accept_loop`, the same harness pattern as
+`test_serve_multi_session.ml`) with a stateful counter page, over raw
+RFC 6455 sockets: the `prereq_a` scenario asserts an abrupt disconnect
+(`Unix.shutdown` + close) leaves the worker's pid unchanged and the
+session reattachable; the `reconnect` scenario attaches, bumps the
+counter to a known value, drops the connection abruptly, reconnects
+within a bounded retry window (accommodating the supervisor's own
+bounded controller-live-detach race — a real reconnecting client would
+retry the same way), and asserts the same worker pid answers, the first
+post-reconnect frame carries a full-screen clear, and the repainted
+content reflects the preserved counter value rather than the page's
+initial state. A manual runtime check drove an actual `miaou serve`
+process (not the test binary) through the identical
+attach→navigate→abrupt-drop→worker-alive→reconnect→state-preserved
+sequence over raw sockets in a live terminal session, confirming the same
+result outside of Alcotest.

@@ -71,7 +71,18 @@ type spawn_error = Unreachable
    physical-equality guard ([w == worker]) only resets the state if it
    still refers to *this* worker — guards against this stale callback
    clobbering a newer [Spawned] state in the (currently unreachable, but
-   not worth relying on) case of overlapping spawn/reap cycles. *)
+   not worth relying on) case of overlapping spawn/reap cycles.
+
+   S6 (FR-050): a worker that exited with
+   {!Serve_worker.quit_exit_code} did so because the app itself reached a
+   genuine terminal outcome (see [Web_driver.run_on]'s [on_session_end]
+   hook, wired up in {!Serve_worker.run}) — not a crash. Unlike an
+   ordinary crash-recovery reap (which self-heals: the next
+   {!ensure_worker} call spawns a fresh worker for the very same token),
+   a deliberate app-quit must be a dead end: [t] is marked permanently
+   dead ({!is_dead}), same as an idle-timeout kill, so a reconnect
+   attempt after quitting finds no session at all rather than silently
+   landing on a brand-new page instance. *)
 let reap_and_log t ~sw (worker : Serve_process.worker) =
   Serve_process.reap ~sw worker ~on_exit:(fun status ->
       Printf.eprintf
@@ -79,6 +90,9 @@ let reap_and_log t ~sw (worker : Serve_process.worker) =
         worker.Serve_process.pid
         (Serve_process.string_of_exit_status status) ;
       (try Sys.remove worker.Serve_process.socket_path with _ -> ()) ;
+      (match status with
+      | `Exited code when code = Serve_worker.quit_exit_code -> t.dead <- true
+      | `Exited _ | `Signaled _ -> ()) ;
       match t.worker_state with
       | Spawned w when w == worker -> t.worker_state <- Not_spawned
       | Not_spawned | Spawning _ | Spawned _ -> ())

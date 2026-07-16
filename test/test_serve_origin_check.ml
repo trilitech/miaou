@@ -130,11 +130,29 @@ let connect_and_upgrade ~port ~path ~origin () =
    the "bind-derived default" scenario needs an allow-list computed from
    that very port ({!Origin.default_allowed}), which isn't known until
    after this function has already picked it. *)
+
+(* Each scenario in this file calls [start_harness] in the same OS
+   process (same pid, hence the same {!Supervisor.socket_dir}). Since
+   PREREQ-B (S6) moved the Origin check ahead of [resolve]/
+   [ensure_worker], a refused (foreign-Origin) request no longer spawns
+   a worker at all — so a shared, hardcoded socket filename across
+   scenarios is no longer safe to assume "not yet bound by a prior
+   scenario's worker": an *earlier* scenario whose own request wasn't
+   refused (e.g. "missing origin allowed") leaves its worker alive,
+   still listening on that path (FR-012, worker survives detach) — a
+   later scenario's own fresh spawn attempt at the very same path would
+   either collide, or (worse) silently reach the wrong, older worker
+   process instead of its own. A monotonic counter keeps every
+   {!start_harness} call's socket path distinct, mirroring
+   [test_serve_multi_session.ml]'s identical [harness_counter] pattern. *)
+let harness_counter = Atomic.make 0
+
 let start_harness ~allowed_origins =
   let port = free_port () in
   let allowed_origins = allowed_origins ~port in
   let session_slot = ref None in
   let ready = Atomic.make false in
+  let n = Atomic.fetch_and_add harness_counter 1 in
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
@@ -145,7 +163,8 @@ let start_harness ~allowed_origins =
         let session =
           Session.create
             ~env
-            ~socket_path:(Filename.concat dir "origin-check.sock")
+            ~socket_path:
+              (Filename.concat dir (Printf.sprintf "origin-check-%d.sock" n))
         in
         let sessions = Session.create_table () in
         Session.add sessions session ;

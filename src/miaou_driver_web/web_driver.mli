@@ -51,7 +51,20 @@ type listen = [`Tcp of string * int | `Unix of string]
     getting a TCP listener on all interfaces.
 
     @param listen Where to accept connections: [`Tcp (host, port)] or
-      [`Unix path]. *)
+      [`Unix path].
+    @param on_session_end (S6, FR-050) Called at most once, the moment a
+      controller session reaches a genuine terminal outcome — the app
+      itself produced [`Quit], a [`Back] with nothing left on its page
+      stack, or a [`SwitchTo] naming a page the {!Miaou_core.Registry}
+      doesn't have — as opposed to a client merely detaching (which is
+      parked, not reported here at all; see the reconnect design notes
+      in [docs/serve-architecture.md]). Defaults to a no-op, preserving
+      this function's pre-S6 behavior (keep accepting further
+      connections) for any caller that doesn't pass it. [miaou serve]'s
+      worker process (the only intended single-controller-session use of
+      this hook) passes a hook that ends the worker process itself, so a
+      reconnect attempt after an app-initiated quit finds no worker at
+      all — a dead end, not a fresh page instance. *)
 val run_on :
   ?config:Miaou_driver_matrix.Matrix_config.t option ->
   listen:listen ->
@@ -59,6 +72,7 @@ val run_on :
   ?controller_html:string ->
   ?viewer_html:string ->
   ?extra_assets:extra_asset list ->
+  ?on_session_end:(unit -> unit) ->
   (module Miaou_core.Tui_page.PAGE_SIG) ->
   [`Quit | `Back | `SwitchTo of string]
 

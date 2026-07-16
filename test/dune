@@ -561,6 +561,20 @@
   test_helpers))
 
 (test
+ (name test_serve_reconnect)
+ (modules test_serve_reconnect)
+ (libraries
+  alcotest
+  eio_main
+  eio.unix
+  unix
+  threads.posix
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-serve.serve
+  test_helpers))
+
+(test
  (name test_serve_viewer_readonly)
  (modules test_serve_viewer_readonly)
  (libraries

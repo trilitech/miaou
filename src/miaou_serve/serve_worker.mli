@@ -19,6 +19,17 @@
     the worker must listen on. *)
 val env_var : string
 
+(** The exit code {!run} uses when the app itself reaches a genuine
+    terminal outcome (Quit / Back-to-empty-stack / SwitchTo-not-found —
+    see {!Miaou_driver_web.Web_driver.run_on}'s [on_session_end]), as
+    opposed to any other termination (a crash, a signal, an idle-timeout
+    kill). {!Serve_session.reap_and_log} recognizes this specific code to
+    mark the session permanently dead (FR-050: "reconnect-after-quit =
+    dead token") rather than self-healing by spawning a fresh worker on
+    the next attach — the distinction that lets a deliberate app-quit
+    behave differently from an ordinary crash-and-recover. *)
+val quit_exit_code : int
+
 (** [run ~socket_path page] starts this process as a worker: applies any
     {!Serve_rlimit.apply_from_env} resource limits (FR-072, first — before
     anything else runs), initializes
@@ -29,5 +40,15 @@ val env_var : string
     which happens when the supervisor that spawned it dies — an orphaned
     worker's socket path is otherwise unreachable and unreapable), then
     serves [page] on the Unix domain socket at [socket_path] via
-    {!Miaou_driver_web.Web_driver.run_on}. Blocks until the app quits. *)
+    {!Miaou_driver_web.Web_driver.run_on}.
+
+    S6 (FR-050, reconnect): a controller WebSocket closing — cleanly or
+    abruptly — no longer ends this call; {!Web_driver.run_on} parks that
+    session instead (main loop and render domain keep running), and a
+    later connection to the same socket's [/ws] reattaches to it, resuming
+    the same in-process page/navigation state. This function only
+    actually returns/exits once the app itself reaches a genuine terminal
+    outcome, at which point it calls [exit quit_exit_code] — so, unlike
+    pre-S6, [run] ends the whole process rather than looping to accept a
+    fresh, unrelated controller session on the same socket. *)
 val run : socket_path:string -> (module Miaou_core.Tui_page.PAGE_SIG) -> unit
