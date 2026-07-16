@@ -62,10 +62,40 @@
     [max_sessions]/[idle_timeout] are accepted and recorded but not
     enforced (Slice 4). The printed session URL is now the FR-030 path
     form ([http://<bind>:<port>/s/<token>/]), superseding Slice 1's
-    interim query-string bridge. [auth_token]/[auth_file] still only
-    satisfy the fail-closed bind policy's "an auth mechanism is
-    configured" test (FR-003); wiring an operator-supplied credential
-    into the WebSocket upgrade itself is Slice 5 scope (FR-031/FR-033). *)
+    interim query-string bridge.
+
+    {2 Auth model (Slice 5 decision, final)}
+
+    [auth_token]/[auth_file] are, and remain, {b bind-policy gates only}:
+    their sole effect is satisfying {!Serve_policy.check}'s "an auth
+    mechanism is configured" precondition for binding a non-loopback
+    address (FR-003). They are never read as request-time credentials —
+    [auth_file]'s contents are not even read from disk. The per-request
+    authentication FR-031/FR-032/FR-033 describe is entirely the
+    per-session {!Serve_token.t} embedded in the [/s/<token>] URL:
+    CSPRNG-generated at session creation (FR-030), role-bound at
+    issuance (FR-032), compared in constant time (FR-033,
+    {!Serve_token.matches}), and checked before any session-existence
+    information is revealed or any WebSocket upgrade completes
+    (FR-031, {!Serve_session.find}/{!Serve_proxy.handle_connection}).
+    This is a deliberate architectural choice, not a gap: the
+    process-per-session design's unguessable session URL is already a
+    capability token strictly stronger (256 bits of fresh CSPRNG
+    entropy, one pair per session) than a single operator-wide shared
+    secret would be: layering a second, operator-supplied secret on top
+    would need every client (including a plain browser tab following a
+    printed link) to also transmit it on each request — WebSocket
+    upgrades cannot carry arbitrary custom headers from a browser, so
+    that would mean either a query parameter (worse: logged in
+    proxies/history, another value to shepherd) or a fragile
+    subprotocol/cookie bridge, for no additional security the session
+    token doesn't already provide. Requiring [--auth-token]/[--auth-file]
+    before a non-loopback bind stays valuable as a distinct, orthogonal
+    policy: it forces an operator to make an explicit, auditable choice
+    before exposing the listener beyond loopback (or to pass
+    [--insecure-allow-plaintext-external] and own that choice knowingly)
+    — independent of, and not a substitute for, the per-session token
+    check that gates every individual request. *)
 
 (** Raised by {!run} (via {!Serve_supervisor.run}) when
     {!Serve_policy.check} refuses the requested bind (FR-003). The
@@ -81,15 +111,17 @@ exception Bind_refused of string
 
 (** [auth_token] and [auth_file], when supplied, only satisfy the
     fail-closed bind policy's "an auth mechanism is configured" test
-    (FR-003) in Slice 1 — neither is yet the credential a client
-    presents, and [auth_file]'s contents are not read or validated at
-    all in this slice (its mere presence as a path is what counts,
-    same as [auth_token]'s mere presence — not its value). The actual
+    (FR-003) — neither is a credential a client ever presents, and
+    [auth_file]'s contents are not read or validated at all (its mere
+    presence as a path is what counts, same as [auth_token]'s mere
+    presence — not its value); see the auth model note above for why
+    this is the final decision, not a deferred gap. The actual
     per-session, CSPRNG-generated {!Serve_token.t} (FR-030) is what
     gates the WebSocket upgrade, printed as part of the session URL at
-    startup. Wiring an operator-supplied [auth_token]/[auth_file] into
-    that check, and reading [auth_file]'s contents, is Slice 5 scope
-    (FR-031/FR-033's negative-auth suite). *)
+    startup. [allowed_origins] adds extra [Origin] values accepted at
+    upgrade (FR-045), beyond {!Serve_origin.default_allowed}'s
+    same-origin-as-[bind] default — for a reverse proxy whose public
+    origin differs from [bind]. *)
 val run :
   ?auth_token:string ->
   ?auth_file:string ->
@@ -98,5 +130,6 @@ val run :
   ?max_sessions:int ->
   ?idle_timeout:float ->
   ?insecure_allow_plaintext_external:bool ->
+  ?allowed_origins:string list ->
   (module Miaou_core.Tui_page.PAGE_SIG) ->
   unit

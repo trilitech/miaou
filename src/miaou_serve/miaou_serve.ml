@@ -21,5 +21,6 @@ module Serve_rlimit = Serve_rlimit
 module Serve_worker = Serve_worker
 module Serve_process = Serve_process
 module Serve_session = Serve_session
+module Serve_origin = Serve_origin
 module Serve_supervisor = Serve_supervisor
 module Serve_proxy = Serve_proxy

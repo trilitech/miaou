@@ -575,6 +575,25 @@
   test_helpers))
 
 (test
+ (name test_serve_auth_negative)
+ (modules test_serve_auth_negative)
+ (libraries alcotest eio_main eio.unix unix threads.posix miaou-serve.serve))
+
+(test
+ (name test_serve_origin_check)
+ (modules test_serve_origin_check)
+ (libraries
+  alcotest
+  eio_main
+  eio.unix
+  unix
+  threads.posix
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-serve.serve
+  test_helpers))
+
+(test
  (name test_serve_limits)
  (modules test_serve_limits)
  (libraries

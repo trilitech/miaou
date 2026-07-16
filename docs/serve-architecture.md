@@ -287,3 +287,101 @@ own idle-timeout/`max_sessions`/dead-token guarantees were all still
 verified to hold. This is flagged here as a finding for a future slice
 to investigate (not fixed in this slice — out of the FR-013/070/072
 scope), not silently absorbed.
+
+## 4. Slice 5 — Origin checks, auth-negative suite, constant-time compare
+
+### Uniform failure shape (FR-031)
+
+Three distinct failure classes — a well-formed but nonexistent token, a
+valid token presented for the wrong role (a viewer-scoped token hitting
+the controller-only `/ws` path), and a token whose session has since been
+killed by the idle-timeout reaper (FR-013's "dead token never
+resurrects") — already collapsed onto the same code path as of Slice 3/4:
+`Serve_session.find` excludes dead sessions from ever matching, and a
+viewer token on the controller path is refused (`` `Refuse_403 ``) before
+any worker is contacted, both funneling into `Serve_proxy.respond_403`,
+which always emits the identical, input-independent
+`403 Forbidden`/`Forbidden` bytes. `test_serve_auth_negative.ml` asserts
+this with an explicit byte-for-byte comparison across five scenarios
+(wrong token, no token, viewer-on-controller, dead token, and a
+single-bit "near miss" against another session's real token — the
+"almost matched" oracle the spec's US-4 scenario 1 and C-7 caveat call
+out by name).
+
+What Slice 5 actually changed: `Serve_session.find` was scanning the
+session table with `List.find_map`, which short-circuits on the first
+match — a session near the front of the table would cost strictly less
+work (and, in principle, less wall-clock time) to match than one near
+the back, or than a total miss. This is now a `List.fold_left` that
+always visits every session regardless of an earlier hit. Similarly,
+`Serve_session.match_role` was an `if ... else if ...` that only
+evaluated the viewer token's `Eqaf.equal` call when the controller
+token's call had already failed; both calls are now always evaluated.
+Neither change affects observable behavior (the *first* match still
+wins, `find`'s public contract is unchanged) — both are pure timing-
+uniformity hardening, in the spirit of FR-031's "no oracle" mandate,
+scoped to the table/per-session comparison structure the C-7 caveat
+already flags as inherently unable to reach true constant-time over a
+real network stack.
+
+### Origin allow-list (FR-045)
+
+A new `Serve_origin` module validates the `Origin` header against a
+configured allow-list on any request that carries an
+`Upgrade: websocket` header, wired into `Serve_proxy.handle_connection`
+after the request head is read but before a worker is ever contacted —
+so a foreign `Origin` is refused (`403`) even for an otherwise-valid,
+correctly-scoped session token (US-4 scenario 4). The allow-list is the
+same-origin-as-`--bind`-host default (`Serve_origin.default_allowed`,
+derived from the actual bind address/port at supervisor startup) unioned
+with any operator-supplied `--allowed-origin` values (repeatable) — a
+reverse-proxy operator adding their public origin does not lose the
+ability to reach the server at its own bind address directly.
+
+**Missing-`Origin` policy (documented, deliberately weakens the literal
+FR-045 text)**: a request with *no* `Origin` header at all is allowed,
+regardless of the allow-list. A browser always sends `Origin` on a
+WebSocket handshake, so any browser-mediated attempt is always subject
+to the check above; only non-browser clients (`websocat`, a CLI script,
+a health check) legitimately omit it, and `miaou serve`'s own intake
+explicitly includes scripted/CLI access as a supported use case, not
+just a browser tab. Origin is not itself an authentication mechanism —
+the session token is (FR-030/031/032) — so allowing an absent header
+does not weaken authentication; it only narrows Origin's own guard to
+the browser-mediated hijack scenario it exists to defend against. See
+`src/miaou_serve/serve_origin.mli` for the full rationale.
+
+`test_serve_origin_check.ml` drives all three named scenarios (foreign
+Origin refused, missing Origin allowed, an explicitly-allowed Origin
+succeeds) plus a fourth proving the bind-derived default itself works,
+over a real WebSocket handshake against `Serve_supervisor.accept_loop`.
+
+### Auth model reconciliation (FR-033, and the S1 "auth gates bind
+policy only" gap)
+
+Slices 1-4 left `--auth-token`/`--auth-file` wired only into
+`Serve_policy.check`'s fail-closed bind gate (FR-003) — never read as a
+per-request credential — with an explicit comment marking that decision
+as provisional pending Slice 5. That decision is now made final, not
+deferred further: **`--auth-token`/`--auth-file` remain bind-policy-only.
+The per-session `Serve_token.t` embedded in the `/s/<token>` URL is the
+entire per-request authentication mechanism FR-031/032/033 describe.**
+
+Rationale: the process-per-session design's session URL is already a
+256-bit CSPRNG capability token, freshly minted per session and bound to
+a role at issuance — strictly stronger than a single operator-wide
+shared secret would add on top. Layering a second, operator-supplied
+secret into the per-request check would require every client (including
+a plain browser tab following the printed link) to also transmit it on
+every request; a browser's WebSocket handshake cannot carry arbitrary
+custom headers, so the only vehicles would be a query parameter (worse:
+logged in proxies/browser history, one more secret to shepherd) or a
+fragile cookie/subprotocol bridge — for no additional security the
+session token doesn't already provide. `--auth-token`/`--auth-file`
+retain their own, orthogonal value as a bind-policy gate: they force an
+operator to make an explicit, auditable choice before exposing the
+listener beyond loopback (or to pass
+`--insecure-allow-plaintext-external` and knowingly own that choice) —
+independent of, not a substitute for, the per-request session-token
+check. See `src/miaou_serve/serve_run.mli`'s entry-contract doc comment
+for the same decision spelled out at the API-documentation layer.

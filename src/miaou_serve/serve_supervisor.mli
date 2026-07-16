@@ -107,20 +107,24 @@ val reap :
     with a {!reap}'d [on_exit] callback to observe completion. *)
 val kill : worker -> unit
 
-(** [accept_loop ~sw ~env ~sessions ~max_sessions listening] forks
-    {!Serve_proxy.handle_connection} for each connection accepted on
-    [listening], dispatched against [sessions] (Slice 3's session table)
-    rather than a single hardcoded token, with [max_sessions] enforced
-    per-connection (FR-070). Never returns on its own (loops until [sw]
-    is cancelled). Exposed so a test can drive the same production
-    routing/role-enforcement path against a session table it builds
-    directly (e.g. two sessions, to prove process isolation), without
-    going through {!run}'s single-bootstrap-session convenience wrapper. *)
+(** [accept_loop ~sw ~env ~sessions ~max_sessions ~allowed_origins
+    listening] forks {!Serve_proxy.handle_connection} for each connection
+    accepted on [listening], dispatched against [sessions] (Slice 3's
+    session table) rather than a single hardcoded token, with
+    [max_sessions] enforced per-connection (FR-070) and [allowed_origins]
+    passed through to {!Serve_proxy.handle_connection}'s FR-045 Origin
+    check on any WebSocket-upgrade request. Never returns on its own
+    (loops until [sw] is cancelled). Exposed so a test can drive the same
+    production routing/role-enforcement path against a session table it
+    builds directly (e.g. two sessions, to prove process isolation),
+    without going through {!run}'s single-bootstrap-session convenience
+    wrapper. *)
 val accept_loop :
   sw:Eio.Switch.t ->
   env:Eio_unix.Stdenv.base ->
   sessions:Serve_session.table ->
   max_sessions:int ->
+  allowed_origins:string list ->
   _ Eio.Net.listening_socket ->
   'a
 
@@ -141,18 +145,23 @@ val idle_kill_grace_seconds : float
 val idle_scan_interval_seconds : float
 
 (** [run ?auth_token ?auth_file ?port ?bind ?max_sessions ?idle_timeout
-    ?insecure_allow_plaintext_external page] is the supervisor entry
-    point: enforces the fail-closed bind policy (FR-003), creates the
-    [0700] socket directory, builds a session table (Slice 3) seeded with
-    one bootstrap session — its controller/viewer token pair generated
-    up front (FR-030/FR-032), its worker spawned lazily on first
-    controller-role request rather than eagerly ({!Serve_session.ensure_worker},
-    FR-010) — prints the [/s/<token>/] session URL, and serves the public
-    TCP listener as a byte proxy ({!accept_loop}) until the process is
-    signaled to stop. As of Slice 4, [max_sessions] is enforced by
-    {!accept_loop} on every connection (FR-070) and [idle_timeout] is
-    enforced by a background fiber that periodically calls
-    {!Serve_session.reap_idle_sessions} (FR-013). *)
+    ?insecure_allow_plaintext_external ?allowed_origins page] is the
+    supervisor entry point: enforces the fail-closed bind policy
+    (FR-003), creates the [0700] socket directory, builds a session table
+    (Slice 3) seeded with one bootstrap session — its controller/viewer
+    token pair generated up front (FR-030/FR-032), its worker spawned
+    lazily on first controller-role request rather than eagerly
+    ({!Serve_session.ensure_worker}, FR-010) — prints the [/s/<token>/]
+    session URL, and serves the public TCP listener as a byte proxy
+    ({!accept_loop}) until the process is signaled to stop. [max_sessions]
+    is enforced by {!accept_loop} on every connection (FR-070) and
+    [idle_timeout] is enforced by a background fiber that periodically
+    calls {!Serve_session.reap_idle_sessions} (FR-013). [allowed_origins]
+    (extra values beyond {!Serve_origin.default_allowed}'s
+    same-origin-as-[bind] default) is passed through to {!accept_loop}
+    for the FR-045 Origin check; [auth_token]/[auth_file] remain
+    bind-policy-only (see {!Serve_run}'s auth model note) — neither is a
+    per-request credential. *)
 val run :
   ?auth_token:string ->
   ?auth_file:string ->
@@ -161,5 +170,6 @@ val run :
   ?max_sessions:int ->
   ?idle_timeout:float ->
   ?insecure_allow_plaintext_external:bool ->
+  ?allowed_origins:string list ->
   (module Miaou_core.Tui_page.PAGE_SIG) ->
   unit

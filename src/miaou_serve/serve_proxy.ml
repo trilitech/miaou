@@ -173,7 +173,7 @@ let resolve ~sw ~env ~sessions ~max_sessions session role tail :
             else `Forward (socket_path, tail, fun () -> ())
       end
 
-let handle_connection ~sw ~env ~sessions ~max_sessions ~conn =
+let handle_connection ~sw ~env ~sessions ~max_sessions ~allowed_origins ~conn =
   try
     let br = Eio.Buf_read.of_flow ~max_size:(1024 * 1024) conn in
     let request_line = Eio.Buf_read.line br in
@@ -213,43 +213,68 @@ let handle_connection ~sw ~env ~sessions ~max_sessions ~conn =
                        reattaches" scenario). *)
                     Fun.protect ~finally:on_close (fun () ->
                         let header_lines = read_header_lines br in
-                        (* Any bytes already pulled into [br]'s internal
-                           buffer beyond the head (e.g. pipelined bytes
-                           arriving in the same TCP segment) must be
-                           replayed verbatim — they belong to the worker,
-                           not to us, and were never meant to be parsed
-                           here. *)
-                        let residue = Eio.Buf_read.peek br in
-                        let residue_str = Cstruct.to_string residue in
-                        Eio.Buf_read.consume br (Cstruct.length residue) ;
-                        match
-                          connect_worker
-                            ~sw
-                            ~net:env#net
-                            ~clock:env#clock
-                            ~socket_path:worker_socket_path
-                            ~retries:20
-                            ~delay:0.05
-                        with
-                        | None -> respond_502 conn
-                        | Some worker_conn ->
-                            let new_uri =
-                              match query with
-                              | Some q -> forward_tail ^ "?" ^ q
-                              | None -> forward_tail
-                            in
-                            let head =
-                              Printf.sprintf "%s %s %s\r\n" meth new_uri version
-                            in
-                            let headers_block =
-                              String.concat
-                                ""
-                                (List.map (fun l -> l ^ "\r\n") header_lines)
-                            in
-                            Eio.Flow.copy_string
-                              (head ^ headers_block ^ "\r\n" ^ residue_str)
-                              worker_conn ;
-                            proxy_bytes conn worker_conn))))
+                        (* FR-045: validated here, before ever contacting
+                           a worker or reading past the head — a foreign
+                           Origin on a WebSocket-upgrade request is
+                           refused even with an otherwise-valid session
+                           token (US-4 scenario 4). Non-upgrade requests
+                           (plain GETs) are not subject to this check;
+                           a request that carries no Origin header at all
+                           is allowed (see Serve_origin's documented
+                           missing-Origin policy). *)
+                        if
+                          Serve_origin.is_websocket_upgrade header_lines
+                          && not
+                               (Serve_origin.is_allowed
+                                  ~allowed:allowed_origins
+                                  ~origin:
+                                    (Serve_origin.header_value
+                                       header_lines
+                                       ~name:"Origin"))
+                        then respond_403 conn
+                        else begin
+                          (* Any bytes already pulled into [br]'s internal
+                             buffer beyond the head (e.g. pipelined bytes
+                             arriving in the same TCP segment) must be
+                             replayed verbatim — they belong to the
+                             worker, not to us, and were never meant to be
+                             parsed here. *)
+                          let residue = Eio.Buf_read.peek br in
+                          let residue_str = Cstruct.to_string residue in
+                          Eio.Buf_read.consume br (Cstruct.length residue) ;
+                          match
+                            connect_worker
+                              ~sw
+                              ~net:env#net
+                              ~clock:env#clock
+                              ~socket_path:worker_socket_path
+                              ~retries:20
+                              ~delay:0.05
+                          with
+                          | None -> respond_502 conn
+                          | Some worker_conn ->
+                              let new_uri =
+                                match query with
+                                | Some q -> forward_tail ^ "?" ^ q
+                                | None -> forward_tail
+                              in
+                              let head =
+                                Printf.sprintf
+                                  "%s %s %s\r\n"
+                                  meth
+                                  new_uri
+                                  version
+                              in
+                              let headers_block =
+                                String.concat
+                                  ""
+                                  (List.map (fun l -> l ^ "\r\n") header_lines)
+                              in
+                              Eio.Flow.copy_string
+                                (head ^ headers_block ^ "\r\n" ^ residue_str)
+                                worker_conn ;
+                              proxy_bytes conn worker_conn
+                        end))))
   with exn -> (
     Printf.eprintf
       "[miaou serve proxy] connection error: %s\n%!"

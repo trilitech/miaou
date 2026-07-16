@@ -59,9 +59,18 @@ let insecure_arg =
   in
   Arg.(value & flag & info ["insecure-allow-plaintext-external"] ~doc)
 
+let allowed_origin_arg =
+  let doc =
+    "Additional Origin value accepted at WebSocket upgrade (FR-045), beyond \
+     the same-origin-as---bind default. Repeatable; needed when a reverse \
+     proxy's public origin differs from --bind (e.g. TLS termination, a \
+     different host/port)."
+  in
+  Arg.(value & opt_all string [] & info ["allowed-origin"] ~docv:"ORIGIN" ~doc)
+
 let config_term =
   let build app port bind auth_token auth_file max_sessions idle_timeout
-      insecure : Serve_config.t =
+      insecure allowed_origins : Serve_config.t =
     {
       app;
       port;
@@ -71,11 +80,12 @@ let config_term =
       max_sessions;
       idle_timeout;
       insecure_allow_plaintext_external = insecure;
+      allowed_origins;
     }
   in
   Term.(
     const build $ app_arg $ port_arg $ bind_arg $ auth_token_arg $ auth_file_arg
-    $ max_sessions_arg $ idle_timeout_arg $ insecure_arg)
+    $ max_sessions_arg $ idle_timeout_arg $ insecure_arg $ allowed_origin_arg)
 
 let serve_info =
   Cmd.info
@@ -106,6 +116,7 @@ let run_action (config : Serve_config.t) : unit =
             ~idle_timeout:config.idle_timeout
             ~insecure_allow_plaintext_external:
               config.insecure_allow_plaintext_external
+            ~allowed_origins:config.allowed_origins
             page)
 
 let cmd = Cmd.v serve_info Term.(const run_action $ config_term)

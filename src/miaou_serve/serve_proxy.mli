@@ -28,11 +28,12 @@
     only by the worker's own {!Miaou_driver_web.Web_websocket}
     (unmodified). *)
 
-(** [handle_connection ~sw ~env ~sessions ~max_sessions ~conn] services
-    one accepted client connection: parses the request head, resolves
-    the [/s/<token>] prefix against [sessions] (constant-time per
-    session, and never matching a session {!Serve_session.is_dead} —
-    FR-013's dead-token-never-resurrects guarantee), and on a match:
+(** [handle_connection ~sw ~env ~sessions ~max_sessions ~allowed_origins
+    ~conn] services one accepted client connection: parses the request
+    head, resolves the [/s/<token>] prefix against [sessions]
+    (constant-time per session, and never matching a session
+    {!Serve_session.is_dead} — FR-013's dead-token-never-resurrects
+    guarantee), and on a match:
     - a viewer-role token requesting the [/ws] controller endpoint is
       refused (403) without ever contacting a worker (FR-032);
     - a viewer-role token requesting anything else, for a session with
@@ -56,6 +57,18 @@
     - any other path (static assets, the viewer endpoint once a worker
       exists) is forwarded to the session's worker unmodified.
 
+    Once resolved to a forward, but before ever connecting to the
+    worker: if the request carries an [Upgrade: websocket] header, its
+    [Origin] header is validated against [allowed_origins]
+    ({!Serve_origin.is_allowed}, FR-045) — refused with [403] before any
+    bytes are forwarded to the worker if present and not on the list (note:
+    for a controller-role token the session's worker may already have been
+    lazily spawned by [resolve], though it is never contacted); a request
+    with no [Origin] header at all is allowed (see
+    {!Serve_origin}'s documented policy). This runs even for an
+    otherwise-valid session token (US-4 scenario 4: token possession
+    alone must not bypass the Origin check).
+
     On a missing/invalid session prefix or token mismatch, responds with
     a bounded HTTP error and closes [conn] without ever contacting any
     worker. Connecting to a worker is retried with a short bounded
@@ -69,6 +82,7 @@ val handle_connection :
   env:Eio_unix.Stdenv.base ->
   sessions:Serve_session.table ->
   max_sessions:int ->
+  allowed_origins:string list ->
   conn:_ Eio.Net.stream_socket ->
   unit
 

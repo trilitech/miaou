@@ -43,11 +43,18 @@ let kill = Serve_process.kill
    ({!accept_loop}) so tests can drive the same production dispatch path
    against a session table they build themselves (e.g. the multi-session
    isolation test), rather than duplicating routing logic. *)
-let rec accept_loop ~sw ~env ~sessions ~max_sessions listening =
+let rec accept_loop ~sw ~env ~sessions ~max_sessions ~allowed_origins listening
+    =
   let conn, _addr = Eio.Net.accept ~sw listening in
   Eio.Fiber.fork ~sw (fun () ->
-      Serve_proxy.handle_connection ~sw ~env ~sessions ~max_sessions ~conn) ;
-  accept_loop ~sw ~env ~sessions ~max_sessions listening
+      Serve_proxy.handle_connection
+        ~sw
+        ~env
+        ~sessions
+        ~max_sessions
+        ~allowed_origins
+        ~conn) ;
+  accept_loop ~sw ~env ~sessions ~max_sessions ~allowed_origins listening
 
 let idle_kill_grace_seconds = 5.0
 
@@ -58,6 +65,7 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
     ?(max_sessions = Serve_config.default.max_sessions)
     ?(idle_timeout = Serve_config.default.idle_timeout)
     ?(insecure_allow_plaintext_external = false)
+    ?(allowed_origins = Serve_config.default.allowed_origins)
     (_page : (module Miaou_core.Tui_page.PAGE_SIG)) : unit =
   (* [_page] is accepted (not used directly): the supervisor never runs
      an app instance itself. It exists only so {!Serve_run.run}'s
@@ -160,4 +168,18 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
   let listening =
     Eio.Net.listen env#net ~sw ~reuse_addr:true ~backlog:16 listen_addr
   in
-  accept_loop ~sw ~env ~sessions ~max_sessions listening
+  (* FR-045: the same-origin-as-bind default is always in the allow-list,
+     in addition to (not replaced by) any operator-supplied
+     [--allowed-origin] values — a reverse-proxy operator adding their
+     public origin must not lose the ability to also test/use the
+     server directly at its bind address. *)
+  let effective_allowed_origins =
+    Serve_origin.default_allowed ~bind ~port @ allowed_origins
+  in
+  accept_loop
+    ~sw
+    ~env
+    ~sessions
+    ~max_sessions
+    ~allowed_origins:effective_allowed_origins
+    listening

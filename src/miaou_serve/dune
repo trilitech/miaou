@@ -9,6 +9,7 @@
   serve_worker
   serve_process
   serve_session
+  serve_origin
   serve_proxy
   serve_supervisor
   serve_run

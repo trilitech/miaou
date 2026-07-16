@@ -45,9 +45,16 @@ let controller_token_string t = Serve_token.to_string t.controller_token
 
 let viewer_token_string t = Serve_token.to_string t.viewer_token
 
+(* FR-031: both of [t]'s tokens are always compared, regardless of
+   whether the first comparison already matched — avoids a
+   same-session timing difference between "matched the controller
+   token" (one Eqaf.equal call) and "matched neither" (two calls) that
+   an early-exit [if ... else if ...] would otherwise introduce. *)
 let match_role t ~candidate =
-  if Serve_token.matches t.controller_token ~candidate then Some Controller
-  else if Serve_token.matches t.viewer_token ~candidate then Some Viewer
+  let is_controller = Serve_token.matches t.controller_token ~candidate in
+  let is_viewer = Serve_token.matches t.viewer_token ~candidate in
+  if is_controller then Some Controller
+  else if is_viewer then Some Viewer
   else None
 
 type spawn_error = Unreachable
@@ -207,14 +214,25 @@ let count_spawned table =
     0
     table.sessions
 
+(* FR-031: every session in the table is scanned (via [List.fold_left],
+   which never short-circuits), even after an earlier session's tokens
+   already matched — [List.find_map]'s early exit would otherwise make a
+   match near the front of [table.sessions] cost less work (and less
+   wall-clock time) than a total miss or a match near the back, a table-
+   position timing oracle on top of the uniform-miss guarantee
+   {!match_role} itself already gives per-session. *)
 let find table ~candidate =
-  List.find_map
-    (fun t ->
-      if t.dead then None
-      else
-        match match_role t ~candidate with
-        | Some role -> Some (t, role)
-        | None -> None)
+  List.fold_left
+    (fun acc t ->
+      let hit =
+        if t.dead then None
+        else
+          match match_role t ~candidate with
+          | Some role -> Some (t, role)
+          | None -> None
+      in
+      match acc with Some _ -> acc | None -> hit)
+    None
     table.sessions
 
 let reap_idle_sessions ~sw ~clock ~sessions ~idle_timeout ~grace ~now =

@@ -39,6 +39,13 @@ module Serve_process = Serve_process
     {!Serve_supervisor.accept_loop} against it. *)
 module Serve_session = Serve_session
 
+(** WebSocket upgrade Origin allow-list (FR-045) — exposed so tests can
+    drive the pure header-parsing/policy logic
+    ({!Serve_origin.is_websocket_upgrade}, {!Serve_origin.is_allowed},
+    {!Serve_origin.default_allowed}) directly, and so an embedder can
+    compute the same default the CLI uses. *)
+module Serve_origin = Serve_origin
+
 (** The supervisor half of Slice 2/3 — see {!Serve_run}'s entry contract
     documentation. Exposed for the named session-lifecycle,
     multi-session, and viewer-readonly tests (spawn/kill/reap,

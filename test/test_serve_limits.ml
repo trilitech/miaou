@@ -178,7 +178,13 @@ let start_two_session_harness ~sw ~env ~max_sessions =
      by design — {!Eio.Fiber.fork_daemon} is cancelled automatically once
      every non-daemon fiber on [sw] has finished. *)
   Eio.Fiber.fork_daemon ~sw (fun () ->
-      Supervisor.accept_loop ~sw ~env ~sessions ~max_sessions listening) ;
+      Supervisor.accept_loop
+        ~sw
+        ~env
+        ~sessions
+        ~max_sessions
+        ~allowed_origins:[]
+        listening) ;
   (port, session_a, session_b)
 
 (* M1 regression (post-review hardening): {!Session.count_spawned} must
@@ -359,7 +365,13 @@ let test_idle_timeout_kills_worker_and_dead_token_not_resurrectable () =
       (`Tcp (Eio.Net.Ipaddr.V4.loopback, port))
   in
   Eio.Fiber.fork_daemon ~sw (fun () ->
-      Supervisor.accept_loop ~sw ~env ~sessions ~max_sessions:10 listening) ;
+      Supervisor.accept_loop
+        ~sw
+        ~env
+        ~sessions
+        ~max_sessions:10
+        ~allowed_origins:[]
+        listening) ;
   let token = Session.controller_token_string session in
   let viewer_token = Session.viewer_token_string session in
   let conn, status =
