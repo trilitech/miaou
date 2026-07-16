@@ -15,53 +15,68 @@
 
     {2 Entry contract (binding, do not violate silently)}
 
-    [Miaou_serve.run] is a {b top-level} entry point: it starts its own
-    Eio event loop and calls {!Miaou_helpers.Fiber_runtime.init} itself.
-    Callers must invoke it directly from their [main] — not from inside
-    an existing [Eio_main.run]/[Fiber_runtime.init] scope (unlike
+    [Miaou_serve.run] is a {b top-level} entry point and a
+    {b re-exec dispatch point}: it checks
+    [Sys.getenv_opt "MIAOU_SERVE_WORKER_SOCKET"] {b before} starting any
+    Eio event loop (before [Eio_main.run], before
+    {!Miaou_helpers.Fiber_runtime.init}) and takes one of two disjoint
+    paths:
+    - {b Set} (this process is a worker, re-exec'd by a supervisor):
+      dispatches to {!Serve_worker.run}, which starts its own
+      [Eio_main.run]/[Fiber_runtime.init] and serves [initial_page] on
+      the given Unix domain socket via
+      {!Miaou_driver_web.Web_driver.run_on}. Full
+      [Fiber_runtime]/[Registry]/[Modal_manager] — untouched, exactly as
+      a directly-run app would use them.
+    - {b Unset} (this is the first invocation): dispatches to
+      {!Serve_supervisor.run}, a plain-Eio process that never touches
+      [Fiber_runtime]/[Registry]/[Modal_manager] and never spawns a
+      [Domain]. It creates a private Unix-socket directory, re-execs
+      [Sys.executable_name] with [Sys.argv] unchanged plus
+      [MIAOU_SERVE_WORKER_SOCKET] set (via [Eio.Process.spawn] — never a
+      bare [Unix.fork], which would fork the whole multi-domain
+      runtime), waits for the worker to become reachable, and proxies
+      raw bytes between the public listener and the worker's socket
+      ({!Serve_proxy.handle_connection}) after validating the
+      [/s/<token>] path segment.
+
+    Because the same host [main] runs twice (once per role, via
+    re-exec), everything a host app does in its own [main] {b before}
+    calling [Miaou_serve.run] — including how it builds the
+    [initial_page] argument itself — must be deterministic and
+    idempotent on re-exec (safe to run twice, in a fresh process each
+    time, with the same [Sys.argv]): no one-shot side effects (consuming
+    a queue, prompting a user, reading and deleting a file) ahead of
+    this call. Callers must invoke [Miaou_serve.run] directly from their
+    [main] — not from inside an existing
+    [Eio_main.run]/[Fiber_runtime.init] scope (unlike
     {!Miaou_driver_web.Web_driver.run}, which assumes the caller already
-    set those up, per [example/gallery/main_web.ml]).
+    set those up, per [example/gallery/main_web.ml]) — since which of
+    the two paths above runs its own event loop is decided only once
+    [Miaou_serve.run] itself is entered.
 
-    Once the process-per-session supervisor lands (Slice 2+), [run] will
-    re-exec [Sys.executable_name] to become a worker when
-    [MIAOU_SERVE_WORKER_SOCKET] is set in the environment. Everything a
-    host app does in its own [main] {b before} calling [Miaou_serve.run]
-    must therefore be deterministic and idempotent on re-exec (safe to
-    run twice: once as supervisor, once as worker) — do not perform
-    one-shot side effects (e.g. consuming a queue, prompting a user)
-    ahead of this call.
+    {2 Slice 2 scope}
 
-    {2 Slice 1 scope}
+    Single-session only: the supervisor spawns exactly one worker per
+    invocation (a session table keyed by multiple tokens is Slice 3).
+    [max_sessions]/[idle_timeout] are accepted and recorded but not
+    enforced (Slice 4). The printed session URL is now the FR-030 path
+    form ([http://<bind>:<port>/s/<token>/]), superseding Slice 1's
+    interim query-string bridge. [auth_token]/[auth_file] still only
+    satisfy the fail-closed bind policy's "an auth mechanism is
+    configured" test (FR-003); wiring an operator-supplied credential
+    into the WebSocket upgrade itself is Slice 5 scope (FR-031/FR-033). *)
 
-    This slice proves the CLI/token/auth-default surface only: no
-    process-per-session supervisor exists yet (that is Slice 2). [run]
-    enforces the fail-closed bind policy (FR-003) and generates a
-    controller-role {!Serve_token.t}, but still delegates directly,
-    in-process, to {!Miaou_driver_web.Web_driver.run} using the
-    existing query-string password mechanism as an interim bridge — the
-    token is passed as [controller_password]. Two known gaps, both
-    explicitly deferred to Slice 2's [Web_driver.run_on] seam, not
-    silently accepted as final behavior:
-    - The printed URL is query-string-based ([?password=<token>]), not
-      the FR-030 path form ([/s/<token>]); real path-based routing
-      requires the supervisor/proxy layer.
-    - [Web_driver.run] always listens on all interfaces regardless of
-      the [bind] value passed here (a pre-existing discrepancy this
-      spec calls out); the fail-closed check below still holds
-      (non-loopback without auth is refused before any socket opens),
-      but a non-loopback [bind] with auth configured does not yet
-      scope the listening address the way the string implies. The
-      converse also holds and is the more surprising direction: passing
-      [~bind:"127.0.0.1"] exempts the caller from the fail-closed check
-      (loopback is treated as already-trusted), but the process still
-      listens on all interfaces underneath — a [127.0.0.1] bind is
-      {b not} loopback-restricted at runtime in Slice 1. Honoring
-      [bind] for real is tracked as Slice 2's [Web_driver.run_on]
-      seam's responsibility, not a separate follow-up. *)
-
-(** Raised by {!run} when {!Serve_policy.check} refuses the requested
-    bind (FR-003). The message is {!Serve_policy.refusal_message}'s
-    output — documented and stable, not an internal exception dump. *)
+(** Raised by {!run} (via {!Serve_supervisor.run}) when
+    {!Serve_policy.check} refuses the requested bind (FR-003). The
+    message is {!Serve_policy.refusal_message}'s output — documented and
+    stable, not an internal exception dump. The [.ml] defines this via
+    [exception Bind_refused = Serve_supervisor.Bind_refused] — the
+    identical exception, not a fresh one, so existing callers matching
+    [Miaou_serve.Bind_refused] are unaffected by the fail-closed check
+    having moved to {!Serve_supervisor}. (The rebind syntax is only valid
+    in a structure, not a signature, so this signature just re-declares
+    the same shape.) *)
 exception Bind_refused of string
 
 (** [auth_token] and [auth_file], when supplied, only satisfy the

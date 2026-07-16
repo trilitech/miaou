@@ -104,9 +104,24 @@ window.MiaouTerminal = function (container, options) {
   });
   resizeObserver.observe(container);
 
+  // Resolve `path` against the directory of the page that loaded this
+  // script. A relative wsPath (e.g. 'ws', 'ws/viewer' — no leading slash)
+  // resolves under whatever prefix served this page: '/ws' at the
+  // driver's own root, or '/s/<token>/ws' when served through
+  // miaou-serve's supervisor proxy (Slice 2), with no prefix-specific
+  // code here at all. A leading-slash path is left absolute, for
+  // backward compatibility with any caller still passing one.
+  function resolvePath(path) {
+    if (path.charAt(0) === '/') return path;
+    var dir = location.pathname;
+    var idx = dir.lastIndexOf('/');
+    dir = idx >= 0 ? dir.substring(0, idx + 1) : '/';
+    return dir + path;
+  }
+
   function buildWsUrl(password) {
     var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var url = protocol + '//' + location.host + wsPath;
+    var url = protocol + '//' + location.host + resolvePath(wsPath);
     if (password) {
       url += '?password=' + encodeURIComponent(password);
     }

@@ -540,3 +540,8 @@
  (modules test_miaou_serve_lib)
  (deps serve_stub_worker.exe)
  (libraries alcotest unix))
+
+(test
+ (name test_serve_session_lifecycle)
+ (modules test_serve_session_lifecycle)
+ (libraries alcotest eio_main unix miaou-core.core miaou-serve.serve))
