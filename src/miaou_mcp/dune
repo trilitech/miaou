@@ -8,13 +8,20 @@
 ;   opam install mcp-kit mcp-kit-eio
 ;   dune build src/miaou_mcp
 ; `(optional)` means `dune build @all`/`dune runtest` silently skip these
-; targets when the pin is absent, so the rest of the tree stays green.
+; targets when the pin is absent — but `(optional)` alone is NOT enough:
+; `dune build @all` (which CI runs) forces optional targets and hard-fails
+; when mcp-kit is absent. `(enabled_if MIAOU_MCP=1)` removes these stanzas
+; from the build graph entirely unless a developer opts in, so CI (which
+; never sets it) is always green. Build locally with `MIAOU_MCP=1 dune
+; build src/miaou_mcp` after adding the pin above.
 ; Promote to a real opam package once mcp-kit is published. See
 ; docs/agent-protocol.md "Root-build story".
 
 (library
  (name mcp_tools)
  (modules mcp_tools)
+ (enabled_if
+  (= %{env:MIAOU_MCP=} 1))
  (optional)
  (instrumentation
   (backend bisect_ppx))
@@ -25,6 +32,8 @@
 (executable
  (name miaou_mcp_main)
  (modules miaou_mcp_main)
+ (enabled_if
+  (= %{env:MIAOU_MCP=} 1))
  (optional)
  (instrumentation
   (backend bisect_ppx))
