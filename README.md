@@ -676,6 +676,7 @@ Documentation
 - **[Architecture Overview](./docs/architecture.md)** — Core components, pages, modals, widgets
 - **[Capabilities Guide](./docs/capabilities.md)** — Dependency injection system
 - **[Color Guide](./docs/colors.md)** — ANSI color payloads and chart precedence rules
+- **[`miaou serve` deployment guide](./docs/serve.md)** — bind policy, and putting TLS in front (nginx/Caddy reverse-proxy config)
 - **[Examples](./example/README.md)** — Demo applications and widget showcases
 
 Further reading
