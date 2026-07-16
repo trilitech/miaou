@@ -5,24 +5,17 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-(** The [miaou serve] supervisor (Slice 2).
+(** Worker-process mechanics shared by {!Serve_session} (per-session lazy
+    spawn) and {!Serve_supervisor} (the bootstrap session, socket
+    directory lifecycle, signal handling). Split out as its own leaf
+    module so both can depend on it without a dependency cycle between
+    them (a session needs to spawn/reap a worker; the supervisor needs to
+    build a session table) — this module itself depends on neither.
 
-    The supervisor is a plain-Eio process: it MUST NOT call
-    {!Miaou_helpers.Fiber_runtime.init} or otherwise touch
-    {!Miaou_core.Registry}/{!Miaou_core.Modal_manager} — those globals
-    belong entirely to the worker's app instance. This is a structural
-    invariant (per the binding design), not just a style preference: the
-    supervisor owns the public listener and spawns/reaps worker
-    processes; a worker owns exactly one app instance's global state, in
-    its own address space, by OS process isolation. Nothing in this
-    module spawns an OS thread {!Domain.spawn} either — the supervisor is
-    single-domain by construction. *)
-
-(** Raised when {!run} refuses the requested bind (FR-003) — the same
-    exception previously defined by {!Miaou_serve.Serve_run}; re-exported
-    there via [exception Bind_refused = Serve_supervisor.Bind_refused] so
-    existing callers matching [Miaou_serve.Bind_refused] are unaffected. *)
-exception Bind_refused of string
+    Plain-Eio module: no {!Miaou_helpers.Fiber_runtime}, no
+    {!Miaou_core.Registry}/{!Miaou_core.Modal_manager}, no
+    [Domain.spawn] — those globals belong entirely to a worker's own app
+    instance, in its own process. *)
 
 (** [socket_dir ~pid] is [$XDG_RUNTIME_DIR/miaou-serve-<pid>/] (falling
     back to a temp directory if [XDG_RUNTIME_DIR] is unset — documented,
@@ -41,6 +34,17 @@ val socket_dir : pid:int -> string
     [$XDG_RUNTIME_DIR] is unset). Idempotent on repeated calls that pass
     this check. *)
 val ensure_socket_dir : string -> unit
+
+(** Best-effort startup hygiene: sweeps [miaou-serve-<pid>/] directories
+    under {!socket_dir}'s root left behind by earlier supervisor
+    invocations that were killed abruptly (their pid is no longer alive).
+    Never raises. *)
+val sweep_stale_dirs : unit -> unit
+
+(** [cleanup_dir ~dir ()] best-effort removes every file inside [dir]
+    (every session's worker socket file that may still exist there) and
+    then [dir] itself. Never raises. *)
+val cleanup_dir : dir:string -> unit -> unit
 
 (** A supervised worker process. Fields are exposed (not abstracted)
     because tests need [pid] to simulate an external crash
@@ -93,54 +97,42 @@ val wait_ready :
 
 (** [reap ~sw worker ~on_exit] forks a fiber on [sw] that blocks on
     [worker.await] and calls [on_exit] with the resulting status. This is
-    the supervisor's zombie-reaping mechanism (FR-015): it runs
-    unconditionally after {!spawn_worker}, independent of whether a proxy
+    the zombie-reaping mechanism (FR-015): it should run unconditionally
+    right after {!spawn_worker}, independent of whether a proxy
     connection to the worker is currently open, so a worker that crashes,
     is killed, or exits cleanly is always reaped. *)
 val reap :
   sw:Eio.Switch.t -> worker -> on_exit:(Eio.Process.exit_status -> unit) -> unit
 
 (** [kill worker] sends [SIGTERM] to [worker] (FR-014's minimum
-    operator-facing explicit-kill admin surface — the production {!run}
-    also installs a supervisor-level [SIGTERM] handler that calls this on
-    its single current worker). Does not itself wait for exit; combine
-    with a {!reap}'d [on_exit] callback to observe completion. *)
+    operator-facing explicit-kill admin surface). Does not itself wait
+    for exit; combine with a {!reap}'d [on_exit] callback to observe
+    completion. *)
 val kill : worker -> unit
 
-(** [accept_loop ~sw ~env ~sessions listening] forks
-    {!Serve_proxy.handle_connection} for each connection accepted on
-    [listening], dispatched against [sessions] (Slice 3's session table)
-    rather than a single hardcoded token. Never returns on its own
-    (loops until [sw] is cancelled). Exposed so a test can drive the same
-    production routing/role-enforcement path against a session table it
-    builds directly (e.g. two sessions, to prove process isolation),
-    without going through {!run}'s single-bootstrap-session convenience
-    wrapper. *)
-val accept_loop :
-  sw:Eio.Switch.t ->
-  env:Eio_unix.Stdenv.base ->
-  sessions:Serve_session.table ->
-  _ Eio.Net.listening_socket ->
-  'a
+(** Renders an {!Eio.Process.exit_status} for a log line. *)
+val string_of_exit_status : Eio.Process.exit_status -> string
 
-(** [run ?auth_token ?auth_file ?port ?bind ?max_sessions ?idle_timeout
-    ?insecure_allow_plaintext_external page] is the supervisor entry
-    point: enforces the fail-closed bind policy (FR-003), creates the
-    [0700] socket directory, builds a session table (Slice 3) seeded with
-    one bootstrap session — its controller/viewer token pair generated
-    up front (FR-030/FR-032), its worker spawned lazily on first
-    controller-role request rather than eagerly ({!Serve_session.ensure_worker},
-    FR-010) — prints the [/s/<token>/] session URL, and serves the public
-    TCP listener as a byte proxy ({!accept_loop}) until the process is
-    signaled to stop. [max_sessions]/[idle_timeout] are accepted and
-    recorded but not yet enforced (Slice 4). *)
-val run :
-  ?auth_token:string ->
-  ?auth_file:string ->
-  ?port:int ->
-  ?bind:string ->
-  ?max_sessions:int ->
-  ?idle_timeout:float ->
-  ?insecure_allow_plaintext_external:bool ->
-  (module Miaou_core.Tui_page.PAGE_SIG) ->
-  unit
+(** ["localhost"] must resolve the same way {!Serve_policy.is_loopback}
+    already treats it (already-trusted, no auth required) — otherwise
+    [--bind localhost] would pass the fail-closed check and then crash
+    with an uncaught [Failure] the moment we try to actually bind it,
+    since {!Unix.inet_addr_of_string} only accepts numeric IP literals.
+    Any other non-numeric host is a genuine usage error and still fails,
+    but with a clear message. *)
+val ipaddr_of_host : string -> Eio.Net.Ipaddr.v4v6
+
+(** ["0.0.0.0"] (all interfaces) is not itself a usable client-facing
+    address — resolves to a loopback address a browser can actually
+    connect to instead of an address that only makes sense as a bind
+    target. *)
+val display_host : string -> string
+
+(** Set by {!install_signal_handler}'s [SIGTERM]/[SIGINT] handler;
+    polled by a fiber rather than acted on directly inside the signal
+    handler (running arbitrary Eio operations from inside a raw signal
+    handler is not something this module relies on being safe). *)
+val stop_requested : bool Atomic.t
+
+(** Installs a [SIGTERM]/[SIGINT] handler that sets {!stop_requested}. *)
+val install_signal_handler : unit -> unit
