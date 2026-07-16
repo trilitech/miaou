@@ -187,52 +187,62 @@ let handle_connection ~sw ~env ~sessions ~max_sessions ~allowed_origins ~conn =
             match Serve_session.find sessions ~candidate with
             | None -> respond_403 conn
             | Some (session, role) -> (
-                match
-                  resolve ~sw ~env ~sessions ~max_sessions session role tail
-                with
-                | `Refuse_403 -> respond_403 conn
-                | `Refuse_409 msg -> respond_409 conn msg
-                | `Refuse_429 -> respond_429 conn
-                | `Refuse_502 -> respond_502 conn
-                | `Forward (worker_socket_path, forward_tail, on_close) ->
-                    (* [on_close] (a controller detach, or a no-op for a
-                       viewer/downgraded connection) MUST run no matter
-                       how this branch exits — a 502 from
-                       [connect_worker] below, or any exception raised
-                       reading the rest of the head — not only the
-                       [proxy_bytes] happy path. [controller_attach] (in
-                       [resolve], above) already flipped
-                       [controller_live] to [true] before this branch was
-                       ever reached; failing to pair it with
-                       [controller_detach] here would leave that flag
-                       stuck [true] forever, permanently downgrading every
-                       future controller attach for this session with no
-                       recovery (the regression this [Fun.protect] fixes
-                       — see [test_serve_multi_session.ml]'s
-                       "worker unreachable then fresh controller
-                       reattaches" scenario). *)
-                    Fun.protect ~finally:on_close (fun () ->
-                        let header_lines = read_header_lines br in
-                        (* FR-045: validated here, before ever contacting
-                           a worker or reading past the head — a foreign
-                           Origin on a WebSocket-upgrade request is
-                           refused even with an otherwise-valid session
-                           token (US-4 scenario 4). Non-upgrade requests
-                           (plain GETs) are not subject to this check;
-                           a request that carries no Origin header at all
-                           is allowed (see Serve_origin's documented
-                           missing-Origin policy). *)
-                        if
-                          Serve_origin.is_websocket_upgrade header_lines
-                          && not
-                               (Serve_origin.is_allowed
-                                  ~allowed:allowed_origins
-                                  ~origin:
-                                    (Serve_origin.header_value
-                                       header_lines
-                                       ~name:"Origin"))
-                        then respond_403 conn
-                        else begin
+                (* PREREQ-B (S6): headers are read, and the FR-045 Origin
+                   check runs, BEFORE [resolve] is ever called — [resolve]
+                   is what may call [Serve_session.ensure_worker], which
+                   spawns a whole new worker process for a first controller
+                   attach. Previously the Origin check lived inside the
+                   [`Forward] branch, i.e. strictly after [resolve] had
+                   already spawned (or reused) the worker: a valid-token
+                   but foreign-Origin controller request would spawn a
+                   doomed worker process — never contacted, but a real
+                   fork/exec paid for nothing — before being refused. Reading
+                   the head and checking Origin first means a refused
+                   cross-origin request now spawns no process at all,
+                   regardless of role or worker state. *)
+                let header_lines = read_header_lines br in
+                (* FR-045: a foreign Origin on a WebSocket-upgrade request
+                   is refused even with an otherwise-valid session token
+                   (US-4 scenario 4). Non-upgrade requests (plain GETs) are
+                   not subject to this check; a request that carries no
+                   Origin header at all is allowed (see Serve_origin's
+                   documented missing-Origin policy). *)
+                if
+                  Serve_origin.is_websocket_upgrade header_lines
+                  && not
+                       (Serve_origin.is_allowed
+                          ~allowed:allowed_origins
+                          ~origin:
+                            (Serve_origin.header_value
+                               header_lines
+                               ~name:"Origin"))
+                then respond_403 conn
+                else
+                  match
+                    resolve ~sw ~env ~sessions ~max_sessions session role tail
+                  with
+                  | `Refuse_403 -> respond_403 conn
+                  | `Refuse_409 msg -> respond_409 conn msg
+                  | `Refuse_429 -> respond_429 conn
+                  | `Refuse_502 -> respond_502 conn
+                  | `Forward (worker_socket_path, forward_tail, on_close) ->
+                      (* [on_close] (a controller detach, or a no-op for a
+                         viewer/downgraded connection) MUST run no matter
+                         how this branch exits — a 502 from
+                         [connect_worker] below, or any exception raised
+                         while forwarding — not only the [proxy_bytes]
+                         happy path. [controller_attach] (in [resolve],
+                         above) already flipped [controller_live] to
+                         [true] before this branch was ever reached;
+                         failing to pair it with [controller_detach] here
+                         would leave that flag stuck [true] forever,
+                         permanently downgrading every future controller
+                         attach for this session with no recovery (the
+                         regression this [Fun.protect] fixes — see
+                         [test_serve_multi_session.ml]'s "worker
+                         unreachable then fresh controller reattaches"
+                         scenario). *)
+                      Fun.protect ~finally:on_close (fun () ->
                           (* Any bytes already pulled into [br]'s internal
                              buffer beyond the head (e.g. pipelined bytes
                              arriving in the same TCP segment) must be
@@ -273,8 +283,7 @@ let handle_connection ~sw ~env ~sessions ~max_sessions ~allowed_origins ~conn =
                               Eio.Flow.copy_string
                                 (head ^ headers_block ^ "\r\n" ^ residue_str)
                                 worker_conn ;
-                              proxy_bytes conn worker_conn
-                        end))))
+                              proxy_bytes conn worker_conn))))
   with exn -> (
     Printf.eprintf
       "[miaou serve proxy] connection error: %s\n%!"

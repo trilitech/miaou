@@ -9,6 +9,14 @@ module Fibers = Miaou_helpers.Fiber_runtime
 
 let env_var = "MIAOU_SERVE_WORKER_SOCKET"
 
+(* An arbitrary, distinguishing exit code — not 0 (a generic "success"
+   that plenty of unrelated tooling assumes elsewhere) and not any
+   textbook-common failure code — chosen only so
+   {!Serve_session.reap_and_log} can recognize it unambiguously against
+   the far wider variety of exit codes/signals a genuine crash could
+   produce. *)
+let quit_exit_code = 87
+
 (* Orphan guard: the supervisor hands us the read end of a pipe and keeps
    the write end open for as long as it (and its Eio switch) is alive.
    If the supervisor dies — crash, kill -9, anything — the write end
@@ -50,5 +58,14 @@ let run ~socket_path (page : (module Miaou_core.Tui_page.PAGE_SIG)) : unit =
   watch_stdin_orphan_guard env ;
   Printf.eprintf "[miaou serve worker] listening on unix:%s\n%!" socket_path ;
   ignore
-    (Miaou_driver_web.Web_driver.run_on ~listen:(`Unix socket_path) page
+    (Miaou_driver_web.Web_driver.run_on
+       ~listen:(`Unix socket_path)
+       ~on_session_end:(fun () ->
+         Printf.eprintf
+           "[miaou serve worker] app reached a terminal outcome, exiting (code \
+            %d)\n\
+            %!"
+           quit_exit_code ;
+         exit quit_exit_code)
+       page
       : [`Quit | `Back | `SwitchTo of string])
