@@ -62,4 +62,14 @@ let () =
     | None -> "127.0.0.1"
   in
   let auth_file = Sys.getenv_opt "MIAOU_SERVE_TEST_AUTH_FILE" in
-  Miaou_serve.run ~bind ?auth_file ~port (module Stub_page)
+  let insecure_allow_plaintext_external =
+    match Sys.getenv_opt "MIAOU_SERVE_TEST_INSECURE" with
+    | Some ("1" | "true") -> true
+    | _ -> false
+  in
+  Miaou_serve.run
+    ~bind
+    ?auth_file
+    ~port
+    ~insecure_allow_plaintext_external
+    (module Stub_page)

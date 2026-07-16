@@ -640,3 +640,9 @@
  (modules test_serve_shutdown)
  (deps serve_stub_worker.exe)
  (libraries alcotest unix miaou-serve.serve))
+
+(test
+ (name test_serve_tls_policy)
+ (modules test_serve_tls_policy)
+ (deps serve_stub_worker.exe)
+ (libraries alcotest unix))

@@ -19,7 +19,9 @@ let port_arg =
 let bind_arg =
   let doc =
     "Address to bind to. Non-loopback requires an auth mechanism (fail-closed \
-     default, FR-003)."
+     default, FR-003). miaou serve has no built-in TLS: the documented v1 \
+     deployment is TLS termination at a reverse proxy (nginx/Caddy) in front \
+     of a loopback bind — see docs/serve.md."
   in
   Arg.(
     value
@@ -55,7 +57,8 @@ let idle_timeout_arg =
 let insecure_arg =
   let doc =
     "Acknowledge and accept binding a non-loopback address without a reverse \
-     proxy/TLS (FR-060)."
+     proxy/TLS (FR-060). Prints a loud warning on every invocation while set; \
+     native in-process TLS is not planned for v1 (FR-061) — see docs/serve.md."
   in
   Arg.(value & flag & info ["insecure-allow-plaintext-external"] ~doc)
 
