@@ -175,43 +175,42 @@ fixture the conformance suite exercises.
 ### Root-build story: the mcp-kit pin
 
 `mcp-kit`/`mcp-kit-eio` are **not published** to the default opam
-repository — they are pinned to a specific public git commit:
+repository yet, and their transport-split packages live only on the
+unreleased branch `feat/split-transport-packages` of the public repo
+`github.com/epure-team/ocaml-mcp`.
 
-```
-git+https://github.com/epure-team/ocaml-mcp#c83c986dbea8
-```
-
-`miaou-mcp.opam.template` (merged into the dune-generated `miaou-mcp.opam`)
-carries this as `pin-depends`, since `generate_opam_files` cannot express
-that field from `dune-project` package stanzas.
-
-**Decision**: the `miaou-mcp` library (`mcp_tools`) and executable
-(`miaou_mcp_main`) are both marked `(optional)` in
-`src/miaou_mcp/dune`, and the in-process test suite
-(`test/mcp/mcp_tools_test.ml`) is spelled out as an `(executable)` +
-`(rule (alias runtest) ...)` (`(test)` doesn't support `(optional)`
-directly) so it too is skipped, not failed, without the pin. This means:
+**Decision**: `miaou-mcp` is a **build-only target, deliberately not an
+installable opam package.** There is intentionally no root
+`miaou-mcp.opam`, and the `dune-project` has no `miaou-mcp` package
+stanza, so CI's `opam install --deps-only --with-test -y .` never tries to
+resolve the unreleased pin (a bare-commit `pin-depends` is not reliably
+fetchable — GitHub cannot serve a loose SHA that only exists on a
+non-default branch, which is exactly what broke the first CI attempt). The
+library (`mcp_tools`) and executable (`miaou_mcp_main`) are marked
+`(optional)` in `src/miaou_mcp/dune`, and the test suite
+(`test/mcp/mcp_tools_test.ml`) is an `(executable)` + `(rule (alias
+runtest) ...)` (`(test)` doesn't support `(optional)`), so both are
+skipped, not failed, without the pin. This means:
 
 - A developer on a fresh switch without the pin gets a fully green
   `dune build @all` / `dune runtest` — `miaou-mcp` and its tests are
-  silently absent from the build graph, not a build failure.
-- `test/tmux/scenario_mcp_stdio.sh` follows the same convention as every
-  other tmux scenario: `SKIP` (exit 77) when
-  `_build/default/src/miaou_mcp/miaou_mcp_main.exe` doesn't exist.
-- CI (`.github/workflows/ci.yml`) needs no changes: `test/tmux/run_all.sh`
-  already auto-discovers `scenario_*.sh` files, so the new scenario is
-  picked up automatically and skips cleanly if the pin isn't present in the
-  CI switch. Because `opam install --deps-only --with-test -y .` in CI
-  processes every local `*.opam` file's `pin-depends` (including
-  `miaou-mcp.opam`'s), it is expected to pull and build the pinned mcp-kit
-  commit automatically, actually exercising `miaou-mcp` in CI — this was
-  verified against the local dev switch (`opam pin add` + `opam install`
-  succeeded, see the implementer handoff) but **not** against a real CI run,
-  and is flagged as an open risk.
-- To develop/test `miaou-mcp` locally: `opam pin add -n mcp-kit
-  git+https://github.com/epure-team/ocaml-mcp#c83c986dbea8 && opam pin add
-  -n mcp-kit-eio git+https://github.com/epure-team/ocaml-mcp#c83c986dbea8 &&
-  opam install mcp-kit mcp-kit-eio`.
+  silently absent from the build graph.
+- CI stays green with **no ci.yml changes**: no `miaou-mcp.opam` for
+  `opam install .` to choke on, and `test/tmux/scenario_mcp_stdio.sh`
+  `SKIP`s (exit 77) when the binary isn't built.
+- To build/test `miaou-mcp` locally, add the pin (branch ref, which is
+  always fetchable — unlike a loose commit) and build the directory:
+
+  ```
+  opam pin add -n mcp-kit     git+https://github.com/epure-team/ocaml-mcp#feat/split-transport-packages
+  opam pin add -n mcp-kit-eio git+https://github.com/epure-team/ocaml-mcp#feat/split-transport-packages
+  opam install mcp-kit mcp-kit-eio
+  dune build src/miaou_mcp
+  ```
+
+- **Promotion path**: once mcp-kit's transport-split lands on the default
+  opam repository (or a tagged release), add a real `miaou-mcp` package
+  stanza + `depends` and drop the `(optional)` markers.
 
 ## FR-coverage manifest
 
