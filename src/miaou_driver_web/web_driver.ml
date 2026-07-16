@@ -357,20 +357,61 @@ let run_tui (env : Eio_unix.Stdenv.base) config session ws br
     Printf.eprintf "[web] TUI session ended\n%!" ;
     (result, size)
 
-let run ?(config = None) ?(port = 8080) ?auth
+type listen = [`Tcp of string * int | `Unix of string]
+
+(* Resolve a [`Tcp (host, port)] listen target's host string into an Eio
+   Ipaddr. This is the fix for the pre-Slice-2 discrepancy: previously
+   [run] always bound [Eio.Net.Ipaddr.V4.any] (all interfaces) no matter
+   what its log line implied — [run_on]'s [`Tcp] variant honors [host]
+   literally, so e.g. ["127.0.0.1"] genuinely restricts to loopback.
+
+   ["localhost"] is resolved to the loopback literal before parsing:
+   [Unix.inet_addr_of_string] only accepts numeric IP literals, but
+   ["localhost"] is one of the hostnames a caller may reasonably pass
+   here — and, notably, one of the hostnames
+   {!Miaou_serve.Serve_policy.is_loopback} already treats as
+   already-trusted. Leaving the two inconsistent would let
+   [--bind localhost] pass the fail-closed check and then crash with an
+   uncaught [Failure] the first time a socket is actually opened. Any
+   other non-numeric host is a genuine usage error and still raises, but
+   with a clear message instead of {!Unix.inet_addr_of_string}'s bare
+   ["inet_addr_of_string"] failure. *)
+let ipaddr_of_host host =
+  let literal = if host = "localhost" then "127.0.0.1" else host in
+  match Unix.inet_addr_of_string literal with
+  | addr -> Eio_unix.Net.Ipaddr.of_unix addr
+  | exception Failure _ ->
+      invalid_arg
+        (Printf.sprintf
+           "Web_driver.run_on: %S is not a valid IP literal (DNS name \
+            resolution is not supported here; use an IP address or \
+            \"localhost\")"
+           host)
+
+let sockaddr_of_listen (listen : listen) : Eio.Net.Sockaddr.stream =
+  match listen with
+  | `Tcp (host, port) -> `Tcp (ipaddr_of_host host, port)
+  | `Unix path -> `Unix path
+
+let describe_listen (listen : listen) =
+  match listen with
+  | `Tcp (host, port) -> Printf.sprintf "http://%s:%d" host port
+  | `Unix path -> Printf.sprintf "unix:%s" path
+
+let run_on ?(config = None) ~(listen : listen) ?auth
     ?(controller_html = Web_assets.index_html)
     ?(viewer_html = Web_assets.viewer_html) ?(extra_assets = [])
     (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `Back | `SwitchTo of string] =
   Fibers.with_page_switch (fun env page_sw ->
-      Printf.eprintf "Miaou web driver: http://127.0.0.1:%d\n%!" port ;
+      Printf.eprintf "Miaou web driver: %s\n%!" (describe_listen listen) ;
       let socket =
         Eio.Net.listen
           env#net
           ~sw:page_sw
           ~reuse_addr:true
           ~backlog:5
-          (`Tcp (Eio.Net.Ipaddr.V4.any, port))
+          (sockaddr_of_listen listen)
       in
       let session : Session.t option ref = ref None in
       (* Accept loop: serve HTTP requests and manage controller/viewer
@@ -380,9 +421,15 @@ let run ?(config = None) ?(port = 8080) ?auth
         (* Disable Nagle's algorithm so small frames (e.g. the 101 upgrade
            response) are sent immediately rather than buffered. *)
         (match Eio_unix.Resource.fd_opt (conn :> _ Eio.Resource.t) with
-        | Some fd ->
-            Eio_unix.Fd.use_exn "nodelay" fd (fun unix_fd ->
-                Unix.setsockopt unix_fd Unix.TCP_NODELAY true)
+        | Some fd -> (
+            (* TCP_NODELAY is not a valid socket option on a Unix domain
+               socket (the [`Unix path] listen target, used by a worker
+               process) — setsockopt would raise ENOPROTOOPT there, so
+               this is best-effort and silently ignored, not asserted. *)
+            try
+              Eio_unix.Fd.use_exn "nodelay" fd (fun unix_fd ->
+                  Unix.setsockopt unix_fd Unix.TCP_NODELAY true)
+            with Unix.Unix_error _ -> ())
         | None -> ()) ;
         (try
            let br = Eio.Buf_read.of_flow ~max_size:(1024 * 1024) conn in
@@ -547,3 +594,17 @@ let run ?(config = None) ?(port = 8080) ?auth
         accept_loop ()
       in
       accept_loop ())
+
+let run ?(config = None) ?(port = 8080) ?auth
+    ?(controller_html = Web_assets.index_html)
+    ?(viewer_html = Web_assets.viewer_html) ?(extra_assets = [])
+    (initial_page : (module Tui_page.PAGE_SIG)) :
+    [`Quit | `Back | `SwitchTo of string] =
+  run_on
+    ~config
+    ~listen:(`Tcp ("0.0.0.0", port))
+    ?auth
+    ~controller_html
+    ~viewer_html
+    ~extra_assets
+    initial_page

@@ -5,6 +5,9 @@
   serve_token
   serve_policy
   serve_config
+  serve_worker
+  serve_proxy
+  serve_supervisor
   serve_run
   miaou_serve
   serve_cli)
@@ -16,6 +19,8 @@
   miaou-driver-web.driver
   eio
   eio_main
+  eio.unix
+  unix
   eqaf
   cstruct
   cmdliner))
