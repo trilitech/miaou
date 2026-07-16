@@ -366,6 +366,7 @@ let start_session_harness () =
             ~env
             ~socket_path:
               (Filename.concat dir (Printf.sprintf "viewer-ro-%d.sock" n))
+            ~now:(Eio.Time.now env#clock)
         in
         let sessions = Session.create_table () in
         Session.add sessions session ;

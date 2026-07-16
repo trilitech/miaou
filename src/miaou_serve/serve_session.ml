@@ -19,27 +19,61 @@ type t = {
   mutable worker_state : worker_state;
   mutable controller_live : bool;
   mutable last_activity : float;
-      (** Set by {!controller_detach}; consulted by {!is_idle}. Its
-          initial value ([neg_infinity]) is never itself observable as
-          "idle", since {!is_idle} also requires [not controller_live]
-          — true only after at least one attach+detach cycle — so a
-          brand new session can never be idle-reaped before its first
-          detach regardless of this placeholder. *)
+      (** Set by {!controller_detach}; consulted by {!is_idle}. Initialized
+          by {!create} to the session's own creation time (the caller's
+          clock reading) rather than an unbounded sentinel — see
+          {!create}'s doc comment for why: a session whose worker is
+          spawned by a non-[/ws] request (e.g. a plain page fetch) before
+          its controller ever completes the [/ws] upgrade must not look
+          idle within seconds regardless of [--idle-timeout], but a
+          session that spawns a worker and then *never* completes that
+          upgrade must still eventually be reaped (the worker-leak
+          backstop) — using the creation time as the initial baseline
+          gives both: [now - last_activity] only exceeds [idle_timeout]
+          once that much real time has actually elapsed since creation. *)
   mutable dead : bool;
       (** Set once by {!kill_worker_escalating} (FR-013); never reset —
           see {!is_dead}. *)
 }
 
-let create ~env ~socket_path =
-  {
-    controller_token = Serve_token.generate ~env ~role:Serve_token.Controller;
-    viewer_token = Serve_token.generate ~env ~role:Serve_token.Viewer;
-    socket_path;
-    worker_state = Not_spawned;
-    controller_live = false;
-    last_activity = neg_infinity;
-    dead = false;
-  }
+(* Regression (post-S7-review): a session whose worker is spawned by any
+   controller-role request that needs forwarding — not only a [/ws]
+   upgrade; {!Serve_proxy.resolve}'s [Controller] branch calls
+   {!ensure_worker} unconditionally, so a plain [GET /] for the
+   controller HTML already does this — used to initialize
+   [last_activity] to [neg_infinity]. [controller_live] is only flipped
+   [true] by the [/ws]-specific {!controller_attach}, so such a session
+   satisfied {!is_idle} ([now -. neg_infinity > idle_timeout] is always
+   true) from the very moment its worker became [Spawned], and could be
+   killed by the very next idle-scan tick (every
+   {!Serve_supervisor.idle_scan_interval_seconds}, a few seconds) —
+   regardless of the configured [--idle-timeout]. A real browser's
+   ordinary flow (page load, *then* the WS upgrade) could race this and
+   lose. Seeding [last_activity] with [now] (the session's own creation
+   time) instead fixes this: {!is_idle} then only fires once
+   [idle_timeout] worth of real time has elapsed since creation, which
+   is ample for a page load + WS upgrade, while still eventually
+   reaping a worker whose controller never shows up at all (the
+   worker-leak backstop this field exists for in the first place). *)
+let create ~env ~socket_path ~now =
+  let t =
+    {
+      controller_token = Serve_token.generate ~env ~role:Serve_token.Controller;
+      viewer_token = Serve_token.generate ~env ~role:Serve_token.Viewer;
+      socket_path;
+      worker_state = Not_spawned;
+      controller_live = false;
+      last_activity = now;
+      dead = false;
+    }
+  in
+  (* FR-080: logged here, not by callers, so every session (production's
+     one bootstrap session today; any future dynamic session-creation
+     endpoint tomorrow) is audited uniformly regardless of call site. *)
+  Serve_audit.log
+    Serve_audit.Create
+    ~token:(Serve_token.to_string t.controller_token) ;
+  t
 
 let controller_token_string t = Serve_token.to_string t.controller_token
 
@@ -91,7 +125,11 @@ let reap_and_log t ~sw (worker : Serve_process.worker) =
         (Serve_process.string_of_exit_status status) ;
       (try Sys.remove worker.Serve_process.socket_path with _ -> ()) ;
       (match status with
-      | `Exited code when code = Serve_worker.quit_exit_code -> t.dead <- true
+      | `Exited code when code = Serve_worker.quit_exit_code ->
+          t.dead <- true ;
+          Serve_audit.log
+            Serve_audit.Session_end
+            ~token:(Serve_token.to_string t.controller_token)
       | `Exited _ | `Signaled _ -> ()) ;
       match t.worker_state with
       | Spawned w when w == worker -> t.worker_state <- Not_spawned
@@ -159,9 +197,18 @@ let controller_detach t ~now =
   t.last_activity <- now
 
 let kill_worker t =
-  match t.worker_state with
+  (match t.worker_state with
   | Spawned worker -> Serve_process.kill worker
-  | Not_spawned | Spawning _ -> ()
+  | Not_spawned | Spawning _ -> ()) ;
+  (* FR-014/FR-080: logged unconditionally (even the no-worker-yet
+     no-op case) — the audited event is "an explicit kill was
+     requested", not "a worker was actually terminated"; every call
+     site (an operator-facing admin kill, and {!Serve_supervisor.run}'s
+     graceful-shutdown drain, which reuses this same vocabulary) means
+     exactly that. *)
+  Serve_audit.log
+    Serve_audit.Explicit_kill
+    ~token:(Serve_token.to_string t.controller_token)
 
 let is_dead t = t.dead
 
@@ -252,6 +299,15 @@ let find table ~candidate =
 let reap_idle_sessions ~sw ~clock ~sessions ~idle_timeout ~grace ~now =
   List.iter
     (fun t ->
-      if is_idle t ~now ~idle_timeout then
-        kill_worker_escalating t ~sw ~clock ~grace)
+      if is_idle t ~now ~idle_timeout then begin
+        (* FR-013/FR-080: logged here (not inside
+           {!kill_worker_escalating} itself, which is also reused by
+           {!Serve_supervisor.run}'s graceful-shutdown drain for an
+           unrelated event) so this call site's own event name
+           ([Idle_kill]) never leaks into that other reuse. *)
+        Serve_audit.log
+          Serve_audit.Idle_kill
+          ~token:(Serve_token.to_string t.controller_token) ;
+        kill_worker_escalating t ~sw ~clock ~grace
+      end)
     (to_list sessions)

@@ -374,8 +374,18 @@ let start_harness () =
         Eio_main.run @@ fun env ->
         Eio.Switch.run @@ fun sw ->
         Supervisor.ensure_socket_dir dir ;
-        let session_a = Session.create ~env ~socket_path:socket_path_a in
-        let session_b = Session.create ~env ~socket_path:socket_path_b in
+        let session_a =
+          Session.create
+            ~env
+            ~socket_path:socket_path_a
+            ~now:(Eio.Time.now env#clock)
+        in
+        let session_b =
+          Session.create
+            ~env
+            ~socket_path:socket_path_b
+            ~now:(Eio.Time.now env#clock)
+        in
         let sessions = Session.create_table () in
         Session.add sessions session_a ;
         Session.add sessions session_b ;

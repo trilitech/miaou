@@ -98,6 +98,13 @@ let proxy_bytes conn worker_conn =
    forward — see the [new_uri] construction below. *)
 let is_controller_ws_path tail = tail = "/ws"
 
+(* FR-080: gates {!Serve_audit.Attach_viewer} logging in the plain
+   [Viewer, false] branch below to just the actual WebSocket-upgrade
+   path — not every static asset (viewer HTML page, [/client.js]) a
+   viewer-scoped token may also legitimately fetch, which would
+   otherwise log an "attach" for every unrelated GET. *)
+let is_viewer_ws_path tail = tail = "/ws/viewer"
+
 let rewrite_to_viewer tail = if tail = "/ws" then "/ws/viewer" else tail
 
 (* Resolves [(session, role, tail)] into the worker socket path to
@@ -110,11 +117,18 @@ let resolve ~sw ~env ~sessions ~max_sessions session role tail :
     | `Refuse_409 of string
     | `Refuse_429
     | `Refuse_502 ] =
+  (* FR-080: every audit line for this session is hashed from its own
+     controller token, regardless of which of the two tokens the
+     inbound request actually presented (controller or viewer) — so a
+     log reader can correlate this session's whole lifecycle by one
+     recurring hash. *)
+  let session_token () = Serve_session.controller_token_string session in
   match (role, is_controller_ws_path tail) with
   | Serve_session.Viewer, true ->
       (* FR-032: a viewer-scoped token must never grant controller-role
          attach, checked server-side against the token's role claim, not
          a client-declared field. *)
+      Serve_audit.log Serve_audit.Auth_fail ~token:(session_token ()) ;
       `Refuse_403
   | Serve_session.Viewer, false ->
       if not (Serve_session.has_worker session) then
@@ -132,7 +146,12 @@ let resolve ~sw ~env ~sessions ~max_sessions session role tail :
             ~net:env#net
             ~clock:env#clock
         with
-        | Ok socket_path -> `Forward (socket_path, tail, fun () -> ())
+        | Ok socket_path ->
+            if is_viewer_ws_path tail then
+              Serve_audit.log
+                Serve_audit.Attach_viewer
+                ~token:(session_token ()) ;
+            `Forward (socket_path, tail, fun () -> ())
         | Error Serve_session.Unreachable -> `Refuse_502
       end
   | Serve_session.Controller, _ ->
@@ -147,6 +166,13 @@ let resolve ~sw ~env ~sessions ~max_sessions session role tail :
         && Serve_session.count_spawned sessions >= max_sessions
       then `Refuse_429
       else begin
+        (* FR-080: captured before {!Serve_session.ensure_worker} runs —
+           that call is precisely what may transition this session's
+           worker from not-yet-existing to existing, so it must be read
+           first to tell an {!Serve_audit.Attach_controller} (this
+           request is the very first spawn) apart from a
+           {!Serve_audit.Reconnect} (the worker was already running). *)
+        let was_running = Serve_session.has_worker session in
         match
           Serve_session.ensure_worker
             session
@@ -160,14 +186,24 @@ let resolve ~sw ~env ~sessions ~max_sessions session role tail :
             if is_controller_ws_path tail then begin
               match Serve_session.controller_attach session with
               | `Attach ->
+                  Serve_audit.log
+                    (if was_running then Serve_audit.Reconnect
+                     else Serve_audit.Attach_controller)
+                    ~token:(session_token ()) ;
                   `Forward
                     ( socket_path,
                       tail,
                       fun () ->
+                        Serve_audit.log
+                          Serve_audit.Detach
+                          ~token:(session_token ()) ;
                         Serve_session.controller_detach
                           session
                           ~now:(Eio.Time.now env#clock) )
               | `Downgrade ->
+                  Serve_audit.log
+                    Serve_audit.Attach_viewer
+                    ~token:(session_token ()) ;
                   `Forward (socket_path, rewrite_to_viewer tail, fun () -> ())
             end
             else `Forward (socket_path, tail, fun () -> ())
@@ -185,7 +221,16 @@ let handle_connection ~sw ~env ~sessions ~max_sessions ~allowed_origins ~conn =
         | None -> respond_403 conn
         | Some (candidate, tail) -> (
             match Serve_session.find sessions ~candidate with
-            | None -> respond_403 conn
+            | None ->
+                (* FR-031/FR-080: no session in the table matches
+                   [candidate] at all — the uniform "unknown or wrong
+                   token" 403 (indistinguishable, per FR-031, from a
+                   valid-but-wrong-role token). [candidate] is
+                   attacker-controlled and may not be a real token at
+                   all; hashed unconditionally, never logged raw,
+                   exactly like every other audit call site. *)
+                Serve_audit.log Serve_audit.Auth_fail ~token:candidate ;
+                respond_403 conn
             | Some (session, role) -> (
                 (* PREREQ-B (S6): headers are read, and the FR-045 Origin
                    check runs, BEFORE [resolve] is ever called — [resolve]
@@ -216,7 +261,12 @@ let handle_connection ~sw ~env ~sessions ~max_sessions ~allowed_origins ~conn =
                             (Serve_origin.header_value
                                header_lines
                                ~name:"Origin"))
-                then respond_403 conn
+                then begin
+                  Serve_audit.log
+                    Serve_audit.Origin_reject
+                    ~token:(Serve_session.controller_token_string session) ;
+                  respond_403 conn
+                end
                 else
                   match
                     resolve ~sw ~env ~sessions ~max_sessions session role tail

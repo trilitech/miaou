@@ -276,6 +276,21 @@ let parse_client_message events ~current_rows ~current_cols msg =
    types, malformed JSON, keepalive-style pings already handled inside
    {!Web_websocket.recv_text}) is not an input event and is ignored, same
    as before. *)
+(* FR-080: this worker process's audit line, in the same
+   [ts=... event=... session=...] shape {!Miaou_serve.Serve_audit} uses
+   for the supervisor's own audit lines (a sibling library that depends
+   on this one, not the reverse, so it cannot be reused directly here
+   without a dependency cycle). The session identifier is this worker's
+   own OS process id, not a hash of any token: in the [miaou_serve]
+   process-per-session architecture the supervisor strips the
+   [/s/<token>] path segment before ever forwarding a request to a
+   worker (see [serve_proxy.ml]'s PREREQ-B note), so this process never
+   receives the raw session token to begin with — there is nothing to
+   hash, and a pid is not a secret either way. The original
+   ["AUDIT viewer-input-rejected type=%s ..."] substrings are preserved
+   verbatim (only fields are added, not renamed) so this remains a
+   backward-compatible enhancement of an existing, already-tested log
+   line. *)
 let classify_and_audit_viewer_input session msg =
   match Yojson.Safe.from_string msg with
   | json -> (
@@ -284,8 +299,12 @@ let classify_and_audit_viewer_input session msg =
       | ("key" | "resize" | "mouse") as input_type ->
           let n = Session.record_viewer_input_rejection session in
           Printf.eprintf
-            "[web] AUDIT viewer-input-rejected type=%s count=%d\n%!"
+            "[web] AUDIT viewer-input-rejected ts=%.6f type=%s session=pid-%d \
+             count=%d\n\
+             %!"
+            (Unix.gettimeofday ())
             input_type
+            (Unix.getpid ())
             n
       | _ -> ()
       | exception _ -> ())
@@ -622,7 +641,15 @@ let run_on ?(config = None) ~(listen : listen) ?auth
            let request_line = Eio.Buf_read.line br in
            let headers = Web_websocket.parse_headers br in
            let path = extract_path request_line in
-           Printf.eprintf "[web] %s\n%!" request_line ;
+           (* FR-080 scrub: log the path only, never the full request
+              line — [request_line] carries the raw query string
+              verbatim (e.g. ["GET /ws?password=<secret> HTTP/1.1"] when
+              this driver is used directly, outside [miaou_serve], with
+              a configured password), so logging it whole would put a
+              live credential in this process's logs. [path] (already
+              query-string-free, see {!extract_path}) is a safe,
+              equally useful substitute for request tracing. *)
+           Printf.eprintf "[web] %s\n%!" path ;
            match path with
            | "/" -> (
                serve_200 conn ~content_type:"text/html" controller_html ;

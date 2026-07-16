@@ -76,7 +76,14 @@
     all retries are exhausted, responds [502] and closes [conn].
 
     Never raises to the caller — internal errors are logged and the
-    connection is closed. *)
+    connection is closed.
+
+    FR-080: every session-lifecycle decision made along the way (a
+    token/role match resulting in a controller or viewer attach, a
+    reconnect to an already-running worker, a controller detach, an
+    unresolved token, or an Origin rejection) emits one
+    {!Serve_audit.log} line, hashing the session's own controller token
+    (never the raw value) as the session identifier. *)
 val handle_connection :
   sw:Eio.Switch.t ->
   env:Eio_unix.Stdenv.base ->

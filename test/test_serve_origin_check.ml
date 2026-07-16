@@ -165,6 +165,7 @@ let start_harness ~allowed_origins =
             ~env
             ~socket_path:
               (Filename.concat dir (Printf.sprintf "origin-check-%d.sock" n))
+            ~now:(Eio.Time.now env#clock)
         in
         let sessions = Session.create_table () in
         Session.add sessions session ;

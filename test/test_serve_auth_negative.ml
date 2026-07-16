@@ -127,6 +127,7 @@ let start_harness ~n_sessions =
                   ~env
                   ~socket_path:
                     (Filename.concat dir (Printf.sprintf "auth-neg-%d.sock" i))
+                  ~now:(Eio.Time.now env#clock)
               in
               Session.add sessions s ;
               s)

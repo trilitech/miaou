@@ -42,19 +42,31 @@ let kill = Serve_process.kill
    the session table rather than a single hardcoded token. Exposed
    ({!accept_loop}) so tests can drive the same production dispatch path
    against a session table they build themselves (e.g. the multi-session
-   isolation test), rather than duplicating routing logic. *)
+   isolation test), rather than duplicating routing logic.
+
+   FR-090: this is also the mechanism that stops accepting new
+   connections during graceful shutdown. [run] closes [listening] once
+   it observes {!Serve_process.stop_requested}; a pending
+   [Eio.Net.accept] on a closed listening socket raises, which this loop
+   catches — if [stop_requested] is set, that is the expected shutdown
+   signal, and the loop simply returns instead of re-raising or looping
+   again; any *other* accept failure (a genuine, unrelated I/O error)
+   still propagates, unchanged from pre-S7 behavior. *)
 let rec accept_loop ~sw ~env ~sessions ~max_sessions ~allowed_origins listening
     =
-  let conn, _addr = Eio.Net.accept ~sw listening in
-  Eio.Fiber.fork ~sw (fun () ->
-      Serve_proxy.handle_connection
-        ~sw
-        ~env
-        ~sessions
-        ~max_sessions
-        ~allowed_origins
-        ~conn) ;
-  accept_loop ~sw ~env ~sessions ~max_sessions ~allowed_origins listening
+  match Eio.Net.accept ~sw listening with
+  | conn, _addr ->
+      Eio.Fiber.fork ~sw (fun () ->
+          Serve_proxy.handle_connection
+            ~sw
+            ~env
+            ~sessions
+            ~max_sessions
+            ~allowed_origins
+            ~conn) ;
+      accept_loop ~sw ~env ~sessions ~max_sessions ~allowed_origins listening
+  | exception exn ->
+      if Atomic.get Serve_process.stop_requested then () else raise exn
 
 let idle_kill_grace_seconds = 5.0
 
@@ -111,7 +123,10 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
      request ({!Serve_session.ensure_worker}, FR-010). *)
   let sessions = Serve_session.create_table () in
   let bootstrap_session =
-    Serve_session.create ~env ~socket_path:(Filename.concat dir "worker-0.sock")
+    Serve_session.create
+      ~env
+      ~socket_path:(Filename.concat dir "worker-0.sock")
+      ~now:(Eio.Time.now env#clock)
   in
   Serve_session.add sessions bootstrap_session ;
   let session_url token =
@@ -130,12 +145,69 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
   Printf.eprintf "[miaou serve] session ready: %s\n%!" url ;
   Printf.eprintf "[miaou serve] read-only viewer link: %s\n%!" viewer_url ;
   Serve_process.install_signal_handler () ;
+  let listen_addr = `Tcp (Serve_process.ipaddr_of_host bind, port) in
+  let listening =
+    Eio.Net.listen env#net ~sw ~reuse_addr:true ~backlog:16 listen_addr
+  in
+  (* FR-090 (graceful shutdown): stop accepting new connections first —
+     closing [listening] makes {!accept_loop}'s pending [Eio.Net.accept]
+     raise, and it checks {!Serve_process.stop_requested} and returns
+     instead of looping again (see {!accept_loop}'s own doc comment) —
+     then drain every currently-known session's worker with a bounded
+     grace period before escalating to [SIGKILL]
+     ({!Serve_session.kill_worker_escalating}, the same FR-013
+     idle-timeout mechanism, reused here for its identical
+     grace-then-escalate shape), waiting until every worker has actually
+     been reaped (not merely signaled) before removing the socket
+     directory and exiting — so no worker ever outlives its supervisor. *)
   Eio.Fiber.fork ~sw (fun () ->
       let rec watch () =
         if Atomic.get Serve_process.stop_requested then begin
+          let live_sessions =
+            List.filter
+              Serve_session.has_worker
+              (Serve_session.to_list sessions)
+          in
           Printf.eprintf
-            "[miaou serve] shutdown requested, killing worker(s)\n%!" ;
-          Serve_session.kill_worker bootstrap_session ;
+            "[miaou serve] shutdown requested: draining %d session(s)\n%!"
+            (List.length live_sessions) ;
+          (try Eio.Net.close listening with _ -> ()) ;
+          List.iter
+            (fun s ->
+              (* FR-080: a shutdown-triggered drain is, in spirit, the
+                 same "explicit (non-idle-driven) kill" event as FR-014's
+                 operator-facing admin kill ({!Serve_session.kill_worker}
+                 — not called here directly, since that function only
+                 sends [SIGTERM] with no grace/escalation); logged
+                 directly at this call site instead of inside
+                 {!Serve_session.kill_worker_escalating} itself, which is
+                 also reused by the FR-013 idle-timeout reaper for its
+                 own, distinctly-named [Idle_kill] event. *)
+              Serve_audit.log
+                Serve_audit.Explicit_kill
+                ~token:(Serve_session.controller_token_string s) ;
+              Serve_session.kill_worker_escalating
+                s
+                ~sw
+                ~clock:env#clock
+                ~grace:idle_kill_grace_seconds)
+            live_sessions ;
+          let deadline =
+            Eio.Time.now env#clock +. idle_kill_grace_seconds +. 2.0
+          in
+          let rec wait_drained () =
+            let still_alive =
+              List.exists
+                Serve_session.has_worker
+                (Serve_session.to_list sessions)
+            in
+            if still_alive && Eio.Time.now env#clock < deadline then begin
+              Eio.Time.sleep env#clock 0.1 ;
+              wait_drained ()
+            end
+          in
+          wait_drained () ;
+          Printf.eprintf "[miaou serve] shutdown complete, exiting\n%!" ;
           Serve_process.cleanup_dir ~dir () ;
           exit 0
         end
@@ -164,10 +236,6 @@ let run ?auth_token ?auth_file ?(port = Serve_config.default.port)
         end
       in
       scan ()) ;
-  let listen_addr = `Tcp (Serve_process.ipaddr_of_host bind, port) in
-  let listening =
-    Eio.Net.listen env#net ~sw ~reuse_addr:true ~backlog:16 listen_addr
-  in
   (* FR-045: the same-origin-as-bind default is always in the allow-list,
      in addition to (not replaced by) any operator-supplied
      [--allowed-origin] values — a reverse-proxy operator adding their

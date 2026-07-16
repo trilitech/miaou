@@ -118,6 +118,7 @@
   miaou-driver-web
   eqaf
   cstruct
+  digestif
   (cmdliner (>= 1.3))
   (eio (>= 1.0))
   (eio_main (>= 1.0))

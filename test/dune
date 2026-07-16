@@ -620,3 +620,23 @@
   miaou-core.interfaces
   miaou-serve.serve
   test_helpers))
+
+(test
+ (name test_serve_audit_log)
+ (modules test_serve_audit_log)
+ (libraries
+  alcotest
+  eio_main
+  eio.unix
+  unix
+  threads.posix
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-serve.serve
+  test_helpers))
+
+(test
+ (name test_serve_shutdown)
+ (modules test_serve_shutdown)
+ (deps serve_stub_worker.exe)
+ (libraries alcotest unix miaou-serve.serve))
