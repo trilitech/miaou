@@ -1,8 +1,8 @@
 let test_runtime_version () =
-  Alcotest.(check string) "version" "0.5.2" Miaou_core.Version.version ;
+  Alcotest.(check string) "version" "0.6.0" Miaou_core.Version.version ;
   Alcotest.(check int) "major" 0 Miaou_core.Version.major ;
-  Alcotest.(check int) "minor" 5 Miaou_core.Version.minor ;
-  Alcotest.(check int) "patch" 2 Miaou_core.Version.patch
+  Alcotest.(check int) "minor" 6 Miaou_core.Version.minor ;
+  Alcotest.(check int) "patch" 0 Miaou_core.Version.patch
 
 let test_runner_cli_uses_given_argv () =
   let opts =
