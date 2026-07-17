@@ -7,8 +7,8 @@
 
 let major = 0
 
-let minor = 5
+let minor = 6
 
-let patch = 2
+let patch = 0
 
 let version = Printf.sprintf "%d.%d.%d" major minor patch
