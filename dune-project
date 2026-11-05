@@ -1,6 +1,6 @@
-(lang dune 3.15)
+(lang dune 3.24)
 (name miaou)
-(version 0.6.0)
+(version 0.6.1)
 (generate_opam_files true)
 (license MIT)
 (source (github trilitech/miaou))
@@ -99,6 +99,7 @@
  (depends
   miaou-core
   miaou-driver-matrix
+  miaou-driver-term
   digestif
   base64
   yojson

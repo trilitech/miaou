@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-05
+
+### Fixed
+
+- Declare the terminal driver required by the web driver and the Dune version
+  required by the MCP build rules. The library API is unchanged.
+
 ## [0.6.0] - 2026-07-17
 
 ### Added
