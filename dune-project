@@ -23,7 +23,7 @@
  (bug_reports "https://github.com/trilitech/miaou/issues")
   (depends
    (ocaml (>= 5.2))
-   miaou-registry
+   (miaou-registry (= :version))
    cohttp
    (cohttp-eio (>= 6.2.1))
    (eio (>= 1.0))
@@ -48,7 +48,7 @@
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
- (depends miaou-core))
+ (depends (miaou-core (= :version))))
 
 (package
  (name miaou-driver-matrix)
@@ -58,7 +58,7 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
+  (miaou-core (= :version))
   (eio (>= 1.0))
   (eio_main (>= 1.0))))
 
@@ -70,7 +70,7 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
+  (miaou-core (= :version))
   tsdl))
 
 (package
@@ -81,10 +81,10 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
-  miaou-widgets-display-sdl
-  miaou-driver-term
-  miaou-driver-matrix
+  (miaou-core (= :version))
+  (miaou-widgets-display-sdl (= :version))
+  (miaou-driver-term (= :version))
+  (miaou-driver-matrix (= :version))
   tsdl
   tsdl-ttf
   tsdl-image))
@@ -97,9 +97,9 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
-  miaou-driver-matrix
-  miaou-driver-term
+  (miaou-core (= :version))
+  (miaou-driver-matrix (= :version))
+  (miaou-driver-term (= :version))
   digestif
   base64
   yojson
@@ -115,8 +115,8 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
-  miaou-driver-web
+  (miaou-core (= :version))
+  (miaou-driver-web (= :version))
   eqaf
   cstruct
   digestif
@@ -134,11 +134,11 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
-  miaou-driver-term
-  miaou-driver-matrix
+  (miaou-core (= :version))
+  (miaou-driver-term (= :version))
+  (miaou-driver-matrix (= :version))
   (eio (>= 1.0)))
- (depopts miaou-driver-sdl))
+ (depopts (miaou-driver-sdl (= :version))))
 
 (package
  (name miaou-tui)
@@ -149,9 +149,9 @@
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (allow_empty)
  (depends
-  miaou-core
-  miaou-driver-term
-  miaou-runner))
+  (miaou-core (= :version))
+  (miaou-driver-term (= :version))
+  (miaou-runner (= :version))))
 
 (package
  (name miaou)
@@ -161,9 +161,9 @@
  (homepage "https://github.com/trilitech/miaou")
  (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
-  miaou-core
-  miaou-driver-term
-  miaou-driver-web
-  miaou-driver-sdl
-  miaou-runner
+  (miaou-core (= :version))
+  (miaou-driver-term (= :version))
+  (miaou-driver-web (= :version))
+  (miaou-driver-sdl (= :version))
+  (miaou-runner (= :version))
   (ppx_blob (>= 0.9.0))))

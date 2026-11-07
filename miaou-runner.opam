@@ -9,13 +9,15 @@ homepage: "https://github.com/trilitech/miaou"
 bug-reports: "https://github.com/trilitech/miaou/issues"
 depends: [
   "dune" {>= "3.24"}
-  "miaou-core"
-  "miaou-driver-term"
-  "miaou-driver-matrix"
+  "miaou-core" {= version}
+  "miaou-driver-term" {= version}
+  "miaou-driver-matrix" {= version}
   "eio" {>= "1.0"}
   "odoc" {with-doc}
 ]
-depopts: ["miaou-driver-sdl"]
+depopts: [
+  "miaou-driver-sdl" {= version}
+]
 build: [
   ["dune" "subst"] {dev}
   [
